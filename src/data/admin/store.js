@@ -10,8 +10,32 @@ import { moduleAssignments } from './modules'
 import { activityLogs } from './logs'
 
 const listeners = new Set()
+let snapshot = null
+let version = 0
+
+function buildSnapshot() {
+  return {
+    customers: customers.map((customer) => ({
+      ...customer,
+      modulesEnabled: [...customer.modulesEnabled],
+      metrics: customer.metrics ? { ...customer.metrics } : null,
+    })),
+    users: users.map((user) => ({
+      ...user,
+      permissions: [...user.permissions],
+      assignedModules: [...(user.assignedModules ?? [])],
+    })),
+    moduleAssignments: moduleAssignments.map((item) => ({
+      ...item,
+      moduleIds: [...item.moduleIds],
+    })),
+    version,
+  }
+}
 
 function emit() {
+  version += 1
+  snapshot = buildSnapshot()
   listeners.forEach((listener) => listener())
 }
 
@@ -21,15 +45,10 @@ export function subscribeAdminStore(listener) {
 }
 
 export function getAdminSnapshot() {
-  return {
-    customers: [...customers],
-    users: [...users],
-    moduleAssignments: moduleAssignments.map((item) => ({
-      ...item,
-      moduleIds: [...item.moduleIds],
-    })),
-    version: customers.length + users.length + moduleAssignments.length,
+  if (!snapshot) {
+    snapshot = buildSnapshot()
   }
+  return snapshot
 }
 
 function slugify(value) {

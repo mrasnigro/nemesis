@@ -31,7 +31,7 @@ export function WorkspaceProvider({ children }) {
 
     async function loadAccess() {
       if (!isAuthenticated || !authUser || authUser.role !== 'imp') {
-        setAccess(EMPTY_ACCESS)
+        setAccess((current) => (current === EMPTY_ACCESS ? current : EMPTY_ACCESS))
         setIsLoading(false)
         return
       }
