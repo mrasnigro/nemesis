@@ -25,12 +25,12 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #fff;
+  background: #f5a623;
+  color: #111;
   font-size: 0.8rem;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.04em;
-  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 8px 20px rgba(245, 166, 35, 0.35);
 }
 
 .sidebar__brand strong {
@@ -82,9 +82,39 @@
 }
 
 .sidebar__link--active {
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0.05));
+  background: linear-gradient(90deg, rgba(245, 166, 35, 0.18), rgba(245, 166, 35, 0.05));
   color: var(--text-h);
-  box-shadow: inset 3px 0 0 var(--brand);
+  box-shadow: inset 3px 0 0 #f5a623;
+}
+
+.sidebar__features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar__feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: rgba(7, 17, 31, 0.35);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.sidebar__feature-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: #f5a623;
+  flex-shrink: 0;
 }
 
 .sidebar__icon {

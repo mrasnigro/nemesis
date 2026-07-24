@@ -12,6 +12,14 @@ function NavIcon({ name }) {
         />
       </svg>
     ),
+    phone: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.6 22 2 13.4 2 2.9 2 2.4 2.4 2 3 2h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z"
+        />
+      </svg>
+    ),
     admin: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
@@ -73,23 +81,30 @@ function NavIcon({ name }) {
   return <span className="sidebar__icon">{icons[name] ?? icons.modules}</span>
 }
 
-export default function Sidebar({ items = [] }) {
+export default function Sidebar({ items = [], featureItems = [], featureTitle }) {
   const { user } = useAuth()
+  const mainItems = items.filter((item) => !item.section)
+  const moduleItems = items.filter((item) => item.section === 'Módulos')
 
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
         <span className="sidebar__mark">IMP</span>
         <div>
-          <strong>IMP Platform</strong>
-          <p>{user?.role === 'admin' ? 'CRM Admin' : 'CRM Workspace'}</p>
+          <strong>CRM IMP</strong>
+          <p>
+            {user?.role === 'admin'
+              ? 'Painel Admin'
+              : user?.profile === 'sdr'
+                ? 'Workspace SDR'
+                : 'Workspace BDR'}
+          </p>
         </div>
       </div>
 
       <p className="sidebar__section">Menu</p>
-
       <nav className="sidebar__nav" aria-label="Principal">
-        {items.map((item) => (
+        {mainItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -103,6 +118,40 @@ export default function Sidebar({ items = [] }) {
           </NavLink>
         ))}
       </nav>
+
+      {moduleItems.length ? (
+        <>
+          <p className="sidebar__section">Módulos</p>
+          <nav className="sidebar__nav" aria-label="Módulos">
+            {moduleItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
+                }
+              >
+                <NavIcon name={item.icon} />
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </>
+      ) : null}
+
+      {featureItems.length ? (
+        <>
+          <p className="sidebar__section">{featureTitle || 'Funcionalidades'}</p>
+          <ul className="sidebar__features">
+            {featureItems.map((feature) => (
+              <li key={feature.id} className="sidebar__feature">
+                <span className="sidebar__feature-dot" aria-hidden="true" />
+                <span>{feature.label}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
 
       <div className="sidebar__footer">
         <div className="sidebar__status">

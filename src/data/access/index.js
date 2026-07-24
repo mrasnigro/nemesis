@@ -19,6 +19,14 @@ import { getModuleById, modules as moduleRegistry } from '../../modules'
  * Swap for session/JWT claims later.
  */
 export const authWorkspaceMap = {
+  bdr: {
+    userId: 'usr_002',
+    customerId: 'cus_001',
+  },
+  sdr: {
+    userId: 'usr_006',
+    customerId: 'cus_002',
+  },
   imp: {
     userId: 'usr_002',
     customerId: 'cus_001',

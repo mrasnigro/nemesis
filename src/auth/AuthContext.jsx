@@ -1,8 +1,17 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 
+/**
+ * Client demo credentials:
+ * - bdr / bdr  → workspace
+ * - sdr / sdr  → workspace
+ * - admin / admin → admin panel
+ * `imp` kept as alias for backward compatibility.
+ */
 const USERS = {
   admin: { password: 'admin', role: 'admin', name: 'Administrador' },
-  imp: { password: 'imp', role: 'imp', name: 'IMP User' },
+  bdr: { password: 'bdr', role: 'imp', name: 'BDR', profile: 'bdr' },
+  sdr: { password: 'sdr', role: 'imp', name: 'SDR', profile: 'sdr' },
+  imp: { password: 'imp', role: 'imp', name: 'IMP User', profile: 'bdr' },
 }
 
 const ROLE_HOME = {
@@ -36,6 +45,7 @@ export function AuthProvider({ children }) {
         username: username.trim().toLowerCase(),
         role: account.role,
         name: account.name,
+        profile: account.profile ?? account.role,
       }
 
       sessionStorage.setItem('imp_user', JSON.stringify(nextUser))

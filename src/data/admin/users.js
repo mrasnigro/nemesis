@@ -17,6 +17,18 @@ export const users = [
     lastLoginAt: '2026-07-24T14:22:00Z',
   },
   {
+    id: 'usr_006',
+    name: 'Felipe Rocha',
+    email: 'felipe@novarota.com',
+    role: 'imp',
+    customerId: 'cus_002',
+    status: 'active',
+    permissions: ['modules.access', 'prospecting.use'],
+    assignedModules: ['training-ai', 'prospecting'],
+    lastLoginAt: '2026-07-22T16:33:00Z',
+    profile: 'sdr',
+  },
+  {
     id: 'usr_002',
     name: 'Bruno Lima',
     email: 'bruno@acelere.com',
@@ -26,6 +38,7 @@ export const users = [
     permissions: ['modules.access', 'leads.read'],
     assignedModules: ['bdr', 'prospecting'],
     lastLoginAt: '2026-07-24T18:05:00Z',
+    profile: 'bdr',
   },
   {
     id: 'usr_003',
@@ -59,17 +72,6 @@ export const users = [
     permissions: ['customers.read', 'users.manage'],
     assignedModules: [],
     lastLoginAt: '2026-06-02T09:12:00Z',
-  },
-  {
-    id: 'usr_006',
-    name: 'Felipe Rocha',
-    email: 'felipe@novarota.com',
-    role: 'imp',
-    customerId: 'cus_002',
-    status: 'active',
-    permissions: ['modules.access', 'prospecting.use'],
-    assignedModules: ['training-ai', 'prospecting'],
-    lastLoginAt: '2026-07-22T16:33:00Z',
   },
 ]
 

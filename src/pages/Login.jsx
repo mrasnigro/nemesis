@@ -3,6 +3,12 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import './Login.css'
 
+const TEST_CREDENTIALS = [
+  { role: 'BDR', username: 'bdr', password: 'bdr' },
+  { role: 'SDR', username: 'sdr', password: 'sdr' },
+  { role: 'Admin', username: 'admin', password: 'admin' },
+]
+
 export default function Login() {
   const { isAuthenticated, user, login, getHomeForRole } = useAuth()
   const navigate = useNavigate()
@@ -28,13 +34,19 @@ export default function Login() {
     navigate(result.redirectTo, { replace: true })
   }
 
+  function fillCredentials(userValue, passValue) {
+    setUsername(userValue)
+    setPassword(passValue)
+    setError('')
+  }
+
   return (
     <div className="login-page">
       <div className="login-page__panel">
         <div className="login-page__brand">
           <span className="login-page__mark">IMP</span>
-          <h1>IMP Platform</h1>
-          <p>Acesse sua área com o perfil correspondente.</p>
+          <h1>CRM IMP</h1>
+          <p>Sistema de Gestão de Leads</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -46,7 +58,7 @@ export default function Login() {
               autoComplete="username"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="admin ou imp"
+              placeholder="Digite seu usuário"
               required
             />
           </label>
@@ -59,23 +71,34 @@ export default function Login() {
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
+              placeholder="Digite sua senha"
               required
             />
           </label>
 
           {error ? <p className="login-form__error">{error}</p> : null}
 
-          <button type="submit">Entrar</button>
+          <button type="submit">Entrar no Sistema</button>
         </form>
 
-        <div className="login-page__hint">
-          <p>
-            <strong>admin / admin</strong> → /admin
-          </p>
-          <p>
-            <strong>imp / imp</strong> → /dashboard
-          </p>
+        <div className="login-page__credentials">
+          <p className="login-page__credentials-title">Credenciais de teste:</p>
+          <ul>
+            {TEST_CREDENTIALS.map((item) => (
+              <li key={item.role}>
+                <button
+                  type="button"
+                  className="login-page__credential"
+                  onClick={() => fillCredentials(item.username, item.password)}
+                >
+                  <span>{item.role}</span>
+                  <strong>
+                    {item.username} / {item.password}
+                  </strong>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
