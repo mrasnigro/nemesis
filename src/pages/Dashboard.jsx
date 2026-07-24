@@ -4,37 +4,49 @@ import Panel from '../components/Panel'
 import { useWorkspace } from '../workspace/WorkspaceContext'
 import './Dashboard.css'
 
+function formatNumber(value) {
+  return new Intl.NumberFormat('pt-BR').format(value ?? 0)
+}
+
 export default function Dashboard() {
-  const { availableModules, currentCustomer, currentUser, isLoading } = useWorkspace()
+  const {
+    availableModules,
+    currentCustomer,
+    currentUser,
+    customerMetrics,
+    isLoading,
+  } = useWorkspace()
 
   const metrics = [
+    {
+      id: 'leads',
+      label: 'Leads',
+      value: formatNumber(customerMetrics?.leads),
+      hint: currentCustomer ? `${currentCustomer.name}` : 'Sem cliente',
+      accent: 'violet',
+      trend: { direction: 'up', value: '8%' },
+    },
+    {
+      id: 'campaigns',
+      label: 'Campanhas',
+      value: formatNumber(customerMetrics?.campaigns),
+      hint: 'Ativas neste mês',
+      accent: 'blue',
+      trend: { direction: 'up', value: '12%' },
+    },
+    {
+      id: 'conversion',
+      label: 'Conversão',
+      value: `${customerMetrics?.conversionRate ?? 0}%`,
+      hint: 'Taxa média do cliente',
+      accent: 'emerald',
+    },
     {
       id: 'modules',
       label: 'Módulos',
       value: String(availableModules.length),
-      hint: 'Liberados para você',
+      hint: `${customerMetrics?.activeUsers ?? 0} usuários ativos`,
       accent: 'cyan',
-    },
-    {
-      id: 'customer',
-      label: 'Cliente',
-      value: currentCustomer?.name?.split(' ')[0] ?? '—',
-      hint: currentCustomer?.plan ?? 'Sem conta vinculada',
-      accent: 'blue',
-    },
-    {
-      id: 'user',
-      label: 'Usuário',
-      value: currentUser?.name?.split(' ')[0] ?? '—',
-      hint: currentUser?.role ?? 'Workspace',
-      accent: 'violet',
-    },
-    {
-      id: 'access',
-      label: 'Acesso',
-      value: availableModules.length ? 'OK' : 'Restrito',
-      hint: 'Baseado em atribuições',
-      accent: 'emerald',
     },
   ]
 
@@ -48,6 +60,7 @@ export default function Dashboard() {
             value={metric.value}
             hint={metric.hint}
             accent={metric.accent}
+            trend={metric.trend}
           />
         ))}
       </div>
@@ -56,7 +69,7 @@ export default function Dashboard() {
         title="Módulos disponíveis"
         description={
           currentCustomer
-            ? `Exibindo módulos atribuídos a ${currentUser?.name} (${currentCustomer.name}).`
+            ? `Workspace de ${currentUser?.name} · ${currentCustomer.name} (${currentCustomer.plan})`
             : 'Nenhum workspace vinculado a este login.'
         }
       >

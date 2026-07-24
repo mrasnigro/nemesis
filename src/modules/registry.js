@@ -35,7 +35,7 @@ export const modules = [
     accent: 'blue',
     badge: 'BDR',
     icon: 'phone',
-    actionLabel: 'Open BDR System',
+    actionLabel: 'Acessar Sistema BDR',
     /** Existing IMP BDR system — opened in a new browser tab */
     externalUrl: import.meta.env.VITE_IMP_BDR_URL || 'https://acelereseucrescimento.com.br/',
     features: [

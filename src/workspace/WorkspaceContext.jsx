@@ -4,6 +4,8 @@ import {
   canAccessModule as checkModuleAccess,
   fetchWorkspaceAccess,
 } from '../data/access'
+import { getCustomerMetrics } from '../data/admin/customers'
+import { subscribeAdminStore } from '../data/admin/store'
 
 const WorkspaceContext = createContext(null)
 
@@ -18,6 +20,11 @@ export function WorkspaceProvider({ children }) {
   const { user: authUser, isAuthenticated } = useAuth()
   const [access, setAccess] = useState(EMPTY_ACCESS)
   const [isLoading, setIsLoading] = useState(false)
+  const [storeVersion, setStoreVersion] = useState(0)
+
+  useEffect(() => {
+    return subscribeAdminStore(() => setStoreVersion((value) => value + 1))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -52,9 +59,13 @@ export function WorkspaceProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [authUser, isAuthenticated])
+  }, [authUser, isAuthenticated, storeVersion])
 
   const value = useMemo(() => {
+    const customerMetrics = access.customer
+      ? getCustomerMetrics(access.customer.id)
+      : null
+
     function hasModuleAccess(moduleId) {
       if (!access.customer || !access.user) return false
       return checkModuleAccess(access.customer.id, access.user.id, moduleId)
@@ -76,6 +87,7 @@ export function WorkspaceProvider({ children }) {
       currentUser: access.user,
       availableModules: access.modules,
       availableModuleIds: access.moduleIds,
+      customerMetrics,
       isLoading,
       hasModuleAccess,
       refreshAccess,

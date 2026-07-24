@@ -1,4 +1,4 @@
-export { customers, getCustomerById } from './customers'
+export { customers, getCustomerById, getCustomerMetrics } from './customers'
 export { users, getUsersByCustomer, getUserById } from './users'
 export { permissions, rolePermissionMap } from './permissions'
 export {
@@ -10,6 +10,14 @@ export {
 } from './modules'
 export { integrations } from './integrations'
 export { activityLogs } from './logs'
+export {
+  createCustomer,
+  createUser,
+  assignCustomerModules,
+  assignUserModules,
+  subscribeAdminStore,
+  getAdminSnapshot,
+} from './store'
 
 import { customers } from './customers'
 import { users } from './users'

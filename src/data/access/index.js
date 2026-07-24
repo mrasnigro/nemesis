@@ -25,17 +25,22 @@ export const authWorkspaceMap = {
   },
 }
 
-/** Derived from users.assignedModules — single source of truth */
-export const userModuleAssignments = users
-  .filter((user) => user.assignedModules?.length)
-  .map((user) => ({
-    userId: user.id,
-    customerId: user.customerId,
-    moduleIds: [...user.assignedModules],
-  }))
+/** Live view of user module grants derived from users.assignedModules */
+export function getUserModuleAssignments() {
+  return users
+    .filter((user) => user.assignedModules?.length)
+    .map((user) => ({
+      userId: user.id,
+      customerId: user.customerId,
+      moduleIds: [...user.assignedModules],
+    }))
+}
+
+/** @deprecated Prefer getUserModuleAssignments() for live data */
+export const userModuleAssignments = getUserModuleAssignments()
 
 export function getUserModuleAssignment(userId) {
-  return userModuleAssignments.find((item) => item.userId === userId) ?? null
+  return getUserModuleAssignments().find((item) => item.userId === userId) ?? null
 }
 
 export function getCustomerModuleIds(customerId) {
@@ -133,7 +138,7 @@ export function getAccessOverview() {
   return {
     customers,
     moduleAssignments,
-    userModuleAssignments,
+    userModuleAssignments: getUserModuleAssignments(),
     catalogSize: moduleRegistry.length,
   }
 }
