@@ -60,6 +60,8 @@
   flex-direction: column;
   gap: 0.35rem;
   flex: 1;
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .sidebar__link {

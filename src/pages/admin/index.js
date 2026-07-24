@@ -1,0 +1,7 @@
+export { default as AdminDashboard } from './AdminDashboard'
+export { default as CustomersPage } from './Customers'
+export { default as UsersPage } from './Users'
+export { default as ModulesPage } from './Modules'
+export { default as PermissionsPage } from './Permissions'
+export { default as IntegrationsPage } from './Integrations'
+export { default as LogsPage } from './Logs'

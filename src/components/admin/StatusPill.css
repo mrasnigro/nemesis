@@ -1,0 +1,53 @@
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-pill__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.status-pill--active,
+.status-pill--available,
+.status-pill--connected,
+.status-pill--info,
+.status-pill--Enterprise {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status-pill--trial,
+.status-pill--pending,
+.status-pill--invited,
+.status-pill--coming-soon,
+.status-pill--warning,
+.status-pill--Growth {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.status-pill--inactive,
+.status-pill--suspended,
+.status-pill--error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.status-pill--admin,
+.status-pill--imp,
+.status-pill--Starter,
+.status-pill--default {
+  background: var(--brand-soft);
+  color: var(--brand);
+}

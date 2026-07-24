@@ -2,7 +2,15 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import AdminLayout from '../layouts/AdminLayout'
 import DashboardLayout from '../layouts/DashboardLayout'
-import Admin from '../pages/Admin'
+import {
+  AdminDashboard,
+  CustomersPage,
+  IntegrationsPage,
+  LogsPage,
+  ModulesPage,
+  PermissionsPage,
+  UsersPage,
+} from '../pages/admin/index.js'
 import Dashboard from '../pages/Dashboard'
 import Login from '../pages/Login'
 import {
@@ -54,7 +62,13 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Admin />} />
+        <Route index element={<AdminDashboard />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="modules" element={<ModulesPage />} />
+        <Route path="permissions" element={<PermissionsPage />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
+        <Route path="logs" element={<LogsPage />} />
       </Route>
 
       <Route path="/" element={<HomeRedirect />} />
