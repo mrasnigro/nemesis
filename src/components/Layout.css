@@ -1,0 +1,25 @@
+.app-layout {
+  min-height: 100svh;
+}
+
+.app-layout__shell {
+  margin-left: var(--sidebar-width);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-layout__content {
+  flex: 1;
+  padding: 1.5rem 1.75rem 2rem;
+}
+
+@media (max-width: 900px) {
+  .app-layout__shell {
+    margin-left: 0;
+  }
+
+  .app-layout__content {
+    padding: 1.25rem;
+  }
+}

@@ -1,0 +1,6 @@
+export { default as TrainingAiPage } from './TrainingAi'
+export { default as BdrPage } from './Bdr'
+export { default as ProspectingPage } from './Prospecting'
+export { default as RadarPage } from './Radar'
+export { default as WebinarPage } from './Webinar'
+export { default as VslPage } from './Vsl'
