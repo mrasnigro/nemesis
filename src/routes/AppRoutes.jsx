@@ -21,6 +21,7 @@ import {
   VslPage,
   WebinarPage,
 } from '../pages/modules'
+import ModuleAccessRoute from './ModuleAccessRoute'
 import ProtectedRoute from './ProtectedRoute'
 
 function HomeRedirect() {
@@ -31,6 +32,10 @@ function HomeRedirect() {
   }
 
   return <Navigate to={getHomeForRole(user.role)} replace />
+}
+
+function ModuleRoute({ moduleId, children }) {
+  return <ModuleAccessRoute moduleId={moduleId}>{children}</ModuleAccessRoute>
 }
 
 export default function AppRoutes() {
@@ -46,12 +51,54 @@ export default function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/modules/training-ai" element={<TrainingAiPage />} />
-        <Route path="/modules/bdr" element={<BdrPage />} />
-        <Route path="/modules/prospecting" element={<ProspectingPage />} />
-        <Route path="/modules/radar" element={<RadarPage />} />
-        <Route path="/modules/webinar" element={<WebinarPage />} />
-        <Route path="/modules/vsl" element={<VslPage />} />
+        <Route
+          path="/modules/training-ai"
+          element={
+            <ModuleRoute moduleId="training-ai">
+              <TrainingAiPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="/modules/bdr"
+          element={
+            <ModuleRoute moduleId="bdr">
+              <BdrPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="/modules/prospecting"
+          element={
+            <ModuleRoute moduleId="prospecting">
+              <ProspectingPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="/modules/radar"
+          element={
+            <ModuleRoute moduleId="radar">
+              <RadarPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="/modules/webinar"
+          element={
+            <ModuleRoute moduleId="webinar">
+              <WebinarPage />
+            </ModuleRoute>
+          }
+        />
+        <Route
+          path="/modules/vsl"
+          element={
+            <ModuleRoute moduleId="vsl">
+              <VslPage />
+            </ModuleRoute>
+          }
+        />
       </Route>
 
       <Route

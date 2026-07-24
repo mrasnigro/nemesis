@@ -1,10 +1,12 @@
 export { customers, getCustomerById } from './customers'
-export { users, getUsersByCustomer } from './users'
+export { users, getUsersByCustomer, getUserById } from './users'
 export { permissions, rolePermissionMap } from './permissions'
 export {
   moduleAssignments,
   getAssignmentForCustomer,
   getModuleCatalog,
+  apiGetCustomerModules,
+  apiPutCustomerModules,
 } from './modules'
 export { integrations } from './integrations'
 export { activityLogs } from './logs'

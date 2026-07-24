@@ -1,6 +1,8 @@
 /**
  * Mock platform users linked to customer accounts.
  * Ready to be replaced by API: GET /users
+ *
+ * assignedModules is the user-level grant (subset of customer modules).
  */
 export const users = [
   {
@@ -11,6 +13,7 @@ export const users = [
     customerId: 'cus_001',
     status: 'active',
     permissions: ['customers.read', 'users.manage', 'modules.assign'],
+    assignedModules: [],
     lastLoginAt: '2026-07-24T14:22:00Z',
   },
   {
@@ -21,6 +24,7 @@ export const users = [
     customerId: 'cus_001',
     status: 'active',
     permissions: ['modules.access', 'leads.read'],
+    assignedModules: ['bdr', 'prospecting'],
     lastLoginAt: '2026-07-24T18:05:00Z',
   },
   {
@@ -31,6 +35,7 @@ export const users = [
     customerId: 'cus_002',
     status: 'active',
     permissions: ['modules.access', 'training.use'],
+    assignedModules: ['training-ai'],
     lastLoginAt: '2026-07-23T11:40:00Z',
   },
   {
@@ -41,6 +46,7 @@ export const users = [
     customerId: 'cus_003',
     status: 'invited',
     permissions: ['modules.access'],
+    assignedModules: ['radar'],
     lastLoginAt: null,
   },
   {
@@ -51,6 +57,7 @@ export const users = [
     customerId: 'cus_004',
     status: 'inactive',
     permissions: ['customers.read', 'users.manage'],
+    assignedModules: [],
     lastLoginAt: '2026-06-02T09:12:00Z',
   },
   {
@@ -61,10 +68,15 @@ export const users = [
     customerId: 'cus_002',
     status: 'active',
     permissions: ['modules.access', 'prospecting.use'],
+    assignedModules: ['training-ai', 'prospecting'],
     lastLoginAt: '2026-07-22T16:33:00Z',
   },
 ]
 
 export function getUsersByCustomer(customerId) {
   return users.filter((user) => user.customerId === customerId)
+}
+
+export function getUserById(id) {
+  return users.find((user) => user.id === id) ?? null
 }

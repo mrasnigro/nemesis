@@ -1,10 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './AssignmentMatrix.css'
 
-export default function AssignmentMatrix({ customers = [], modules = [], initialAssignments = [] }) {
-  const [assignments, setAssignments] = useState(() =>
-    Object.fromEntries(initialAssignments.map((item) => [item.customerId, new Set(item.moduleIds)]))
+function toMap(initialAssignments) {
+  return Object.fromEntries(
+    initialAssignments.map((item) => [item.customerId, new Set(item.moduleIds)])
   )
+}
+
+export default function AssignmentMatrix({
+  customers = [],
+  modules = [],
+  initialAssignments = [],
+  onChange,
+}) {
+  const [assignments, setAssignments] = useState(() => toMap(initialAssignments))
+
+  useEffect(() => {
+    setAssignments(toMap(initialAssignments))
+  }, [initialAssignments])
 
   function toggle(customerId, moduleId) {
     setAssignments((prev) => {
@@ -16,6 +29,11 @@ export default function AssignmentMatrix({ customers = [], modules = [], initial
         current.add(moduleId)
       }
       next[customerId] = current
+
+      if (onChange) {
+        onChange(customerId, [...current])
+      }
+
       return next
     })
   }
@@ -61,7 +79,7 @@ export default function AssignmentMatrix({ customers = [], modules = [], initial
         </tbody>
       </table>
       <p className="assignment-matrix__hint">
-        Alterações são locais (mock). Pronto para conectar em PUT /customers/:id/modules.
+        Alterações usam mock API (PUT /customers/:id/modules). Pronto para backend real.
       </p>
     </div>
   )
