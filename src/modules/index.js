@@ -1,1 +1,1 @@
-export { modules, dashboardMetrics, getModuleById, getModuleByPath } from './registry'
+export { modules, getModuleById, getModuleByPath } from './registry'

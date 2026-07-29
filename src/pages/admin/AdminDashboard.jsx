@@ -32,7 +32,7 @@ const WORKFLOW = [
   {
     step: '4',
     title: 'Validar no IMP',
-    description: 'Login imp/imp e conferir dashboard/BDR.',
+    description: 'Login bdr/bdr e conferir launcher/BDR.',
     to: '/login',
   },
 ]

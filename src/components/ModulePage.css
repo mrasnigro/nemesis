@@ -70,7 +70,7 @@
   border: 1px solid color-mix(in srgb, var(--page-accent, var(--brand)) 40%, transparent);
   background:
     radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--page-accent) 28%, transparent), transparent 70%),
-    rgba(7, 17, 31, 0.55);
+    var(--bg);
   color: var(--page-accent, var(--brand));
   box-shadow: 0 10px 24px color-mix(in srgb, var(--page-accent) 18%, transparent);
 }
@@ -171,7 +171,7 @@
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.42);
+  background: var(--bg);
   color: var(--text);
   font-size: 0.9rem;
   line-height: 1.4;
@@ -196,12 +196,12 @@
   padding: 0.85rem 1.35rem;
   border: none;
   border-radius: 999px;
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #fff;
+  background: var(--brand);
+  color: var(--brand-ink);
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.28);
+  box-shadow: 0 10px 24px rgba(245, 166, 35, 0.28);
 }
 
 .module-page__action:hover:not(:disabled) {
@@ -253,7 +253,7 @@
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.45);
+  background: var(--bg);
 }
 
 .module-page__info-row dt {

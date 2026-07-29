@@ -18,7 +18,7 @@ export default function AccessDenied({ moduleName }) {
             Solicite ao administrador a atribuição do módulo para seu usuário ou cliente.
           </p>
           <Link to="/dashboard" className="access-denied__action">
-            Voltar ao dashboard
+            Voltar aos módulos
           </Link>
         </div>
       </Panel>

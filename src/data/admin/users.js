@@ -35,7 +35,7 @@ export const users = [
     role: 'imp',
     customerId: 'cus_001',
     status: 'active',
-    permissions: ['modules.access', 'leads.read'],
+    permissions: ['modules.access'],
     assignedModules: ['bdr', 'prospecting'],
     lastLoginAt: '2026-07-24T18:05:00Z',
     profile: 'bdr',

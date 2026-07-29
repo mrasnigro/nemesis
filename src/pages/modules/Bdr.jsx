@@ -19,7 +19,7 @@ export default function BdrPage() {
     <section className="bdr-page">
       <div className="bdr-page__nav">
         <Link to="/dashboard" className="bdr-page__back">
-          ← Voltar ao dashboard
+          ← Voltar aos módulos
         </Link>
       </div>
 

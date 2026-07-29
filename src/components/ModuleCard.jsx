@@ -4,7 +4,7 @@ import './ModuleCard.css'
 const ACCENT_LABELS = {
   cyan: 'IA',
   blue: 'Call',
-  violet: 'CRM',
+  violet: 'PRO',
   emerald: 'Radar',
   amber: 'Live',
   rose: 'VSL',
@@ -68,7 +68,7 @@ export default function ModuleCard({
 
       <div className="module-card__footer">
         <button type="button" className="module-card__action" onClick={openModule}>
-          Abrir módulo
+          {isAvailable ? 'Acessar' : 'Em breve'}
         </button>
         <span className="module-card__meta">Enterprise</span>
       </div>

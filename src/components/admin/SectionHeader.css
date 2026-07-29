@@ -40,8 +40,8 @@
 
 .section-header__btn--primary {
   border: none;
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  color: #fff;
+  background: var(--brand);
+  color: var(--brand-ink);
 }
 
 .section-header__btn:hover {

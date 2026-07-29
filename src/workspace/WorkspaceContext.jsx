@@ -4,7 +4,6 @@ import {
   canAccessModule as checkModuleAccess,
   fetchWorkspaceAccess,
 } from '../data/access'
-import { getCustomerMetrics } from '../data/admin/customers'
 import { subscribeAdminStore } from '../data/admin/store'
 
 const WorkspaceContext = createContext(null)
@@ -62,10 +61,6 @@ export function WorkspaceProvider({ children }) {
   }, [authUser, isAuthenticated, storeVersion])
 
   const value = useMemo(() => {
-    const customerMetrics = access.customer
-      ? getCustomerMetrics(access.customer.id)
-      : null
-
     function hasModuleAccess(moduleId) {
       if (!access.customer || !access.user) return false
       return checkModuleAccess(access.customer.id, access.user.id, moduleId)
@@ -87,16 +82,13 @@ export function WorkspaceProvider({ children }) {
       currentUser: access.user,
       availableModules: access.modules,
       availableModuleIds: access.moduleIds,
-      customerMetrics,
       isLoading,
       hasModuleAccess,
       refreshAccess,
     }
   }, [access, authUser, isLoading])
 
-  return (
-    <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
-  )
+  return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }
 
 export function useWorkspace() {

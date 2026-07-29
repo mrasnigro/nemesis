@@ -4,9 +4,8 @@
   padding: 1.15rem 1.2rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--glass);
+  background: var(--surface);
   box-shadow: var(--shadow-card);
-  backdrop-filter: blur(14px);
 }
 
 .metric-card::before {

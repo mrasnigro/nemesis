@@ -6,9 +6,8 @@
   flex-direction: column;
   width: var(--sidebar-width);
   padding: 1.25rem 1rem;
-  background: linear-gradient(180deg, #0a1528 0%, #07111f 100%);
+  background: var(--bg);
   border-right: 1px solid var(--glass-border);
-  box-shadow: 8px 0 32px rgba(2, 8, 23, 0.35);
 }
 
 .sidebar__brand {
@@ -25,8 +24,8 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 12px;
-  background: #f5a623;
-  color: #111;
+  background: var(--brand);
+  color: var(--brand-ink);
   font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -82,9 +81,9 @@
 }
 
 .sidebar__link--active {
-  background: linear-gradient(90deg, rgba(245, 166, 35, 0.18), rgba(245, 166, 35, 0.05));
+  background: var(--brand-soft);
   color: var(--text-h);
-  box-shadow: inset 3px 0 0 #f5a623;
+  box-shadow: inset 3px 0 0 var(--brand);
 }
 
 .sidebar__features {
@@ -102,7 +101,7 @@
   gap: 0.65rem;
   padding: 0.65rem 0.85rem;
   border-radius: var(--radius-sm);
-  background: rgba(7, 17, 31, 0.35);
+  background: var(--surface);
   color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1.35;
@@ -113,7 +112,7 @@
   height: 0.4rem;
   margin-top: 0.4rem;
   border-radius: 999px;
-  background: #f5a623;
+  background: var(--brand);
   flex-shrink: 0;
 }
 
@@ -141,7 +140,7 @@
   gap: 0.55rem;
   padding: 0.65rem 0.75rem;
   border-radius: var(--radius-sm);
-  background: rgba(52, 211, 153, 0.08);
+  background: var(--success-soft);
   color: var(--success);
   font-size: 0.8rem;
   font-weight: 600;
@@ -152,7 +151,7 @@
   height: 0.5rem;
   border-radius: 999px;
   background: var(--success);
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+  box-shadow: 0 0 0 4px rgba(72, 187, 120, 0.15);
 }
 
 @media (max-width: 900px) {

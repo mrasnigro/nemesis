@@ -32,7 +32,7 @@ export default function ModulePage({
   actionLabel = 'Abrir módulo',
   onAction,
   backTo = '/dashboard',
-  backLabel = 'Voltar ao dashboard',
+  backLabel = 'Voltar aos módulos',
 }) {
   const data = {
     title: module?.title ?? title,
@@ -54,7 +54,7 @@ export default function ModulePage({
 
   const infoItems = [
     { label: 'Status', value: statusLabel },
-    { label: 'Categoria', value: data.info.category ?? 'Enterprise CRM' },
+    { label: 'Categoria', value: data.info.category ?? 'IMP Module' },
     { label: 'Versão', value: data.info.version ?? '1.0.0' },
     { label: 'Acesso', value: data.info.access ?? 'Usuário IMP' },
   ]

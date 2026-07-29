@@ -1,6 +1,6 @@
 /**
  * Central registry for IMP Platform modules.
- * Add new modules here to surface them on the dashboard and routes.
+ * Add new modules here to surface them on the Module Launcher and routes.
  */
 export const modules = [
   {
@@ -29,7 +29,7 @@ export const modules = [
   {
     id: 'bdr',
     title: 'Discagem Automática',
-    description: 'Campanhas de contato automatizado e follow-up.',
+    description: 'Sistema BDR de discagem automática e follow-up.',
     path: '/modules/bdr',
     status: 'available',
     accent: 'blue',
@@ -42,7 +42,7 @@ export const modules = [
       'Filas de discagem com priorização inteligente',
       'Scripts guiados para BDR e follow-up',
       'Registro automático de tentativas de contato',
-      'Integração com pipeline comercial',
+      'Acesso ao sistema BDR existente',
     ],
     info: {
       category: 'Outbound',
@@ -54,21 +54,21 @@ export const modules = [
   {
     id: 'prospecting',
     title: 'Prospecção',
-    description: 'Pipeline de leads e oportunidades comerciais.',
+    description: 'Ferramentas de prospecção e organização de contatos.',
     path: '/modules/prospecting',
     status: 'coming-soon',
     accent: 'violet',
-    badge: 'CRM',
+    badge: 'PRO',
     icon: 'funnel',
-    actionLabel: 'Abrir pipeline',
+    actionLabel: 'Abrir prospecção',
     features: [
-      'Kanban de oportunidades por estágio',
-      'Qualificação de leads com critérios padronizados',
-      'Alertas de follow-up e SLA comercial',
-      'Visão consolidada de conversão',
+      'Listas de contatos e listas de trabalho',
+      'Qualificação com critérios padronizados',
+      'Alertas de follow-up e prioridades',
+      'Visão consolidada de atividades',
     ],
     info: {
-      category: 'Pipeline',
+      category: 'Prospecção',
       version: '0.9.0',
       access: 'Usuário IMP',
       owner: 'Time Comercial',
@@ -88,7 +88,7 @@ export const modules = [
       'Monitoramento contínuo de sinais de mercado',
       'Alertas de tendências relevantes por segmento',
       'Painéis de inteligência competitiva',
-      'Exportação de insights para o time comercial',
+      'Exportação de insights para o time',
     ],
     info: {
       category: 'Intelligence',
@@ -123,7 +123,7 @@ export const modules = [
   {
     id: 'vsl',
     title: 'VSL',
-    description: 'Video Sales Letters e páginas de conversão.',
+    description: 'Video Sales Letters e páginas de oferta.',
     path: '/modules/vsl',
     status: 'coming-soon',
     accent: 'rose',
@@ -132,51 +132,16 @@ export const modules = [
     actionLabel: 'Abrir VSL',
     features: [
       'Biblioteca de VSLs e variações de oferta',
-      'Páginas de conversão otimizadas',
+      'Páginas de oferta otimizadas',
       'Tracking de engajamento e CTA',
       'Testes A/B de criativos e scripts',
     ],
     info: {
-      category: 'Conversão',
+      category: 'Conteúdo',
       version: '0.9.0',
       access: 'Usuário IMP',
       owner: 'Time de Performance',
     },
-  },
-]
-
-export const dashboardMetrics = [
-  {
-    id: 'modules',
-    label: 'Módulos',
-    value: '6',
-    hint: 'Disponíveis no workspace',
-    accent: 'cyan',
-    trend: { direction: 'up', value: '100%' },
-  },
-  {
-    id: 'campaigns',
-    label: 'Campanhas',
-    value: '24',
-    hint: 'Ativas neste mês',
-    accent: 'blue',
-    trend: { direction: 'up', value: '12%' },
-  },
-  {
-    id: 'leads',
-    label: 'Leads',
-    value: '1.284',
-    hint: 'No pipeline comercial',
-    accent: 'violet',
-    trend: { direction: 'up', value: '8%' },
-  },
-  {
-    id: 'conversion',
-    label: 'Conversão',
-    value: '18.4%',
-    hint: 'Taxa média de fechamento',
-    accent: 'emerald',
-    trend: { direction: 'down', value: '1.2%' },
   },
 ]
 

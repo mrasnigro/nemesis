@@ -4,8 +4,8 @@ import { getModuleByPath } from '../modules'
 import { useWorkspace } from '../workspace/WorkspaceContext'
 
 const DEFAULT_META = {
-  title: 'Dashboard',
-  subtitle: 'Visão geral do workspace IMP',
+  title: 'Módulos',
+  subtitle: 'Selecione um módulo para acessar',
 }
 
 function getRouteMeta(pathname) {
@@ -44,7 +44,7 @@ export default function DashboardLayout() {
   const activeModule = getModuleByPath(pathname)
 
   const navItems = [
-    { to: '/dashboard', label: 'Dashboard', end: true, icon: 'dashboard' },
+    { to: '/dashboard', label: 'Início', end: true, icon: 'modules' },
     ...availableModules.map((module) => ({
       to: module.path,
       label: module.title,

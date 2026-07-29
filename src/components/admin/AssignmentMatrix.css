@@ -2,7 +2,7 @@
   overflow-x: auto;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.35);
+  background: var(--bg);
 }
 
 .assignment-matrix {
@@ -23,7 +23,7 @@
   text-align: left;
   position: sticky;
   left: 0;
-  background: rgba(15, 28, 48, 0.95);
+  background: var(--surface);
   min-width: 180px;
 }
 
@@ -80,7 +80,7 @@
 }
 
 .assignment-matrix__toggle input:checked + span {
-  background: color-mix(in srgb, var(--accent-cyan) 70%, #0ea5e9);
+  background: var(--brand);
 }
 
 .assignment-matrix__toggle input:checked + span::after {

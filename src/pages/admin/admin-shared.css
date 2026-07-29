@@ -29,7 +29,7 @@
   padding: 0.95rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.45);
+  background: var(--bg);
   color: inherit;
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
@@ -63,7 +63,7 @@
   padding: 0.95rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.45);
+  background: var(--bg);
 }
 
 .admin-user-assignment strong {
@@ -100,7 +100,7 @@
   padding: 0.95rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.45);
+  background: var(--bg);
 }
 
 .admin-enabled-module strong {
@@ -125,7 +125,7 @@
   padding: 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: rgba(7, 17, 31, 0.45);
+  background: var(--bg);
   color: inherit;
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
