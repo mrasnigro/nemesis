@@ -39,7 +39,7 @@ export function getAdminOverviewMetrics() {
       label: 'Clientes',
       value: String(customers.length),
       hint: `${activeCustomers} ativos`,
-      accent: 'blue',
+      accent: 'amber',
       trend: { direction: 'up', value: '2' },
     },
     {
@@ -47,7 +47,7 @@ export function getAdminOverviewMetrics() {
       label: 'Usuários',
       value: String(users.length),
       hint: `${activeUsers} ativos`,
-      accent: 'violet',
+      accent: 'amber',
       trend: { direction: 'up', value: '4%' },
     },
     {
@@ -55,14 +55,14 @@ export function getAdminOverviewMetrics() {
       label: 'Módulos',
       value: String(modules.length),
       hint: `${assignedModules} em uso`,
-      accent: 'cyan',
+      accent: 'amber',
     },
     {
       id: 'integrations',
       label: 'Integrações',
       value: String(integrations.length),
       hint: `${connectedIntegrations} conectadas`,
-      accent: 'emerald',
+      accent: 'amber',
     },
   ]
 }

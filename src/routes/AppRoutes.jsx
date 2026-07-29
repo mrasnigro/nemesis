@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import AdminLayout from '../layouts/AdminLayout'
-import DashboardLayout from '../layouts/DashboardLayout'
+import DialerLayout from '../layouts/DialerLayout'
+import LauncherLayout from '../layouts/LauncherLayout'
 import {
   AdminDashboard,
   CustomersPage,
@@ -21,6 +22,10 @@ import {
   VslPage,
   WebinarPage,
 } from '../pages/modules'
+import BdrAgendamentosPage from '../pages/modules/bdr/Agendamentos'
+import BdrDiscagemPage from '../pages/modules/bdr/Discagem'
+import BdrHistoricoPage from '../pages/modules/bdr/Historico'
+import BdrManualPage from '../pages/modules/bdr/Manual'
 import ModuleAccessRoute from './ModuleAccessRoute'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -46,7 +51,7 @@ export default function AppRoutes() {
       <Route
         element={
           <ProtectedRoute allowedRoles={['imp']}>
-            <DashboardLayout />
+            <LauncherLayout />
           </ProtectedRoute>
         }
       >
@@ -56,14 +61,6 @@ export default function AppRoutes() {
           element={
             <ModuleRoute moduleId="training-ai">
               <TrainingAiPage />
-            </ModuleRoute>
-          }
-        />
-        <Route
-          path="/modules/bdr"
-          element={
-            <ModuleRoute moduleId="bdr">
-              <BdrPage />
             </ModuleRoute>
           }
         />
@@ -99,6 +96,22 @@ export default function AppRoutes() {
             </ModuleRoute>
           }
         />
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
+            <ModuleRoute moduleId="bdr">
+              <DialerLayout />
+            </ModuleRoute>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/bdr" element={<BdrPage />} />
+        <Route path="/modules/bdr/discagem" element={<BdrDiscagemPage />} />
+        <Route path="/modules/bdr/manual" element={<BdrManualPage />} />
+        <Route path="/modules/bdr/historico" element={<BdrHistoricoPage />} />
+        <Route path="/modules/bdr/agendamentos" element={<BdrAgendamentosPage />} />
       </Route>
 
       <Route

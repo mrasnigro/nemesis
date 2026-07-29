@@ -1,48 +1,31 @@
+import ModuleIcon from '../components/ModuleIcon'
 import { useNavigate } from 'react-router-dom'
 import './ModuleCard.css'
-
-const ACCENT_LABELS = {
-  cyan: 'IA',
-  blue: 'Call',
-  violet: 'PRO',
-  emerald: 'Radar',
-  amber: 'Live',
-  rose: 'VSL',
-}
 
 export default function ModuleCard({
   title,
   description,
   status = 'coming-soon',
-  accent = 'cyan',
-  badge,
+  icon = 'modules',
   to,
-  onOpen,
 }) {
   const navigate = useNavigate()
   const isAvailable = status === 'available'
 
   function openModule(event) {
     event?.stopPropagation?.()
-
-    if (onOpen) {
-      onOpen()
-      return
-    }
-
-    if (to) {
-      navigate(to)
-    }
+    if (!isAvailable || !to) return
+    navigate(to)
   }
 
   return (
     <article
-      className={`module-card module-card--${accent}${to ? ' module-card--clickable' : ''}`}
-      role={to ? 'link' : undefined}
-      tabIndex={to ? 0 : undefined}
-      onClick={to ? openModule : undefined}
+      className={`module-card${isAvailable && to ? ' module-card--clickable' : ' module-card--disabled'}`}
+      role={isAvailable && to ? 'link' : undefined}
+      tabIndex={isAvailable && to ? 0 : undefined}
+      onClick={isAvailable && to ? openModule : undefined}
       onKeyDown={
-        to
+        isAvailable && to
           ? (event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault()
@@ -52,26 +35,14 @@ export default function ModuleCard({
           : undefined
       }
     >
-      <div className="module-card__glow" aria-hidden="true" />
-
-      <div className="module-card__top">
-        <div className={`module-card__icon module-card__icon--${accent}`}>
-          {badge || ACCENT_LABELS[accent] || 'IMP'}
-        </div>
-        <span className={`module-card__status module-card__status--${status}`}>
-          {isAvailable ? 'Ativo' : 'Em breve'}
-        </span>
+      <div className="module-card__icon" aria-hidden="true">
+        <ModuleIcon name={icon} />
       </div>
 
       <h3>{title}</h3>
       <p>{description}</p>
 
-      <div className="module-card__footer">
-        <button type="button" className="module-card__action" onClick={openModule}>
-          {isAvailable ? 'Acessar' : 'Em breve'}
-        </button>
-        <span className="module-card__meta">Enterprise</span>
-      </div>
+      {!isAvailable ? <span className="module-card__soon">Em breve</span> : null}
     </article>
   )
 }

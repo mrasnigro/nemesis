@@ -91,7 +91,7 @@ export default function Sidebar({ items = [], featureItems = [], featureTitle })
       <div className="sidebar__brand">
         <span className="sidebar__mark">IMP</span>
         <div>
-          <strong>IMP Platform</strong>
+          <strong>CRM IMP</strong>
           <p>
             {user?.role === 'admin'
               ? 'Painel Admin'

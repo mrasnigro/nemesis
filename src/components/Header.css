@@ -8,17 +8,17 @@
   gap: 1rem;
   min-height: var(--header-height);
   padding: 0.9rem 1.75rem;
-  background: rgba(18, 22, 28, 0.92);
+  background: rgba(17, 24, 39, 0.95);
   border-bottom: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px);
 }
 
 .app-header__titles h1 {
   margin: 0;
   color: var(--text-h);
-  font-size: 1.35rem;
+  font-family: var(--display);
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 .app-header__titles p {
@@ -40,8 +40,8 @@
   min-width: 240px;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: var(--glass);
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 .app-header__search-icon {
@@ -75,8 +75,8 @@
   gap: 0.75rem;
   padding: 0.35rem 0.35rem 0.35rem 0.85rem;
   border: 1px solid var(--glass-border);
-  border-radius: 999px;
-  background: var(--glass);
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
 .app-header__user-meta {
@@ -101,7 +101,7 @@
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: var(--brand);
   color: var(--brand-ink);
   font-size: 0.8rem;
@@ -111,7 +111,7 @@
 .app-header__logout {
   padding: 0.45rem 0.8rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   background: rgba(251, 113, 133, 0.12);
   color: #fda4af;
   font-size: 0.8rem;

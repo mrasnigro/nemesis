@@ -42,11 +42,13 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <div className="login-page__pattern" aria-hidden="true" />
+
       <div className="login-page__panel">
         <div className="login-page__brand">
           <span className="login-page__mark">IMP</span>
-          <h1>IMP Platform</h1>
-          <p>Central de acesso aos módulos</p>
+          <h1>CRM IMP</h1>
+          <p>Sistema de Gestão de Leads</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>

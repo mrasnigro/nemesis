@@ -21,7 +21,7 @@ export default function Header({ title, subtitle }) {
               />
             </svg>
           </span>
-          <input type="search" placeholder="Buscar módulos..." aria-label="Buscar" />
+          <input type="search" placeholder="Buscar..." aria-label="Buscar" />
         </label>
 
         <div className="app-header__user">

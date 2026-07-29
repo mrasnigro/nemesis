@@ -1,0 +1,191 @@
+.dialer-layout {
+  display: flex;
+  min-height: 100svh;
+  background: #0f172a;
+}
+
+.dialer-layout__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 72px;
+  padding: 0.85rem 0.55rem;
+  border-right: 1px solid rgba(75, 85, 99, 0.55);
+  background: #111827;
+}
+
+.dialer-layout__home {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-family: var(--display);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.dialer-layout__home:hover {
+  filter: brightness(1.06);
+}
+
+.dialer-layout__sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dialer-layout__nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.65rem 0.25rem;
+  border-radius: var(--radius-md);
+  color: var(--dialer-muted);
+  text-decoration: none;
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+
+.dialer-layout__nav-link:hover,
+.dialer-layout__nav-link--active {
+  background: var(--dialer-panel);
+  color: var(--text-h);
+}
+
+.dialer-layout__nav-link--active {
+  color: var(--brand);
+}
+
+.dialer-layout__icon {
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.dialer-layout__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.dialer-layout__shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialer-layout__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(75, 85, 99, 0.55);
+  background: #111827;
+}
+
+.dialer-layout__timer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--dialer-panel);
+}
+
+.dialer-layout__timer span {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dialer-layout__timer strong {
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.dialer-layout__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dialer-layout__role {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.dialer-layout__modules,
+.dialer-layout__logout {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(75, 85, 99, 0.65);
+  border-radius: var(--radius-md);
+  background: var(--dialer-panel);
+  color: var(--text-h);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dialer-layout__modules:hover {
+  border-color: var(--brand-border);
+  color: var(--brand);
+}
+
+.dialer-layout__logout:hover {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fda4af;
+}
+
+.dialer-layout__content {
+  flex: 1;
+  padding: 1.25rem;
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .dialer-layout {
+    flex-direction: column;
+  }
+
+  .dialer-layout__sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .dialer-layout__sidebar nav {
+    flex-direction: row;
+    flex: 1;
+    overflow-x: auto;
+  }
+
+  .dialer-layout__home {
+    width: 48px;
+    flex-shrink: 0;
+  }
+
+  .dialer-layout__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dialer-layout__role {
+    display: none;
+  }
+}

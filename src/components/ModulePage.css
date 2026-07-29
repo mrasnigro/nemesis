@@ -64,23 +64,20 @@
 .module-page__icon-wrap {
   display: grid;
   place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--page-accent, var(--brand)) 40%, transparent);
-  background:
-    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--page-accent) 28%, transparent), transparent 70%),
-    var(--bg);
-  color: var(--page-accent, var(--brand));
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--page-accent) 18%, transparent);
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--brand-border);
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 
 .module-icon,
 .module-page__icon {
   display: grid;
   place-items: center;
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .module-icon svg,
@@ -120,9 +117,9 @@
 }
 
 .module-page__eyebrow {
-  color: var(--page-accent, var(--brand));
+  color: var(--brand);
   font-size: 0.78rem;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -130,9 +127,10 @@
 .module-page__title {
   margin: 0;
   color: var(--text-h);
+  font-family: var(--display);
   font-size: clamp(1.5rem, 2vw, 1.85rem);
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .module-page__description {
@@ -184,8 +182,8 @@
   width: 1.35rem;
   height: 1.35rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--page-accent) 16%, transparent);
-  color: var(--page-accent);
+  background: var(--brand-soft);
+  color: var(--brand);
   font-size: 0.7rem;
   font-weight: 800;
 }
@@ -195,13 +193,12 @@
   margin-top: 0.35rem;
   padding: 0.85rem 1.35rem;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--brand);
   color: var(--brand-ink);
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(245, 166, 35, 0.28);
 }
 
 .module-page__action:hover:not(:disabled) {
@@ -279,8 +276,8 @@
   margin-top: 0.9rem;
   padding: 0.85rem 0.95rem;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--page-accent) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--page-accent) 22%, transparent);
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-border);
 }
 
 .module-page__info-note span {

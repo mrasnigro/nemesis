@@ -24,7 +24,7 @@ export default function ModulePage({
   title,
   description,
   status = 'coming-soon',
-  accent = 'cyan',
+  accent = 'amber',
   badge,
   icon = 'sparkles',
   features = [],
