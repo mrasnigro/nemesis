@@ -1,12 +1,5 @@
 /**
  * Mock access layer: Customer -> Users -> Assigned Modules
- *
- * API-ready shapes for future integration:
- * - GET  /customers/:id/modules
- * - PUT  /customers/:id/modules
- * - GET  /users/:id/modules
- * - PUT  /users/:id/modules
- * - GET  /workspace/access
  */
 
 import { customers, getCustomerById } from '../admin/customers'

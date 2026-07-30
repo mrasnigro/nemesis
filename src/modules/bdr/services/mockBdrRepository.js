@@ -1,5 +1,5 @@
 /**
- * BdrDataPort — mock now, HTTP later. UI must not import fetch details.
+ * In-memory BDR data store for the local prototype.
  * @typedef {import('../data/seeds.js').SEED_DIAL_POOL[number]} Lead
  */
 

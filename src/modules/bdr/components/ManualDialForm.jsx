@@ -1,5 +1,6 @@
 import { CONTACT_METHODS } from '../data/catalogs.js'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 
 function MethodIcon({ id }) {
@@ -30,9 +31,11 @@ function MethodIcon({ id }) {
 
 /**
  * Ligação Manual modal — sample SDRDialer overlay.
+ * On start, closes and shows the dialing status band on Discagem.
  */
 export default function ManualDialForm({ open = true, onClose }) {
-  const { startManual, dialAllowed } = useBdrSession()
+  const navigate = useNavigate()
+  const { startManual } = useBdrSession()
   const [phone, setPhone] = useState('')
   const [contactMethod, setContactMethod] = useState('')
   const [error, setError] = useState('')
@@ -58,16 +61,13 @@ export default function ManualDialForm({ open = true, onClose }) {
   function handleSubmit(event) {
     event.preventDefault()
     if (!canStart) return
-    if (!dialAllowed) {
-      setError('Disponível apenas com status Em atendimento.')
-      return
-    }
     const result = startManual(phone, contactMethod)
     if (!result.ok) {
       setError(result.error)
       return
     }
     setError('')
+    navigate('/modules/bdr/discagem?mode=manual', { replace: true })
   }
 
   return (

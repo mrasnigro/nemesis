@@ -6,7 +6,6 @@ import LauncherLayout from '../layouts/LauncherLayout'
 import {
   AdminDashboard,
   CustomersPage,
-  IntegrationsPage,
   LogsPage,
   ModulesPage,
   PermissionsPage,
@@ -129,7 +128,6 @@ export default function AppRoutes() {
         <Route path="users" element={<UsersPage />} />
         <Route path="modules" element={<ModulesPage />} />
         <Route path="permissions" element={<PermissionsPage />} />
-        <Route path="integrations" element={<IntegrationsPage />} />
         <Route path="logs" element={<LogsPage />} />
       </Route>
 

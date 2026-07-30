@@ -126,11 +126,12 @@ function reducer(state, action) {
     }
 
     case 'START_MANUAL': {
-      if (!isDialAllowed(state.operatorStatus)) return state
       const check = validateManualStart(action)
       if (!check.ok) return state
       return {
         ...state,
+        // Entering a manual dial always puts the operator in session
+        operatorStatus: 'atendimento',
         call: createSearchingCall({
           mode: 'manual',
           contactMethod: action.contactMethod,
@@ -426,7 +427,28 @@ export function BdrSessionProvider({ children }) {
     pickingLeadRef.current = true
     let cancelled = false
     ;(async () => {
-      const lead = await mockBdrRepository.pickNextLead(state.selectedCampaignId)
+      let lead
+      if (state.call.mode === 'manual') {
+        lead = {
+          id: `manual-${Date.now()}`,
+          phone: state.call.manualPhone,
+          name: 'Contato Manual',
+          company: 'Ligação Manual',
+          email: '',
+          address: '',
+          city: '',
+          state: '',
+          cep: '',
+          cnpj: '',
+          protocol: `M${Date.now()}`,
+          partnerName: 'Contato Manual',
+          partnerCpf: '',
+          identifier: 'Ligação Manual',
+          socialReason: 'Ligação Manual',
+        }
+      } else {
+        lead = await mockBdrRepository.pickNextLead(state.selectedCampaignId)
+      }
       if (cancelled) return
       dispatch({ type: 'CONNECT_LEAD', lead })
       pickingLeadRef.current = false
@@ -434,7 +456,13 @@ export function BdrSessionProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [state.call.status, state.call.elapsedTime, state.selectedCampaignId])
+  }, [
+    state.call.status,
+    state.call.elapsedTime,
+    state.call.mode,
+    state.call.manualPhone,
+    state.selectedCampaignId,
+  ])
 
   const setOperatorStatus = useCallback((status) => {
     dispatch({ type: 'SET_OPERATOR_STATUS', status })

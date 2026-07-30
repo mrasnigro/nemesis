@@ -8,7 +8,6 @@ export {
   apiGetCustomerModules,
   apiPutCustomerModules,
 } from './modules'
-export { integrations } from './integrations'
 export { activityLogs } from './logs'
 export {
   createCustomer,
@@ -22,16 +21,15 @@ export {
 import { customers } from './customers'
 import { users } from './users'
 import { moduleAssignments } from './modules'
-import { integrations } from './integrations'
 import { activityLogs } from './logs'
 import { modules } from '../../modules'
 
-/** Overview metrics derived from mock data — swap for API aggregates later */
+/** Overview metrics derived from mock data */
 export function getAdminOverviewMetrics() {
   const activeCustomers = customers.filter((c) => c.status === 'active').length
   const activeUsers = users.filter((u) => u.status === 'active').length
-  const connectedIntegrations = integrations.filter((i) => i.status === 'connected').length
   const assignedModules = new Set(moduleAssignments.flatMap((a) => a.moduleIds)).size
+  const recentEvents = activityLogs.length
 
   return [
     {
@@ -58,10 +56,10 @@ export function getAdminOverviewMetrics() {
       accent: 'amber',
     },
     {
-      id: 'integrations',
-      label: 'Integrações',
-      value: String(integrations.length),
-      hint: `${connectedIntegrations} conectadas`,
+      id: 'logs',
+      label: 'Eventos',
+      value: String(recentEvents),
+      hint: 'na trilha de auditoria',
       accent: 'amber',
     },
   ]

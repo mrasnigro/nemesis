@@ -41,13 +41,6 @@ export const permissions = [
     scope: 'imp',
   },
   {
-    id: 'perm_006',
-    key: 'integrations.manage',
-    label: 'Gerenciar integrações',
-    description: 'Conectar e configurar integrações externas.',
-    scope: 'admin',
-  },
-  {
     id: 'perm_007',
     key: 'logs.read',
     label: 'Visualizar logs',
@@ -70,7 +63,6 @@ export const rolePermissionMap = {
     'customers.manage',
     'users.manage',
     'modules.assign',
-    'integrations.manage',
     'logs.read',
   ],
   imp: [

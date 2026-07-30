@@ -23,8 +23,8 @@ export const activityLogs = [
   },
   {
     id: 'log_003',
-    action: 'integration.error',
-    summary: 'Falha na sincronização do Webhook Outbound',
+    action: 'module.sync.error',
+    summary: 'Falha ao sincronizar atribuição de módulos',
     actor: 'Sistema',
     customerId: 'cus_004',
     level: 'error',

@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { to: '/admin/users', label: 'Usuários', icon: 'users' },
   { to: '/admin/modules', label: 'Módulos', icon: 'modules' },
   { to: '/admin/permissions', label: 'Permissões', icon: 'permissions' },
-  { to: '/admin/integrations', label: 'Integrações', icon: 'integrations' },
   { to: '/admin/logs', label: 'Logs', icon: 'logs' },
 ]
 
@@ -31,10 +30,6 @@ const ROUTE_META = {
   '/admin/permissions': {
     title: 'Permissões',
     subtitle: 'Catálogo RBAC e mapa de papéis',
-  },
-  '/admin/integrations': {
-    title: 'Integrações',
-    subtitle: 'Conexões externas e sincronização',
   },
   '/admin/logs': {
     title: 'Activity logs',
