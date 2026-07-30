@@ -10,7 +10,6 @@ import {
 import {
   AUTO_INDISPONIVEL_MS,
   CAMPAIGN_STORAGE_KEY,
-  DISPOSITIONS,
   SEARCH_CONNECT_SECONDS,
 } from '../data/catalogs.js'
 import { isScriptCompleted } from '../data/scriptContent.js'
@@ -45,6 +44,10 @@ import {
   syncDiagnosisSelectToScriptAnswer,
   togglePainSelection,
 } from '../services/scriptSync.js'
+import {
+  dispositionLabel,
+  dispositionToClientStatus,
+} from '../services/historyMapping.js'
 
 const BdrSessionContext = createContext(null)
 
@@ -74,6 +77,7 @@ function createInitialState() {
     activeTab: 'company',
     history: structuredClone(SEED_HISTORY),
     meetings: structuredClone(SEED_MEETINGS),
+    activeCallMeetingIds: [],
     permissions: getBdrPermissionsForUser(null, true),
     hydrated: false,
   }
@@ -117,6 +121,7 @@ function reducer(state, action) {
         salesTemperature: 50,
         notes: '',
         activeTab: 'company',
+        activeCallMeetingIds: [],
       }
     }
 
@@ -137,6 +142,7 @@ function reducer(state, action) {
         salesTemperature: 50,
         notes: '',
         activeTab: 'company',
+        activeCallMeetingIds: [],
       }
     }
 
@@ -258,13 +264,38 @@ function reducer(state, action) {
     case 'PREPEND_HISTORY':
       return { ...state, history: [action.row, ...state.history] }
 
-    case 'PREPEND_MEETING':
+    case 'PREPEND_MEETING': {
+      const meeting = action.meeting
+      const ids = state.activeCallMeetingIds.includes(meeting.id)
+        ? state.activeCallMeetingIds
+        : [meeting.id, ...state.activeCallMeetingIds]
       return {
         ...state,
-        meetings: [action.meeting, ...state.meetings],
+        meetings: [meeting, ...state.meetings.filter((m) => m.id !== meeting.id)],
+        activeCallMeetingIds: ids,
         metrics: {
           ...state.metrics,
-          meetingsScheduled: state.metrics.meetingsScheduled + 1,
+          meetingsScheduled: state.metrics.meetingsScheduled + (state.meetings.some((m) => m.id === meeting.id) ? 0 : 1),
+        },
+      }
+    }
+
+    case 'UPDATE_MEETING':
+      return {
+        ...state,
+        meetings: state.meetings.map((m) =>
+          m.id === action.id ? { ...m, ...action.patch } : m,
+        ),
+      }
+
+    case 'REMOVE_MEETING':
+      return {
+        ...state,
+        meetings: state.meetings.filter((m) => m.id !== action.id),
+        activeCallMeetingIds: state.activeCallMeetingIds.filter((id) => id !== action.id),
+        metrics: {
+          ...state.metrics,
+          meetingsScheduled: Math.max(0, state.metrics.meetingsScheduled - 1),
         },
       }
 
@@ -288,6 +319,7 @@ function reducer(state, action) {
         salesTemperature: 50,
         notes: '',
         activeTab: 'company',
+        activeCallMeetingIds: [],
       }
 
     case 'HANGUP_TO_IDLE':
@@ -298,6 +330,7 @@ function reducer(state, action) {
         scriptProgress: createEmptyScriptProgress(),
         dispositionId: null,
         activeTab: 'company',
+        activeCallMeetingIds: [],
       }
 
     default:
@@ -471,6 +504,16 @@ export function BdrSessionProvider({ children }) {
     void mockBdrRepository.saveMeeting(meeting)
   }, [])
 
+  const updateMeeting = useCallback((id, patch) => {
+    dispatch({ type: 'UPDATE_MEETING', id, patch })
+    void mockBdrRepository.updateMeeting(id, patch)
+  }, [])
+
+  const removeMeeting = useCallback((id) => {
+    dispatch({ type: 'REMOVE_MEETING', id })
+    void mockBdrRepository.removeMeeting(id)
+  }, [])
+
   const finalizeAttendance = useCallback(
     async ({ dispositionId, salesTemperature, notes, diagnosis } = {}) => {
       if (state.call.status !== 'connected') {
@@ -493,13 +536,17 @@ export function BdrSessionProvider({ children }) {
           }
         }
       }
-      const dispositionMeta = DISPOSITIONS.find((d) => d.id === disposition)
-      const qualificationLabel = dispositionMeta?.label || disposition
+      const qualificationLabel = dispositionLabel(disposition)
       const lead = state.call.currentLead
       const phone =
         state.call.mode === 'manual' && state.call.manualPhone
           ? state.call.manualPhone
           : lead?.phone || ''
+      const callMeetings = state.meetings.filter((m) =>
+        state.activeCallMeetingIds.includes(m.id),
+      )
+      const hasMeeting = callMeetings.length > 0
+      const clientStatus = dispositionToClientStatus(disposition, { hasMeeting })
       const row = {
         id: `h_${Date.now()}`,
         phone,
@@ -519,15 +566,30 @@ export function BdrSessionProvider({ children }) {
         campaignId: state.selectedCampaignId,
         mode: state.call.mode || 'automatic',
         callStatus: 'Atendida',
-        clientStatus: qualificationLabel,
+        clientStatus,
         protocol: lead?.protocol,
+        cnpj: lead?.cnpj || '',
+        partnerName: lead?.partnerName || lead?.name || '',
+        partnerCpf: lead?.partnerCpf || '',
+        email: lead?.email || '',
+        address: lead?.address || '',
+        city: lead?.city || '',
+        state: lead?.state || '',
+        recordingUrl: `https://example.com/recordings/mock-${Date.now()}.mp3`,
+        meetingIds: callMeetings.map((m) => m.id),
+        meetings: callMeetings,
+      }
+      for (const meeting of callMeetings) {
+        const patch = { linkedHistoryId: row.id, callNotes: row.notes }
+        await mockBdrRepository.saveMeeting({ ...meeting, ...patch })
+        dispatch({ type: 'UPDATE_MEETING', id: meeting.id, patch })
       }
       await mockBdrRepository.saveHistory(row)
       dispatch({ type: 'PREPEND_HISTORY', row })
       dispatch({ type: 'BUMP_CALL_METRICS' })
       // Live rule: always restart automatic searching
       dispatch({ type: 'RESET_AFTER_FINALIZE' })
-      return { ok: true, row }
+      return { ok: true, row, meetings: callMeetings }
     },
     [state],
   )
@@ -569,6 +631,8 @@ export function BdrSessionProvider({ children }) {
       finalizeAttendance,
       hangupToIdle,
       prependMeeting,
+      updateMeeting,
+      removeMeeting,
       selectedCampaign: state.campaigns.find((c) => c.id === state.selectedCampaignId) || null,
     }
   }, [
@@ -591,6 +655,8 @@ export function BdrSessionProvider({ children }) {
     finalizeAttendance,
     hangupToIdle,
     prependMeeting,
+    updateMeeting,
+    removeMeeting,
   ])
 
   return <BdrSessionContext.Provider value={value}>{children}</BdrSessionContext.Provider>

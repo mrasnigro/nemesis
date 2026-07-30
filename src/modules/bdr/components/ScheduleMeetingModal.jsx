@@ -70,12 +70,16 @@ export default function ScheduleMeetingModal({ open, onClose }) {
       leadName: lead?.name || 'Lead',
       company: lead?.company || (call.mode === 'manual' ? 'Manual' : ''),
       phone,
+      email: lead?.email || '',
       date,
       time,
       endTime: endTimeFromStart(time),
       protocol: lead?.protocol || 'N/A',
       notes: meetingNotes,
+      recordingUrl: '',
       createdAt: new Date().toISOString(),
+      emailResentAt: null,
+      linkedHistoryId: null,
     }
     prependMeeting(meeting)
     setSaved(true)

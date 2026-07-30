@@ -50,7 +50,16 @@ export const mockBdrRepository = {
   },
 
   async saveMeeting(meeting) {
-    meetings = [meeting, ...meetings]
+    meetings = [meeting, ...meetings.filter((m) => m.id !== meeting.id)]
+  },
+
+  async updateMeeting(id, patch) {
+    meetings = meetings.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    return meetings.find((m) => m.id === id) || null
+  },
+
+  async removeMeeting(id) {
+    meetings = meetings.filter((m) => m.id !== id)
   },
 
   async getMetrics() {
