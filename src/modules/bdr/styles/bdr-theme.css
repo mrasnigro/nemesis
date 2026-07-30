@@ -5,9 +5,9 @@
 
 .dialer-layout {
   --bdr-void: #0f172a;
-  --bdr-chrome: #111827;
+  --bdr-chrome: #1f2937;
   --bdr-sidebar: #1f2937;
-  --bdr-panel: #1e293b;
+  --bdr-panel: #1f2937;
   --bdr-control: #334155;
   --bdr-control-alt: #374151;
   --bdr-border: #374151;
@@ -29,10 +29,10 @@
   --bdr-progress-a: #2dd4bf;
   --bdr-progress-b: #22c55e;
   --bdr-radius-sm: 8px;
-  --bdr-radius-md: 10px;
-  --bdr-radius-lg: 12px;
-  --bdr-pad-page: 1.75rem;
-  --bdr-gap: 1.15rem;
+  --bdr-radius-md: 8px;
+  --bdr-radius-lg: 8px;
+  --bdr-pad-page: 1.5rem;
+  --bdr-gap: 1rem;
 
   /* Remap shared dialer vars inside BDR shell */
   --dialer-panel: var(--bdr-panel);

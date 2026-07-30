@@ -9,7 +9,6 @@ lerna-debug.log*
 /dist
 /docs
 /.builds
-/builds
 node_modules
 dist
 dist-ssr

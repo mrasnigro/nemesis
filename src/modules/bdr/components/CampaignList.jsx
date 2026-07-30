@@ -10,7 +10,6 @@ export default function CampaignList() {
     <section className="bdr-home__panel">
       <header>
         <h2>Campanhas Ativas</h2>
-        <p>Selecione a campanha para operar no discador.</p>
       </header>
 
       <ul className="bdr-home__campaigns">
@@ -22,6 +21,7 @@ export default function CampaignList() {
             : campaign.status === 'active'
               ? 'active'
               : 'paused'
+          const barTone = campaign.progress >= 100 ? 'complete' : 'active'
           return (
             <li key={campaign.id}>
               <button
@@ -37,12 +37,18 @@ export default function CampaignList() {
                     {statusLabel}
                   </span>
                 </div>
-                <div className="bdr-home__progress" aria-hidden="true">
+                <div className="bdr-home__campaign-meta">
+                  <p>
+                    {campaign.completed} de {campaign.leads} leads
+                  </p>
+                  <span>{campaign.progress}%</span>
+                </div>
+                <div
+                  className={`bdr-home__progress bdr-home__progress--${barTone}`}
+                  aria-hidden="true"
+                >
                   <span style={{ width: `${campaign.progress}%` }} />
                 </div>
-                <p>
-                  {campaign.completed} de {campaign.leads} leads · {campaign.progress}%
-                </p>
               </button>
             </li>
           )

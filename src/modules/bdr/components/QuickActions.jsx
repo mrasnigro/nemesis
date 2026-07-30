@@ -63,7 +63,6 @@ export default function QuickActions() {
     <aside className="bdr-home__panel bdr-home__panel--actions">
       <header>
         <h2>Ações Rápidas</h2>
-        <p>Navegue pelas funcionalidades do discador.</p>
       </header>
 
       <div className="bdr-home__actions">

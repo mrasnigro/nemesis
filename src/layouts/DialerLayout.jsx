@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { BdrSessionProvider, useBdrSession } from '../modules/bdr'
 import { formatDurationHHMMSS } from '../modules/bdr/services/formatters.js'
@@ -7,33 +7,56 @@ import { useWorkspace } from '../workspace/WorkspaceContext'
 import '../modules/bdr/styles/bdr-theme.css'
 import './DialerLayout.css'
 
-const NAV = [
-  { to: '/modules/bdr', end: true, label: 'Painel', icon: 'grid' },
+const MODULE_NAV = [
   {
-    to: '/modules/bdr/discagem?mode=automatic',
-    label: 'Discagem Automática',
-    shortLabel: 'Discagem',
-    icon: 'phone',
-    kind: 'auto',
+    id: 'prospeccoes',
+    label: 'Prospecções',
+    shortLabel: 'Pros.',
+    icon: 'grid',
+    children: [
+      {
+        id: 'contato-telefonico',
+        label: 'Contato Telefônico',
+        to: '/modules/bdr',
+        match: (path) => path.startsWith('/modules/bdr'),
+      },
+      {
+        id: 'via-redes-sociais',
+        label: 'Via Redes Sociais',
+        to: null,
+      },
+    ],
   },
   {
-    to: '/modules/bdr/discagem?mode=manual',
-    label: 'Ligação Manual',
-    shortLabel: 'Manual',
-    icon: 'call',
-    kind: 'manual',
+    id: 'repositorio',
+    label: 'Repositório',
+    shortLabel: 'Repo.',
+    icon: 'doc',
+    children: [
+      {
+        id: 'script-ligacao',
+        label: 'Script para Ligação',
+        to: null,
+      },
+      {
+        id: 'script-resposta',
+        label: 'Script de Resposta',
+        to: null,
+      },
+    ],
   },
   {
-    to: '/modules/bdr/historico',
-    label: 'Histórico de Chamadas',
-    shortLabel: 'Histórico',
-    icon: 'history',
-  },
-  {
-    to: '/modules/bdr/agendamentos',
-    label: 'Agendamentos Realizados',
-    shortLabel: 'Agenda',
-    icon: 'calendar',
+    id: 'treinamentos',
+    label: 'Treinamentos',
+    shortLabel: 'Treino',
+    icon: 'briefcase',
+    children: [
+      {
+        id: 'simular-ia',
+        label: 'Simular IA',
+        to: null,
+      },
+    ],
   },
 ]
 
@@ -47,35 +70,27 @@ function DialerIcon({ name }) {
         />
       </svg>
     ),
-    phone: (
+    doc: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           fill="currentColor"
-          d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.6 22 2 13.4 2 2.9 2 2.4 2.4 2 3 2h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z"
+          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7V3.5L19.5 9H15zM8 13h8v2H8v-2zm0 4h8v2H8v-2zm0-8h5v2H8V9z"
         />
       </svg>
     ),
-    call: (
+    briefcase: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           fill="currentColor"
-          d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.4-.1-.8 0-1.1.3l-2.2 2.2c-2.8-1.5-5.2-3.8-6.6-6.6L8.7 8.6c.3-.3.4-.7.3-1.1C8.6 6.3 8.4 5 8.4 3.8c0-.6-.4-1-1-1H3.9c-.6 0-1 .4-1 1C2.9 13.4 10.5 21 20 21c.6 0 1-.4 1-1v-3.5c0-.6-.4-1-1-1z"
+          d="M10 2h4a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v3H2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 4h4V4h-4v2zM2 13h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7z"
         />
       </svg>
     ),
-    history: (
+    chevron: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
           fill="currentColor"
-          d="M13 3a9 9 0 1 0 8.94 8H19a7 7 0 1 1-2.05-4.95L14 9h7V2l-2.65 2.65A8.96 8.96 0 0 0 13 3zm-1 5v5l4.25 2.52.75-1.23-3.5-2.04V8H12z"
-        />
-      </svg>
-    ),
-    calendar: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3V2zm12 8H5v9h14v-9zM5 8h14V6H5v2z"
+          d="M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.41 1.41l4.59-4.58a1 1 0 0 0 0-1.42L10.7 6.7a1 1 0 0 0-1.41.01z"
         />
       </svg>
     ),
@@ -99,44 +114,45 @@ function DialerShell() {
   const { currentUser } = useWorkspace()
   const navigate = useNavigate()
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
+
+  const activeGroupIds = useMemo(
+    () =>
+      MODULE_NAV.filter((group) =>
+        group.children.some((child) => child.match?.(location.pathname)),
+      ).map((group) => group.id),
+    [location.pathname],
+  )
+
+  const [openGroups, setOpenGroups] = useState(() => new Set())
 
   function handleLogout() {
     logout()
     navigate('/login', { replace: true })
   }
 
-  function isNavActive(item) {
-    const path = location.pathname
-    const search = location.search
-    if (item.kind === 'manual') {
-      return path.startsWith('/modules/bdr/discagem') && search.includes('mode=manual')
-    }
-    if (item.kind === 'auto') {
-      return path.startsWith('/modules/bdr/discagem') && !search.includes('mode=manual')
-    }
-    if (item.end) return path === item.to
-    return path.startsWith(item.to.split('?')[0])
+  function toggleGroup(id) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   return (
     <div className={`dialer-layout${collapsed ? ' dialer-layout--collapsed' : ' dialer-layout--expanded'}`}>
       <aside className="dialer-layout__sidebar" aria-label="CRM IMP GROUP">
         <div className="dialer-layout__brand">
-          <button
-            type="button"
-            className="dialer-layout__home"
-            title="Voltar aos módulos IMP"
-            onClick={() => navigate('/dashboard')}
-          >
-            IMP
-          </button>
-          {!collapsed ? (
+          {collapsed ? (
+            <span className="dialer-layout__brand-mark" title="CRM IMP GROUP">
+              CRM
+            </span>
+          ) : (
             <div className="dialer-layout__brand-text">
               <strong>CRM IMP GROUP</strong>
-              <span>Prospecções</span>
             </div>
-          ) : null}
+          )}
         </div>
 
         <button
@@ -149,23 +165,92 @@ function DialerShell() {
           {collapsed ? '›' : '‹'}
         </button>
 
-        <p className="dialer-layout__nav-group">{collapsed ? 'Pros.' : 'Prospecções'}</p>
+        <nav aria-label="Módulos">
+          {MODULE_NAV.map((group) => {
+            const groupActive = activeGroupIds.includes(group.id)
+            const expanded = !collapsed && openGroups.has(group.id)
 
-        <nav aria-label="Discagem Automática">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              title={item.label}
-              className={() =>
-                `dialer-layout__nav-link${isNavActive(item) ? ' dialer-layout__nav-link--active' : ''}`
+            if (collapsed) {
+              const firstLink = group.children.find((child) => child.to)
+              const className = `dialer-layout__nav-link${groupActive ? ' dialer-layout__nav-link--active' : ''}`
+              if (firstLink?.to) {
+                return (
+                  <NavLink
+                    key={group.id}
+                    to={firstLink.to}
+                    title={group.label}
+                    className={() => className}
+                  >
+                    <DialerIcon name={group.icon} />
+                    <span className="dialer-layout__nav-short">{group.shortLabel}</span>
+                  </NavLink>
+                )
               }
-            >
-              <DialerIcon name={item.icon} />
-              <span>{collapsed ? item.shortLabel || item.label : item.label}</span>
-            </NavLink>
-          ))}
+              return (
+                <button key={group.id} type="button" className={className} title={`${group.label} (em breve)`}>
+                  <DialerIcon name={group.icon} />
+                  <span className="dialer-layout__nav-short">{group.shortLabel}</span>
+                </button>
+              )
+            }
+
+            return (
+              <div
+                key={group.id}
+                className={`dialer-layout__group${groupActive ? ' dialer-layout__group--active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="dialer-layout__group-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => toggleGroup(group.id)}
+                >
+                  <DialerIcon name={group.icon} />
+                  <span className="dialer-layout__nav-label">{group.label}</span>
+                  <span
+                    className={`dialer-layout__chevron${expanded ? ' dialer-layout__chevron--open' : ''}`}
+                  >
+                    <DialerIcon name="chevron" />
+                  </span>
+                </button>
+
+                {expanded ? (
+                  <div className="dialer-layout__subnav">
+                    {group.children.map((child) => {
+                      const active = child.match?.(location.pathname)
+                      const childClass = `dialer-layout__sublink${active ? ' dialer-layout__sublink--active' : ''}`
+
+                      if (!child.to) {
+                        return (
+                          <button
+                            key={child.id}
+                            type="button"
+                            className={childClass}
+                            title={`${child.label} (em breve)`}
+                          >
+                            <DialerIcon name="doc" />
+                            <span>{child.label}</span>
+                          </button>
+                        )
+                      }
+
+                      return (
+                        <NavLink
+                          key={child.id}
+                          to={child.to}
+                          title={child.label}
+                          className={() => childClass}
+                        >
+                          <DialerIcon name="doc" />
+                          <span>{child.label}</span>
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
         </nav>
 
         <div className="dialer-layout__sidebar-foot">
@@ -182,11 +267,6 @@ function DialerShell() {
 
       <div className="dialer-layout__shell">
         <header className="dialer-layout__header">
-          <div className="dialer-layout__header-left">
-            <span className="dialer-layout__product">CRM IMP</span>
-            <span className="dialer-layout__product-sub">Sistema de Gestão de Leads</span>
-          </div>
-
           <div className="dialer-layout__header-actions">
             <AttendanceTimer />
             <div className="dialer-layout__role-block">
