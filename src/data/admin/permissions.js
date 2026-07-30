@@ -1,4 +1,9 @@
 import { BDR_PERMISSION_CATALOG } from '../../modules/bdr/services/bdrPermissions.js'
+import { TRAINING_PERMISSION_CATALOG } from '../../modules/training-ai/services/trainingPermissions.js'
+import { PROSPECTING_PERMISSION_CATALOG } from '../../modules/prospecting/services/prospectingPermissions.js'
+import { RADAR_PERMISSION_CATALOG } from '../../modules/radar/services/radarPermissions.js'
+import { WEBINAR_PERMISSION_CATALOG } from '../../modules/webinar/services/webinarPermissions.js'
+import { VSL_PERMISSION_CATALOG } from '../../modules/vsl/services/vslPermissions.js'
 
 /**
  * Permission catalog for future RBAC / module access control.
@@ -54,7 +59,12 @@ export const permissions = [
     description: 'Acesso operacional ao módulo de prospecção.',
     scope: 'module',
   },
+  ...TRAINING_PERMISSION_CATALOG,
   ...BDR_PERMISSION_CATALOG,
+  ...PROSPECTING_PERMISSION_CATALOG,
+  ...RADAR_PERMISSION_CATALOG,
+  ...WEBINAR_PERMISSION_CATALOG,
+  ...VSL_PERMISSION_CATALOG,
 ]
 
 export const rolePermissionMap = {
@@ -68,11 +78,26 @@ export const rolePermissionMap = {
   imp: [
     'modules.access',
     'prospecting.use',
+    'training.view',
+    'training.simulate',
+    'training.report',
     'bdr.operate',
     'bdr.campaigns.select',
     'bdr.history.self',
     'bdr.history.team',
     'bdr.schedule',
     'bdr.scripts.view',
+    'prospecting.search',
+    'prospecting.qualify',
+    'prospecting.send_bdr',
+    'radar.dashboard',
+    'radar.analyze',
+    'radar.insights',
+    'webinar.manage',
+    'webinar.participants',
+    'webinar.metrics',
+    'vsl.campaigns',
+    'vsl.configure',
+    'vsl.metrics',
   ],
 }

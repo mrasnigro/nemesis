@@ -36,7 +36,7 @@ export const users = [
     customerId: 'cus_001',
     status: 'active',
     permissions: ['modules.access'],
-    assignedModules: ['training-ai', 'bdr', 'prospecting', 'webinar'],
+    assignedModules: ['training-ai', 'bdr', 'prospecting', 'webinar', 'radar', 'vsl'],
     lastLoginAt: '2026-07-24T18:05:00Z',
     profile: 'bdr',
   },

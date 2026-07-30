@@ -54,7 +54,8 @@ const MODULE_NAV = [
       {
         id: 'simular-ia',
         label: 'Simular IA',
-        to: null,
+        to: '/modules/training-ai',
+        match: (path) => path.startsWith('/modules/training-ai'),
       },
     ],
   },

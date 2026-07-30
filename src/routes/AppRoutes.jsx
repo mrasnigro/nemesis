@@ -21,12 +21,35 @@ import {
   BdrPainelPage,
 } from '../modules/bdr'
 import {
-  ProspectingPage,
-  RadarPage,
-  TrainingAiPage,
-  VslPage,
-  WebinarPage,
-} from '../pages/modules'
+  TrainingAiLayout,
+  TrainingCatalogPage,
+  TrainingReportPage,
+  TrainingSimulationPage,
+} from '../modules/training-ai'
+import {
+  ProspectingLayout,
+  ProspectQualifyPage,
+  ProspectSearchPage,
+  ProspectSendBdrPage,
+} from '../modules/prospecting'
+import {
+  RadarAnalysisPage,
+  RadarDashboardPage,
+  RadarInsightPage,
+  RadarLayout,
+} from '../modules/radar'
+import {
+  WebinarDetailPage,
+  WebinarEventsPage,
+  WebinarLayout,
+  WebinarMetricsPage,
+} from '../modules/webinar'
+import {
+  VslCampaignsPage,
+  VslConfigurePage,
+  VslLayout,
+  VslMetricsPage,
+} from '../modules/vsl'
 import ModuleAccessRoute from './ModuleAccessRoute'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -57,46 +80,76 @@ export default function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route
-          path="/modules/training-ai"
-          element={
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="training-ai">
-              <TrainingAiPage />
+              <TrainingAiLayout />
             </ModuleRoute>
-          }
-        />
-        <Route
-          path="/modules/prospecting"
-          element={
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/training-ai" element={<TrainingCatalogPage />} />
+        <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />
+        <Route path="/modules/training-ai/relatorio/:scenarioId" element={<TrainingReportPage />} />
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="prospecting">
-              <ProspectingPage />
+              <ProspectingLayout />
             </ModuleRoute>
-          }
-        />
-        <Route
-          path="/modules/radar"
-          element={
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/prospecting" element={<ProspectSearchPage />} />
+        <Route path="/modules/prospecting/qualify/:companyId" element={<ProspectQualifyPage />} />
+        <Route path="/modules/prospecting/enviar-bdr" element={<ProspectSendBdrPage />} />
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="radar">
-              <RadarPage />
+              <RadarLayout />
             </ModuleRoute>
-          }
-        />
-        <Route
-          path="/modules/webinar"
-          element={
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/radar" element={<RadarDashboardPage />} />
+        <Route path="/modules/radar/analise" element={<RadarAnalysisPage />} />
+        <Route path="/modules/radar/insight/:insightId" element={<RadarInsightPage />} />
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="webinar">
-              <WebinarPage />
+              <WebinarLayout />
             </ModuleRoute>
-          }
-        />
-        <Route
-          path="/modules/vsl"
-          element={
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/webinar" element={<WebinarEventsPage />} />
+        <Route path="/modules/webinar/:eventId" element={<WebinarDetailPage />} />
+        <Route path="/modules/webinar/:eventId/metricas" element={<WebinarMetricsPage />} />
+      </Route>
+
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="vsl">
-              <VslPage />
+              <VslLayout />
             </ModuleRoute>
-          }
-        />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/vsl" element={<VslCampaignsPage />} />
+        <Route path="/modules/vsl/:campaignId" element={<VslConfigurePage />} />
+        <Route path="/modules/vsl/:campaignId/metricas" element={<VslMetricsPage />} />
       </Route>
 
       <Route

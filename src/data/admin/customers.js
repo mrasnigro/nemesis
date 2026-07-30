@@ -10,7 +10,7 @@ export const customers = [
     plan: 'Enterprise',
     status: 'active',
     usersCount: 18,
-    modulesEnabled: ['training-ai', 'bdr', 'prospecting', 'webinar'],
+    modulesEnabled: ['training-ai', 'bdr', 'prospecting', 'webinar', 'radar', 'vsl'],
     createdAt: '2025-11-12',
     metrics: {
       leads: 1284,
