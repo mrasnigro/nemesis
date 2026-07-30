@@ -1,6 +1,31 @@
 import { OPERATOR_STATUSES } from '../data/catalogs.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 
+function StatusGlyph({ id }) {
+  if (id === 'intervalo') {
+    return (
+      <span className="bdr-home__status-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path fill="currentColor" d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+        </svg>
+      </span>
+    )
+  }
+  if (id === 'indisponivel') {
+    return (
+      <span className="bdr-home__status-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M13 3h-2v10h2V3zm-1 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+          />
+        </svg>
+      </span>
+    )
+  }
+  return <span className="bdr-home__status-dot" aria-hidden="true" />
+}
+
 export default function OperatorStatusBar() {
   const { operatorStatus, setOperatorStatus, canTransitionOperator, getStatusButtonTitle } =
     useBdrSession()
@@ -30,7 +55,7 @@ export default function OperatorStatusBar() {
             aria-pressed={active}
             onClick={() => setOperatorStatus(item.id)}
           >
-            <span className="bdr-home__status-dot" aria-hidden="true" />
+            <StatusGlyph id={item.id} />
             {item.label}
           </button>
         )

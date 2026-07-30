@@ -17,6 +17,11 @@ export default function CampaignList() {
         {campaigns.map((campaign) => {
           const selected = selectedCampaignId === campaign.id
           const statusLabel = selected ? 'Selecionada' : campaignStatusLabel(campaign.status)
+          const badgeTone = selected
+            ? 'selected'
+            : campaign.status === 'active'
+              ? 'active'
+              : 'paused'
           return (
             <li key={campaign.id}>
               <button
@@ -27,7 +32,10 @@ export default function CampaignList() {
               >
                 <div className="bdr-home__campaign-top">
                   <strong>{campaign.name}</strong>
-                  <span>{statusLabel}</span>
+                  <span className={`bdr-home__badge bdr-home__badge--${badgeTone}`}>
+                    {selected ? '✓ ' : ''}
+                    {statusLabel}
+                  </span>
                 </div>
                 <div className="bdr-home__progress" aria-hidden="true">
                   <span style={{ width: `${campaign.progress}%` }} />

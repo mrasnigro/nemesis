@@ -1,0 +1,53 @@
+/**
+ * BDR visual tokens — acelereseucrescimento / CRM IMP as-is (UI reference §1).
+ * Scoped under .dialer-layout so IMP shell outside BDR is unchanged.
+ */
+
+.dialer-layout {
+  --bdr-void: #0f172a;
+  --bdr-chrome: #111827;
+  --bdr-sidebar: #1f2937;
+  --bdr-panel: #1e293b;
+  --bdr-control: #334155;
+  --bdr-control-alt: #374151;
+  --bdr-border: #374151;
+  --bdr-border-soft: rgba(75, 85, 99, 0.55);
+  --bdr-text: #ffffff;
+  --bdr-text-secondary: #94a3b8;
+  --bdr-text-muted: #64748b;
+  --bdr-brand: #f59e0b;
+  --bdr-brand-strong: #d97706;
+  --bdr-brand-deep: #785820;
+  --bdr-schedule: #d87000;
+  --bdr-searching: #f87810;
+  --bdr-connected: #18b050;
+  --bdr-ready: #22c55e;
+  --bdr-hangup: #ef4444;
+  --bdr-unavailable: #581828;
+  --bdr-link: #38bdf8;
+  --bdr-script-h: #60a5fa;
+  --bdr-progress-a: #2dd4bf;
+  --bdr-progress-b: #22c55e;
+  --bdr-radius-sm: 8px;
+  --bdr-radius-md: 10px;
+  --bdr-radius-lg: 12px;
+  --bdr-pad-page: 1.75rem;
+  --bdr-gap: 1.15rem;
+
+  /* Remap shared dialer vars inside BDR shell */
+  --dialer-panel: var(--bdr-panel);
+  --dialer-panel-active: var(--bdr-brand-deep);
+  --dialer-muted: var(--bdr-text-secondary);
+  --text-muted: var(--bdr-text-secondary);
+  --text-h: var(--bdr-text);
+  --brand: var(--bdr-brand);
+  --brand-strong: var(--bdr-brand-strong);
+  --brand-ink: #111827;
+  --radius-sm: var(--bdr-radius-sm);
+  --radius-md: var(--bdr-radius-md);
+  --radius-lg: var(--bdr-radius-lg);
+
+  background: var(--bdr-void);
+  color: #e2e8f0;
+  font-family: var(--sans);
+}

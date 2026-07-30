@@ -1,16 +1,40 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { BdrSessionProvider, useBdrSession } from '../modules/bdr'
 import { formatDurationHHMMSS } from '../modules/bdr/services/formatters.js'
 import { useWorkspace } from '../workspace/WorkspaceContext'
+import '../modules/bdr/styles/bdr-theme.css'
 import './DialerLayout.css'
 
 const NAV = [
   { to: '/modules/bdr', end: true, label: 'Painel', icon: 'grid' },
-  { to: '/modules/bdr/discagem?mode=automatic', label: 'Discagem', icon: 'phone', kind: 'auto' },
-  { to: '/modules/bdr/discagem?mode=manual', label: 'Manual', icon: 'call', kind: 'manual' },
-  { to: '/modules/bdr/historico', label: 'Histórico', icon: 'history' },
-  { to: '/modules/bdr/agendamentos', label: 'Agenda', icon: 'calendar' },
+  {
+    to: '/modules/bdr/discagem?mode=automatic',
+    label: 'Discagem Automática',
+    shortLabel: 'Discagem',
+    icon: 'phone',
+    kind: 'auto',
+  },
+  {
+    to: '/modules/bdr/discagem?mode=manual',
+    label: 'Ligação Manual',
+    shortLabel: 'Manual',
+    icon: 'call',
+    kind: 'manual',
+  },
+  {
+    to: '/modules/bdr/historico',
+    label: 'Histórico de Chamadas',
+    shortLabel: 'Histórico',
+    icon: 'history',
+  },
+  {
+    to: '/modules/bdr/agendamentos',
+    label: 'Agendamentos Realizados',
+    shortLabel: 'Agenda',
+    icon: 'calendar',
+  },
 ]
 
 function DialerIcon({ name }) {
@@ -75,6 +99,7 @@ function DialerShell() {
   const { currentUser } = useWorkspace()
   const navigate = useNavigate()
   const location = useLocation()
+  const [collapsed, setCollapsed] = useState(true)
 
   function handleLogout() {
     logout()
@@ -95,16 +120,36 @@ function DialerShell() {
   }
 
   return (
-    <div className="dialer-layout">
-      <aside className="dialer-layout__sidebar">
+    <div className={`dialer-layout${collapsed ? ' dialer-layout--collapsed' : ' dialer-layout--expanded'}`}>
+      <aside className="dialer-layout__sidebar" aria-label="CRM IMP GROUP">
+        <div className="dialer-layout__brand">
+          <button
+            type="button"
+            className="dialer-layout__home"
+            title="Voltar aos módulos IMP"
+            onClick={() => navigate('/dashboard')}
+          >
+            IMP
+          </button>
+          {!collapsed ? (
+            <div className="dialer-layout__brand-text">
+              <strong>CRM IMP GROUP</strong>
+              <span>Prospecções</span>
+            </div>
+          ) : null}
+        </div>
+
         <button
           type="button"
-          className="dialer-layout__home"
-          title="Voltar aos módulos"
-          onClick={() => navigate('/dashboard')}
+          className="dialer-layout__collapse"
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          onClick={() => setCollapsed((v) => !v)}
         >
-          IMP
+          {collapsed ? '›' : '‹'}
         </button>
+
+        <p className="dialer-layout__nav-group">{collapsed ? 'Pros.' : 'Prospecções'}</p>
 
         <nav aria-label="Discagem Automática">
           {NAV.map((item) => (
@@ -118,27 +163,36 @@ function DialerShell() {
               }
             >
               <DialerIcon name={item.icon} />
-              <span>{item.label}</span>
+              <span>{collapsed ? item.shortLabel || item.label : item.label}</span>
             </NavLink>
           ))}
         </nav>
+
+        <div className="dialer-layout__sidebar-foot">
+          <button
+            type="button"
+            className="dialer-layout__modules"
+            onClick={() => navigate('/dashboard')}
+            title="Voltar aos módulos"
+          >
+            {collapsed ? 'Mods' : 'Módulos IMP'}
+          </button>
+        </div>
       </aside>
 
       <div className="dialer-layout__shell">
         <header className="dialer-layout__header">
-          <AttendanceTimer />
+          <div className="dialer-layout__header-left">
+            <span className="dialer-layout__product">CRM IMP</span>
+            <span className="dialer-layout__product-sub">Sistema de Gestão de Leads</span>
+          </div>
 
           <div className="dialer-layout__header-actions">
-            <span className="dialer-layout__role">
-              {currentUser?.name || user?.name} · BDR — Prospecção
-            </span>
-            <button
-              type="button"
-              className="dialer-layout__modules"
-              onClick={() => navigate('/dashboard')}
-            >
-              Módulos
-            </button>
+            <AttendanceTimer />
+            <div className="dialer-layout__role-block">
+              <strong>BDR - Prospecção</strong>
+              <span>{currentUser?.name || user?.name || 'Operador'}</span>
+            </div>
             <button type="button" className="dialer-layout__logout" onClick={handleLogout}>
               Sair
             </button>

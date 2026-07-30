@@ -20,8 +20,18 @@ export default function CallStatusBand() {
       role="status"
     >
       <div className="bdr-call-band__left">
-        <strong>{searching ? 'Aguardando ligação…' : 'Falando'}</strong>
-        {connected && phone ? <span>{phone}</span> : searching ? <span>…</span> : null}
+        <span className="bdr-call-band__phone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path
+              fill="currentColor"
+              d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.3 1.2.4 2.5.6 3.8.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.6 22 2 13.4 2 2.9 2 2.4 2.4 2 3 2h3.5c.6 0 1 .4 1 1 0 1.3.2 2.6.6 3.8.1.4 0 .8-.3 1.1L6.6 10.8z"
+            />
+          </svg>
+        </span>
+        <div>
+          <strong>{searching ? 'Aguardando ligação…' : 'Falando'}</strong>
+          {connected && phone ? <span>{phone}</span> : searching ? <span>…</span> : null}
+        </div>
       </div>
       <div className="bdr-call-band__right">
         <span>Tempo decorrido</span>

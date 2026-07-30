@@ -10,6 +10,7 @@ export default function MetricCards() {
       value: String(metrics.totalCalls),
       hint: `↑ ${metrics.weekDeltaPercent}% vs semana anterior`,
       hintTone: 'up',
+      valueTone: '',
     },
     {
       id: 'today',
@@ -17,6 +18,7 @@ export default function MetricCards() {
       value: String(metrics.callsToday),
       hint: `Meta: ${metrics.callsGoal} ligações`,
       hintTone: 'warn',
+      valueTone: 'today',
     },
     {
       id: 'duration',
@@ -24,6 +26,7 @@ export default function MetricCards() {
       value: metrics.averageDurationLabel,
       hint: 'Última semana',
       hintTone: 'muted',
+      valueTone: '',
     },
     {
       id: 'meetings',
@@ -31,13 +34,17 @@ export default function MetricCards() {
       value: String(metrics.meetingsScheduled),
       hint: `Meta: ${metrics.meetingsGoal} agendamentos`,
       hintTone: 'up',
+      valueTone: 'meetings',
     },
   ]
 
   return (
     <div className="bdr-home__metrics">
       {cards.map((metric) => (
-        <article key={metric.id} className="bdr-home__metric">
+        <article
+          key={metric.id}
+          className={`bdr-home__metric${metric.valueTone ? ` bdr-home__metric--${metric.valueTone}` : ''}`}
+        >
           <p>{metric.label}</p>
           <strong>{metric.value}</strong>
           <span className={`bdr-home__hint bdr-home__hint--${metric.hintTone}`}>{metric.hint}</span>

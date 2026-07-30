@@ -30,7 +30,9 @@ export default function LeadCompanyPanel() {
         {rows.map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
-            <strong>{value || '—'}</strong>
+            <strong className={label === 'Identificador' ? 'bdr-lead-panel__link' : undefined}>
+              {value || '—'}
+            </strong>
           </div>
         ))}
       </div>

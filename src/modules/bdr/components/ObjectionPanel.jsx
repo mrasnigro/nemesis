@@ -26,10 +26,22 @@ export default function ObjectionPanel() {
   return (
     <div className="bdr-objections">
       <div className="bdr-objections__toolbar">
-        <h3>Questionamentos Padrão</h3>
-        <span className="bdr-objections__note">
-          Conteúdo de referência — use como apoio, não como motor de branch.
-        </span>
+        <div>
+          <h3>Questionamentos Padrão</h3>
+          <span className="bdr-objections__note">
+            Conteúdo de referência — use como apoio, não como motor de branch.
+          </span>
+        </div>
+        <button
+          type="button"
+          className="bdr-objections__external"
+          title="No IMP os questionamentos permanecem nesta aba"
+          onClick={() => {
+            window.alert('Questionamentos disponíveis nesta aba (fluxo dentro do IMP).')
+          }}
+        >
+          Abrir Questionamentos em nova janela
+        </button>
       </div>
 
       <ul className="bdr-objections__cats">
