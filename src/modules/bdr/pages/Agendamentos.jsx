@@ -17,9 +17,10 @@ export default function BdrAgendamentosPage() {
       </div>
 
       <article className="bdr-section__card">
-        <p className="bdr-foundation-placeholder">
+        <p className="bdr-script__hint">
           Horário de funcionamento: {SCHEDULE_HOURS.open} – {SCHEDULE_HOURS.close} · Intervalo:{' '}
-          {SCHEDULE_HOURS.intervalMin} min (calendário completo na fase de scheduling).
+          {SCHEDULE_HOURS.intervalMin} min. Reuniões criadas na Discagem aparecem aqui na mesma
+          sessão.
         </p>
 
         <ul className="bdr-meeting-list">

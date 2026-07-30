@@ -10,8 +10,10 @@ import {
 import {
   AUTO_INDISPONIVEL_MS,
   CAMPAIGN_STORAGE_KEY,
+  DISPOSITIONS,
   SEARCH_CONNECT_SECONDS,
 } from '../data/catalogs.js'
+import { isScriptCompleted } from '../data/scriptContent.js'
 import {
   createEmptyDiagnosis,
   createEmptyScriptProgress,
@@ -36,6 +38,13 @@ import {
   statusButtonTitle,
   transitionOperatorStatus,
 } from '../services/operatorStatusMachine.js'
+import {
+  advanceSectionAfterAnswer,
+  commercialDispositionRequiresDepth,
+  mapScriptRadioToDiagnosis,
+  syncDiagnosisSelectToScriptAnswer,
+  togglePainSelection,
+} from '../services/scriptSync.js'
 
 const BdrSessionContext = createContext(null)
 
@@ -159,6 +168,83 @@ function reducer(state, action) {
         ...state,
         scriptProgress: { ...state.scriptProgress, ...action.patch },
       }
+
+    case 'ANSWER_SCRIPT_RADIO': {
+      const mapped = mapScriptRadioToDiagnosis(action.name, action.value)
+      if (!mapped) return state
+      const answered = {
+        ...state.scriptProgress.answered,
+        [mapped.answeredKey]: action.value,
+      }
+      const nextProgress = {
+        ...state.scriptProgress,
+        answered,
+        section: advanceSectionAfterAnswer(state.scriptProgress.section, mapped.answeredKey),
+      }
+      if (isScriptCompleted({ ...nextProgress, painsTouched: nextProgress.painsTouched })) {
+        nextProgress.completed = true
+        nextProgress.section = 'confirmacao'
+      }
+      return {
+        ...state,
+        diagnosis: { ...state.diagnosis, ...mapped.diagnosis },
+        scriptProgress: nextProgress,
+      }
+    }
+
+    case 'TOGGLE_PAIN': {
+      const { pains, painPoints } = togglePainSelection(state.diagnosis.pains || {}, action.painId)
+      const nextProgress = {
+        ...state.scriptProgress,
+        painsTouched: true,
+        section:
+          state.scriptProgress.section === 'dores_intro' ||
+          state.scriptProgress.section === 'abertura'
+            ? 'dores'
+            : state.scriptProgress.section,
+      }
+      if (isScriptCompleted(nextProgress)) {
+        nextProgress.completed = true
+      }
+      return {
+        ...state,
+        diagnosis: { ...state.diagnosis, pains, painPoints },
+        scriptProgress: nextProgress,
+      }
+    }
+
+    case 'PATCH_DIAGNOSIS_FIELD': {
+      const synced = syncDiagnosisSelectToScriptAnswer(action.field, action.value)
+      const answered = { ...state.scriptProgress.answered }
+      if (synced.answeredKey) {
+        answered[synced.answeredKey] = action.value
+      }
+      const nextProgress = { ...state.scriptProgress, answered }
+      if (isScriptCompleted(nextProgress)) {
+        nextProgress.completed = true
+      }
+      return {
+        ...state,
+        diagnosis: { ...state.diagnosis, ...synced.diagnosis },
+        scriptProgress: nextProgress,
+      }
+    }
+
+    case 'SET_SCRIPT_SECTION':
+      return {
+        ...state,
+        scriptProgress: { ...state.scriptProgress, section: action.section },
+      }
+
+    case 'MARK_SCRIPT_COMPLETED': {
+      const next = {
+        ...state.scriptProgress,
+        completed: true,
+        section: 'confirmacao',
+        painsTouched: true,
+      }
+      return { ...state, scriptProgress: next }
+    }
 
     case 'SET_DISPOSITION':
       return { ...state, dispositionId: action.dispositionId }
@@ -344,8 +430,28 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'PATCH_DIAGNOSIS', patch })
   }, [])
 
+  const patchDiagnosisField = useCallback((field, value) => {
+    dispatch({ type: 'PATCH_DIAGNOSIS_FIELD', field, value })
+  }, [])
+
   const patchScriptProgress = useCallback((patch) => {
     dispatch({ type: 'PATCH_SCRIPT_PROGRESS', patch })
+  }, [])
+
+  const answerScriptRadio = useCallback((name, value) => {
+    dispatch({ type: 'ANSWER_SCRIPT_RADIO', name, value })
+  }, [])
+
+  const togglePain = useCallback((painId) => {
+    dispatch({ type: 'TOGGLE_PAIN', painId })
+  }, [])
+
+  const setScriptSection = useCallback((section) => {
+    dispatch({ type: 'SET_SCRIPT_SECTION', section })
+  }, [])
+
+  const markScriptCompleted = useCallback(() => {
+    dispatch({ type: 'MARK_SCRIPT_COMPLETED' })
   }, [])
 
   const setDisposition = useCallback((dispositionId) => {
@@ -367,10 +473,28 @@ export function BdrSessionProvider({ children }) {
 
   const finalizeAttendance = useCallback(
     async ({ dispositionId, salesTemperature, notes, diagnosis } = {}) => {
+      if (state.call.status !== 'connected') {
+        return { ok: false, error: 'Finalize somente com chamada conectada.' }
+      }
       const disposition = dispositionId ?? state.dispositionId
       if (!disposition) {
         return { ok: false, error: 'Selecione uma qualificação (disposição).' }
       }
+      const diag = diagnosis || state.diagnosis
+      const temp = salesTemperature ?? state.salesTemperature
+      if (commercialDispositionRequiresDepth(disposition)) {
+        const hasPain =
+          Boolean(diag.painPoints) || Object.values(diag.pains || {}).some(Boolean)
+        if (!hasPain && !diag.conversationSummary) {
+          return {
+            ok: false,
+            error:
+              'Para esta qualificação comercial, registre dores ou resumo da conversa antes de finalizar.',
+          }
+        }
+      }
+      const dispositionMeta = DISPOSITIONS.find((d) => d.id === disposition)
+      const qualificationLabel = dispositionMeta?.label || disposition
       const lead = state.call.currentLead
       const phone =
         state.call.mode === 'manual' && state.call.manualPhone
@@ -381,22 +505,21 @@ export function BdrSessionProvider({ children }) {
         phone,
         company: lead?.company || (state.call.mode === 'manual' ? 'Manual' : ''),
         leadName: lead?.name || '',
-        qualification:
-          // resolved in UI via catalogs; store id + label later phases
-          disposition,
+        qualification: qualificationLabel,
         qualificationId: disposition,
+        result: qualificationLabel,
         duration: state.call.elapsedTime,
         method: state.call.contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telefone Fixo',
         timestamp: new Date().toLocaleString('pt-BR'),
         notes: notes ?? state.notes,
         diagnosis: {
-          ...(diagnosis || state.diagnosis),
-          salesTemperature: salesTemperature ?? state.salesTemperature,
+          ...diag,
+          salesTemperature: temp,
         },
         campaignId: state.selectedCampaignId,
         mode: state.call.mode || 'automatic',
         callStatus: 'Atendida',
-        clientStatus: disposition,
+        clientStatus: qualificationLabel,
         protocol: lead?.protocol,
       }
       await mockBdrRepository.saveHistory(row)
@@ -416,11 +539,13 @@ export function BdrSessionProvider({ children }) {
   const value = useMemo(() => {
     const dialAllowed = isDialAllowed(state.operatorStatus)
     const scheduleAllowed = state.call.status === 'connected'
+    const scriptCompleted = isScriptCompleted(state.scriptProgress)
 
     return {
       ...state,
       dialAllowed,
       scheduleAllowed,
+      scriptCompleted,
       searchConnectSeconds: SEARCH_CONNECT_SECONDS,
       autoIndisponivelMs: AUTO_INDISPONIVEL_MS,
       canTransitionOperator: (to) => canTransition(state.operatorStatus, to),
@@ -432,7 +557,12 @@ export function BdrSessionProvider({ children }) {
       startManual,
       setActiveTab,
       patchDiagnosis,
+      patchDiagnosisField,
       patchScriptProgress,
+      answerScriptRadio,
+      togglePain,
+      setScriptSection,
+      markScriptCompleted,
       setDisposition,
       setSalesTemperature,
       setNotes,
@@ -449,7 +579,12 @@ export function BdrSessionProvider({ children }) {
     startManual,
     setActiveTab,
     patchDiagnosis,
+    patchDiagnosisField,
     patchScriptProgress,
+    answerScriptRadio,
+    togglePain,
+    setScriptSection,
+    markScriptCompleted,
     setDisposition,
     setSalesTemperature,
     setNotes,

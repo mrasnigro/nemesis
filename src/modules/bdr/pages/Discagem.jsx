@@ -1,21 +1,24 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import CallStatusBand, { DialerTabBar } from '../components/CallStatusBand.jsx'
 import LeadCompanyPanel from '../components/LeadCompanyPanel.jsx'
 import ManualDialForm from '../components/ManualDialForm.jsx'
+import ObjectionPanel from '../components/ObjectionPanel.jsx'
+import QualificationForm from '../components/QualificationForm.jsx'
+import SalesScript from '../components/SalesScript.jsx'
+import ScheduleMeetingModal from '../components/ScheduleMeetingModal.jsx'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 import '../../../pages/modules/Bdr.css'
 import '../styles/bdr-foundation.css'
 
 /**
- * Foundation discagem workspace.
- * Full script / objections / diagnosis finalize UI land in later phases;
- * session machines + searching/connected loop are live here.
+ * Discagem workspace — searching/connected + full script / objections / diagnosis.
  */
 export default function BdrDiscagemPage() {
   const [params] = useSearchParams()
   const mode = params.get('mode') === 'manual' ? 'manual' : 'automatic'
   const autoStartedRef = useRef(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const {
     call,
     dialAllowed,
@@ -23,6 +26,7 @@ export default function BdrDiscagemPage() {
     startAutomatic,
     hangupToIdle,
     activeTab,
+    scriptCompleted,
   } = useBdrSession()
 
   useEffect(() => {
@@ -39,6 +43,7 @@ export default function BdrDiscagemPage() {
 
   const showManualForm = mode === 'manual' && call.status === 'idle'
   const inCall = call.status === 'searching' || call.status === 'connected'
+  const openSchedule = () => setScheduleOpen(true)
 
   return (
     <section className="bdr-section bdr-discagem">
@@ -72,21 +77,11 @@ export default function BdrDiscagemPage() {
 
           {call.status === 'connected' && activeTab === 'company' ? <LeadCompanyPanel /> : null}
           {call.status === 'connected' && activeTab === 'script' ? (
-            <p className="bdr-foundation-placeholder">
-              Script de Abordagem — conteúdo completo na próxima fase (máquina e aba já
-              preparados).
-            </p>
+            <SalesScript onRequestSchedule={openSchedule} />
           ) : null}
-          {call.status === 'connected' && activeTab === 'questions' ? (
-            <p className="bdr-foundation-placeholder">
-              Questionamentos Padrão — categorias seed disponíveis em data/; UI na próxima fase.
-            </p>
-          ) : null}
+          {call.status === 'connected' && activeTab === 'questions' ? <ObjectionPanel /> : null}
           {call.status === 'connected' && activeTab === 'diagnosis' ? (
-            <p className="bdr-foundation-placeholder">
-              Anotações de Diagnóstico / termômetro / disposição — estado já no BdrSession;
-              formulário na próxima fase.
-            </p>
+            <QualificationForm onRequestSchedule={openSchedule} />
           ) : null}
 
           {call.status === 'searching' ? (
@@ -95,8 +90,20 @@ export default function BdrDiscagemPage() {
             </p>
           ) : null}
 
+          {call.status === 'connected' && scriptCompleted ? (
+            <p className="bdr-script__ok bdr-discagem__script-flag">
+              Script concluído — use Agendar Reunião e Finalizar Atendimento na aba de diagnóstico.
+            </p>
+          ) : null}
+
           <div className="bdr-discagem__footer">
-            <button type="button" className="bdr-discagem__schedule" disabled={!scheduleAllowed}>
+            <button
+              type="button"
+              className="bdr-discagem__schedule"
+              disabled={!scheduleAllowed}
+              title={!scheduleAllowed ? 'Aguarde a conexão da chamada' : undefined}
+              onClick={openSchedule}
+            >
               Agendar Reunião
             </button>
             <button type="button" className="bdr-discagem__hangup" onClick={hangupToIdle}>
@@ -105,6 +112,8 @@ export default function BdrDiscagemPage() {
           </div>
         </article>
       ) : null}
+
+      <ScheduleMeetingModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
     </section>
   )
 }

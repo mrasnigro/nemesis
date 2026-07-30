@@ -3,6 +3,8 @@
  * Campaign selection does NOT filter dialPool (live rule).
  */
 
+import { objectionCategorySummaries } from './objections.js'
+
 export const SEED_CAMPAIGNS = [
   {
     id: '1',
@@ -178,15 +180,7 @@ export const SEED_MEETINGS = [
   },
 ]
 
-export const SEED_OBJECTION_CATEGORIES = [
-  { id: 'produto', title: 'Sobre o produto', count: 5 },
-  { id: 'comparacao', title: 'Comparação com outros produtos', count: 2 },
-  { id: 'empresa', title: 'Sobre a empresa', count: 5 },
-  { id: 'preco', title: 'Preço e investimento', count: 2 },
-  { id: 'seguranca', title: 'Segurança para avançar', count: 4 },
-  { id: 'decisao', title: 'Decisão e alinhamento interno', count: 2 },
-  { id: 'timing', title: 'Objeções de timing e prioridade', count: 4 },
-]
+export const SEED_OBJECTION_CATEGORIES = objectionCategorySummaries()
 
 export function createEmptyDiagnosis() {
   return {
@@ -215,5 +209,8 @@ export function createEmptyScriptProgress() {
   return {
     section: 'abertura',
     answered: {},
+    painsTouched: false,
+    completed: false,
+    openObjectionCategoryId: null,
   }
 }
