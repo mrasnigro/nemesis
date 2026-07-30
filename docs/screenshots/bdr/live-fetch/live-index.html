@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="CRM IMP - Sistema de Gestão de Leads" />
+    <meta name="theme-color" content="#f59e0b" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <title>CRM IMP - Sistema de Gestão de Leads</title>
+    <script type="module" crossorigin src="/assets/index-B7vd5ih_.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BR17lsp1.css">
+
+    <style id="sales-thermometer-styles">
+      .sales-thermometer-range {
+        width: 100%;
+        height: 22px;
+        margin: 0;
+        padding: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        background: transparent;
+        cursor: pointer;
+      }
+      .sales-thermometer-range::-webkit-slider-runnable-track {
+        height: 8px;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #22c55e 100%);
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, .45);
+      }
+      .sales-thermometer-range::-webkit-slider-thumb {
+        width: 18px;
+        height: 18px;
+        margin-top: -5px;
+        appearance: none;
+        -webkit-appearance: none;
+        border: 3px solid #0f172a;
+        border-radius: 9999px;
+        background: #f8fafc;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .65);
+        transition: transform 160ms cubic-bezier(.23, 1, .32, 1), box-shadow 160ms cubic-bezier(.23, 1, .32, 1);
+      }
+      .sales-thermometer-range::-moz-range-track {
+        height: 8px;
+        border: 0;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #22c55e 100%);
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, .45);
+      }
+      .sales-thermometer-range::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border: 3px solid #0f172a;
+        border-radius: 9999px;
+        background: #f8fafc;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .65);
+      }
+      .sales-thermometer-range:hover::-webkit-slider-thumb,
+      .sales-thermometer-range:focus-visible::-webkit-slider-thumb {
+        transform: scale(1.12);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, .2), 0 3px 10px rgba(15, 23, 42, .7);
+      }
+      .sales-thermometer-range:focus-visible {
+        outline: 2px solid #60a5fa;
+        outline-offset: 4px;
+        border-radius: 9999px;
+      }
+      @media (max-width: 760px) {
+        #salesThermometer { width: min(100%, 260px) !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      (function () {
+        const ITEMS = [
+          { id: 'lucro', source: 'O dinheiro entra, mas não sobra | Lucro', text: 'O dinheiro entra, mas não sobra | Lucro', color: '#22D3EE' },
+          { id: 'vendas', source: 'As vendas caíram / dependo de indicação | Vendas / Crescimento', text: 'As vendas caíram / dependo de indicação | Vendas / Crescimento', color: '#4ADE80' },
+          { id: 'gestao', source: 'Vivo apagando incêndios | Gestão', text: 'Vivo apagando incêndios | Gestão', color: '#E879F9' },
+          { id: 'lideranca', source: 'A equipe depende de mim | Liderança', text: 'A equipe depende de mim | Liderança', color: '#60A5FA' },
+          { id: 'todos', source: 'Tenho problemas em tudo', text: 'Tenho problemas em tudo', color: '#F87171' },
+          { id: 'nenhum', source: 'Não tenho nenhum Problema', text: 'Não tenho nenhum Problema', color: '#A855F7' }
+        ];
+
+        const NEUTRAL_COLOR = '#64748B';
+        const HOVER_COLOR = '#7C8CA1';
+        const selections = window.__crmDiagnosisSelections || Object.fromEntries(ITEMS.map(item => [item.id, false]));
+        const initialized = window.__crmDiagnosisInitialized || Object.fromEntries(ITEMS.map(item => [item.id, false]));
+        window.__crmDiagnosisSelections = selections;
+        window.__crmDiagnosisInitialized = initialized;
+
+        const normalize = value => (value || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+
+        const itemFromCheckbox = checkbox => {
+          const details = checkbox.closest('details');
+          if (!details) return null;
+          const summary = details.querySelector(':scope > summary');
+          const sourceText = normalize(summary ? summary.textContent : checkbox.parentElement?.textContent);
+          return ITEMS.find(item => sourceText.includes(normalize(item.source))) || null;
+        };
+
+        const paintButton = (button, item) => {
+          const selected = Boolean(selections[item.id]);
+          button.setAttribute('data-selected', String(selected));
+          button.setAttribute('aria-pressed', String(selected));
+          button.style.backgroundColor = selected ? item.color : NEUTRAL_COLOR;
+          button.style.opacity = '1';
+          button.style.transform = 'translateY(0)';
+          button.style.boxShadow = selected
+            ? '0 0 0 2px rgba(248, 250, 252, 0.35), 0 4px 12px rgba(15, 23, 42, 0.45)'
+            : '0 2px 8px rgba(15, 23, 42, 0.35)';
+        };
+
+        const syncRenderedButtons = () => {
+          ITEMS.forEach(item => {
+            document.querySelectorAll(`[data-diagnosis-button="${item.id}"]`).forEach(button => paintButton(button, item));
+          });
+        };
+
+        const syncRenderedCheckboxes = () => {
+          document.querySelectorAll('input[data-diagnosis-source]').forEach(checkbox => {
+            const item = ITEMS.find(candidate => candidate.id === checkbox.getAttribute('data-diagnosis-source'));
+            if (item) checkbox.checked = Boolean(selections[item.id]);
+          });
+        };
+
+        const bindSourceCheckboxes = () => {
+          document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            const item = itemFromCheckbox(checkbox);
+            if (!item) return;
+
+            checkbox.setAttribute('data-diagnosis-source', item.id);
+            if (checkbox.getAttribute('data-diagnosis-bound') === 'true') return;
+
+            if (!initialized[item.id]) {
+              selections[item.id] = checkbox.checked;
+              initialized[item.id] = true;
+            } else {
+              checkbox.checked = Boolean(selections[item.id]);
+            }
+
+            checkbox.addEventListener('change', () => {
+              selections[item.id] = checkbox.checked;
+              syncRenderedButtons();
+            });
+            checkbox.setAttribute('data-diagnosis-bound', 'true');
+          });
+        };
+
+        const createButton = item => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = item.text;
+          button.setAttribute('data-diagnosis-button', item.id);
+          button.setAttribute('data-color', item.color);
+          button.style.color = 'white';
+          button.style.padding = '12px 16px';
+          button.style.borderRadius = '8px';
+          button.style.border = '1px solid #CBD5E1';
+          button.style.cursor = 'pointer';
+          button.style.fontWeight = '600';
+          button.style.textAlign = 'left';
+          button.style.minHeight = '48px';
+          button.style.transition = 'background-color 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s';
+          paintButton(button, item);
+
+          button.addEventListener('click', event => {
+            event.preventDefault();
+            selections[item.id] = !selections[item.id];
+            syncRenderedCheckboxes();
+            syncRenderedButtons();
+          });
+          button.addEventListener('mouseover', () => {
+            if (!selections[item.id]) {
+              button.style.backgroundColor = HOVER_COLOR;
+              button.style.transform = 'translateY(-1px)';
+              button.style.boxShadow = '0 5px 14px rgba(15, 23, 42, 0.5)';
+            } else {
+              button.style.opacity = '0.82';
+            }
+          });
+          button.addEventListener('mouseout', () => paintButton(button, item));
+          return button;
+        };
+
+        const injectDiagnosisButtons = () => {
+          document.querySelectorAll('[data-diagnosis-anchor="true"]').forEach(anchor => {
+            if (anchor.closest('#endCallModal')) return;
+            const parent = anchor.parentElement;
+            if (!parent || parent.querySelector(':scope > [data-diagnosis-buttons-v119="true"]')) return;
+
+            anchor.style.display = 'none';
+            const container = document.createElement('div');
+            container.setAttribute('data-diagnosis-buttons-v119', 'true');
+            container.style.marginBottom = '24px';
+
+            const title = document.createElement('h3');
+            title.textContent = 'Diagnóstico';
+            title.style.color = '#f8fafc';
+            title.style.fontSize = '18px';
+            title.style.fontWeight = '600';
+            title.style.marginBottom = '16px';
+
+            const subtitle = document.createElement('div');
+            subtitle.textContent = 'Dores dos Empresários';
+            subtitle.className = 'block text-slate-300 text-sm font-medium mb-2';
+
+            const grid = document.createElement('div');
+            grid.style.display = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+            grid.style.gap = '12px';
+
+            ITEMS.forEach(item => grid.appendChild(createButton(item)));
+            container.appendChild(title);
+            container.appendChild(subtitle);
+            container.appendChild(grid);
+            anchor.insertAdjacentElement('afterend', container);
+          });
+        };
+
+        const normalizeModal = () => {
+          const modal = document.getElementById('endCallModal');
+          if (!modal) return;
+
+          const content = document.getElementById('endCallModalContent');
+          if (content) {
+            content.style.width = '60vw';
+            content.style.height = '80vh';
+            content.style.maxWidth = '60vw';
+            content.style.maxHeight = '80vh';
+            content.style.boxSizing = 'border-box';
+            content.style.overflowY = 'auto';
+            content.style.padding = '24px';
+          }
+
+          const diagnosisTexts = new Set(ITEMS.map(item => item.text));
+          const diagnosisGrids = new Set();
+          modal.querySelectorAll('button').forEach(button => {
+            if (diagnosisTexts.has(button.textContent.trim())) diagnosisGrids.add(button.parentElement);
+          });
+          diagnosisGrids.forEach(grid => {
+            const wrapper = grid?.parentElement;
+            if (wrapper && wrapper.querySelector('h3')?.textContent.trim() === 'Diagnóstico') wrapper.remove();
+            else grid?.remove();
+          });
+
+          modal.querySelectorAll('label, h3, button').forEach(element => {
+            const text = element.textContent.trim();
+            if (text === 'REGISTRO DE DORES (PAIN POINTS)') element.textContent = 'REGISTRO DE PROBLEMAS E GARGALOS';
+            if (text === 'Análises do SDR') element.textContent = 'Percepção da conversa';
+            if (element.tagName === 'BUTTON' && text === 'Fechar') element.textContent = 'Finalizar Atendimento';
+          });
+
+          const title = modal.querySelector('h2');
+          if (title) title.style.marginBottom = '16px';
+          const deepTitle = Array.from(modal.querySelectorAll('h3')).find(element => element.textContent.trim() === 'Diagnóstico Profundo');
+          if (deepTitle) deepTitle.style.marginBottom = '4px';
+        };
+
+        const synchronize = () => {
+          bindSourceCheckboxes();
+          injectDiagnosisButtons();
+          syncRenderedCheckboxes();
+          syncRenderedButtons();
+          normalizeModal();
+        };
+
+        synchronize();
+        const observer = new MutationObserver(synchronize);
+        observer.observe(document.body, { childList: true, subtree: true });
+      })();
+    </script>
+  </body>
+</html>

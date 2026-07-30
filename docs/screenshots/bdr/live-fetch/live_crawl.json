@@ -1,0 +1,139 @@
+{
+  "pages": [
+    {
+      "path": "/",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "url": "https://acelereseucrescimento.com.br/",
+      "sample": "IMP\nCRM IMP\n\nSistema de Gestão de Leads\n\nUsuário\nSenha\nEntrar no Sistema\n\nCREDENCIAIS DE TESTE:\n\nBDR:\nbdr / bdr\nSDR:\nsdr / sdr\nAdmin:\nadmin / admin"
+    },
+    {
+      "path": "after-login",
+      "url": "https://acelereseucrescimento.com.br/dashboard",
+      "sample": "CRM\n\nTempo em atendimento\n\n00:00:00\n\nBDR - Prospecção\n\nOperador\n\nSair\n\nTotal de Ligações\n\n156\n\n↑ 12% vs semana anterior\n\nLigações Hoje\n\n23\n\nMeta: 30 ligações\n\nDuração Média\n\n3m 45s\n\nÚltima semana\n\nReuniões Agendadas\n\n4\n\nMeta: 10 agendamentos\n\n●\nDesconectado\n●\nEm atendimento\n❚❚\nEm intervalo\nIndisponível\nCampanhas Ativas\nCampanha Padrão\nSelecionada\n89 de 245 leads\n36%\nProspecção Fria - Região Sul\nAtiva\n234 de 512 leads\n46%\nFollow-up Clientes\nPausada\n156 de 156 leads\n100%\nAções Rápidas\nDiscagem Automática\nLigação Manual\nVer Histórico de Chamadas\nAgendamentos Realizados"
+    },
+    {
+      "path": "/dashboard",
+      "url": "https://acelereseucrescimento.com.br/dashboard",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\n\nTempo em atendimento\n\n00:00:00\n\nBDR - Prospecção\n\nOperador\n\nSair\n\nTotal de Ligações\n\n156\n\n↑ 12% vs semana anterior\n\nLigações Hoje\n\n23\n\nMeta: 30 ligações\n\nDuração Média\n\n3m 45s\n\nÚltima semana\n\nReuniões Agendadas\n\n4\n\nMeta: 10 agendamentos\n\n●\nDesconectado\n●\nEm atendimento\n❚❚\nEm intervalo\nIndisponível\nCampanhas Ativas\nCampanha Padrão\nSelecionada\n89 de 245 leads\n36%\nProspecção Fria - Região Sul\nAtiva\n234 de 512 leads\n46%\nFollow-up Clientes\nPausada\n156 de 156 leads\n100%\nAções Rápidas\nDiscagem Automática\nLigação Manual\nVer Histórico de Chamadas\nAgendamentos Realizados"
+    },
+    {
+      "path": "/sdr-dashboard",
+      "url": "https://acelereseucrescimento.com.br/sdr-dashboard",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\n\nBDR - Prospecção\n\nOperador\n\nSair\nPainel de Controle\n\nResumo das suas atividades de hoje\n\nConversas Ativas\n\n5\n\nem andamento\n\nMensagens Não Lidas\n\n3\n\naguardando resposta\n\nTempo Médio de Resposta\n\n2m 15s\n\núltimas 24h\n\nTaxa de Engajamento\n\n78%\n\nconversas com resposta\n\nAtividade Recente\n\nJoão Silva\n\nÓtimo! Vou agendar com você\n\n14:32\n\nMaria Santos\n\nObrigada pela atenção!\n\n13:45\n\nCarlos Oliveira\n\nVou enviar o link da proposta\n\n12:50\n\nAna Costa\n\nQuando posso agendar uma reunião?\n\n11:30\n\nAtalhos Rápidos\n+ Nova Conversa📋 Pendentes📚 Scripts🤖 Simular IA\nDistribuição por Rede Social\n40%\n20%\n20%\n20%\nStatus de Qualificação\nQualificados\n3\nEm Qualificação\n1\nTaxa de Conversão\n12.5%"
+    },
+    {
+      "path": "/sdr-dialer?mode=automatic",
+      "url": "https://acelereseucrescimento.com.br/sdr-dialer?mode=automatic",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\nDiscagem Automática\n\nGerenciamento de leads frios e qualificação\n\nVoltar\n\nAguardando ligação\n\n...\n\nTempo decorrido\n\n00:01\n\nAgendar Reunião\nDesligar"
+    },
+    {
+      "path": "/sdr-dialer?mode=manual",
+      "url": "https://acelereseucrescimento.com.br/sdr-dialer?mode=manual",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\nDiscagem Automática\n\nGerenciamento de leads frios e qualificação\n\nVoltar\nLigação Manual\nNúmero de Telefone\nTipo de Contato\n☎️ Telefone Fixo💬 WhatsApp\nIniciar Ligação"
+    },
+    {
+      "path": "/dialer",
+      "url": "https://acelereseucrescimento.com.br/dialer",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "← Voltar\nDiscador - Prospecção Ativa\nSair\nCONTATO ATUAL\nJoão Silva\nTelefone:\n(11) 98765-4321\nEmpresa:\nTech Solutions Ltda\nCargo:\nGerente de Vendas\n☎ DISCAR\nSCRIPT DE VENDAS\n\n\nOlá, tudo bem? Meu nome é [AGENTE] e estou ligando da [EMPRESA].\n\nA razão da minha ligação é que identificamos que a [EMPRESA_PROSPECT] pode se beneficiar muito com a nossa solução de [PRODUTO/SERVIÇO].\n\nVocê teria 2 minutos para conversar sobre isso?\n\n[AGUARDAR RESPOSTA]\n\nSe SIM: Ótimo! Então...\nSe NÃO: Sem problema, quando seria um melhor momento para conversar?\n\n\nSTATUS DA LIGAÇÃO\n○\n\nAGUARDANDO"
+    },
+    {
+      "path": "/campaigns",
+      "url": "https://acelereseucrescimento.com.br/campaigns",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "← Voltar\nSelecionar Campanha\nSair\nCampanha Padrão\n\n245 leads disponíveis\n\nAtiva\n89 de 245 leads processados\n36%\nProspecção Fria - Região Sul\n\n512 leads disponíveis\n\nAtiva\n234 de 512 leads processados\n46%\nFollow-up Clientes\n\n156 leads disponíveis\n\nPausada\n156 de 156 leads processados\n100%"
+    },
+    {
+      "path": "/history",
+      "url": "https://acelereseucrescimento.com.br/history",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\nHistórico de Chamadas\nVoltar\nFiltrar por Situação da Ligação\nTodas as situações\nAtendida\nNão atendida\nAbandonada\nCaixa postal pré-atendimento\nFora do horário\nCaixa postal pós-atendimento\nFalha\nFiltrar por Status do Cliente\nTodos os status\nInteressado\nSem Interesse\nAgendado\nEm negociação whatsApp\nSem contato / Ligação caiu\nData/Hora\tCliente\tTelefone\tDuração\tSituação\tStatus Cliente\tAções\n2024-07-09 14:30\tJoão Silva\t(11) 98765-4321\t3m 45s\tAtendida\tInteressado\t\n\n2024-07-09 14:15\tMaria Santos\t(21) 99876-5432\t2m 20s\tNão atendida\tSem Interesse\t\n\n2024-07-09 13:45\tCarlos Oliveira\t(31) 97654-3210\t5m 10s\tAtendida\tAgendado\t"
+    },
+    {
+      "path": "/scheduling",
+      "url": "https://acelereseucrescimento.com.br/scheduling",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "Agendamentos\nFechar\nCalendário\njulho de 2026\nDom\nSeg\nTer\nQua\nQui\nSex\nSab\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\nHorários\n⚙️\n\nHorário de funcionamento\n\n9:00 - 18:00\n\nIntervalo: 30 min\n\nAgendamentos Confirmados\n\nJoão Silva Santos\n\nMAURICAR AUTOMOVEIS LTDA\n\n30/07/2026\n10:00\n(11) 99975-9506\n20260709232300232872\n\nMaria Santos\n\nTECH SOLUTIONS LTDA\n\n31/07/2026\n14:30\n(11) 98765-4321\n20260709232300232873"
+    },
+    {
+      "path": "/scheduled-meetings",
+      "url": "https://acelereseucrescimento.com.br/scheduled-meetings",
+      "title": "CRM IMP - Sistema de Gestão de Leads",
+      "has_login": false,
+      "sample": "CRM\nAgendamentos Realizados\nVoltar\nCalendário\n\njulho de 2026\n\nDom\nSeg\nTer\nQua\nQui\nSex\nSab\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\nSelecione uma data\n\nSelecione uma data no calendário"
+    }
+  ],
+  "nav": [
+    {
+      "action": "fill credentials",
+      "ok": true
+    },
+    {
+      "action": "login click",
+      "url": "https://acelereseucrescimento.com.br/dashboard"
+    },
+    {
+      "goto": "/dashboard",
+      "landed": "https://acelereseucrescimento.com.br/dashboard"
+    },
+    {
+      "goto": "/sdr-dashboard",
+      "landed": "https://acelereseucrescimento.com.br/sdr-dashboard"
+    },
+    {
+      "goto": "/sdr-dialer?mode=automatic",
+      "landed": "https://acelereseucrescimento.com.br/sdr-dialer?mode=automatic"
+    },
+    {
+      "goto": "/sdr-dialer?mode=manual",
+      "landed": "https://acelereseucrescimento.com.br/sdr-dialer?mode=manual"
+    },
+    {
+      "goto": "/dialer",
+      "landed": "https://acelereseucrescimento.com.br/dialer"
+    },
+    {
+      "goto": "/campaigns",
+      "landed": "https://acelereseucrescimento.com.br/campaigns"
+    },
+    {
+      "goto": "/history",
+      "landed": "https://acelereseucrescimento.com.br/history"
+    },
+    {
+      "goto": "/scheduling",
+      "landed": "https://acelereseucrescimento.com.br/scheduling"
+    },
+    {
+      "goto": "/scheduled-meetings",
+      "landed": "https://acelereseucrescimento.com.br/scheduled-meetings"
+    },
+    {
+      "click": "Em atendimento",
+      "ok": true
+    },
+    {
+      "click": "Discagem Automática",
+      "url": "https://acelereseucrescimento.com.br/sdr-dialer?mode=automatic",
+      "sample": "CRM\nDiscagem Automática\n\nGerenciamento de leads frios e qualificação\n\nVoltar\n\nFalando\n\n(21) 3333-4444\n\nTempo decorrido\n\n00:03\n\nDados da Empresa\nScript de Abordagem\nQuestionamentos Padrão\nAnotações de Diagnóstico\n\nProtocolo\n\n20260709232300232873\n\nIdentificador\n\nTECH SOLUTIONS BRASIL LTDA\n\nCNPJ\n\n98.765.432/0001-10\n\nRazão Social\n\nTECH SOLUTIONS BRASIL LTDA\n\nNome do Sócio\n\nMaria Oliveira Costa\n\nCPF do Sócio\n\n305.917.078-96\n\nEmail Principal\n\ncontato@techsolutions.com.br\n\nEndereço\n\nRua das Flores 500\n\nAgendar Reunião\nDesligar"
+    }
+  ],
+  "errors": [],
+  "browser": "chrome",
+  "localStorage": {
+    "crm_user": "{\"id\":\"bdr\",\"login\":\"bdr\",\"role\":\"bdr\",\"name\":\"BDR - Prospecção\"}",
+    "selectedCampaignId": "1"
+  }
+}

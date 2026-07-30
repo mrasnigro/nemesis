@@ -15,17 +15,19 @@ import {
 import Dashboard from '../pages/Dashboard'
 import Login from '../pages/Login'
 import {
-  BdrPage,
+  BdrAgendamentosPage,
+  BdrDiscagemPage,
+  BdrHistoricoPage,
+  BdrManualPage,
+  BdrPainelPage,
+} from '../modules/bdr'
+import {
   ProspectingPage,
   RadarPage,
   TrainingAiPage,
   VslPage,
   WebinarPage,
 } from '../pages/modules'
-import BdrAgendamentosPage from '../pages/modules/bdr/Agendamentos'
-import BdrDiscagemPage from '../pages/modules/bdr/Discagem'
-import BdrHistoricoPage from '../pages/modules/bdr/Historico'
-import BdrManualPage from '../pages/modules/bdr/Manual'
 import ModuleAccessRoute from './ModuleAccessRoute'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -107,7 +109,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/modules/bdr" element={<BdrPage />} />
+        <Route path="/modules/bdr" element={<BdrPainelPage />} />
         <Route path="/modules/bdr/discagem" element={<BdrDiscagemPage />} />
         <Route path="/modules/bdr/manual" element={<BdrManualPage />} />
         <Route path="/modules/bdr/historico" element={<BdrHistoricoPage />} />

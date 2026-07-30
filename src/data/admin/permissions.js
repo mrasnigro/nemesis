@@ -1,3 +1,5 @@
+import { BDR_PERMISSION_CATALOG } from '../../modules/bdr/services/bdrPermissions.js'
+
 /**
  * Permission catalog for future RBAC / module access control.
  * Ready to be replaced by API: GET /permissions
@@ -59,6 +61,7 @@ export const permissions = [
     description: 'Acesso operacional ao módulo de prospecção.',
     scope: 'module',
   },
+  ...BDR_PERMISSION_CATALOG,
 ]
 
 export const rolePermissionMap = {
@@ -70,5 +73,14 @@ export const rolePermissionMap = {
     'integrations.manage',
     'logs.read',
   ],
-  imp: ['modules.access', 'prospecting.use'],
+  imp: [
+    'modules.access',
+    'prospecting.use',
+    'bdr.operate',
+    'bdr.campaigns.select',
+    'bdr.history.self',
+    'bdr.history.team',
+    'bdr.schedule',
+    'bdr.scripts.view',
+  ],
 }
