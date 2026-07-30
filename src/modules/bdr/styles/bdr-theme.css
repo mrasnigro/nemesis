@@ -1,40 +1,52 @@
 /**
- * BDR visual tokens — acelereseucrescimento / CRM IMP as-is (UI reference §1).
- * Scoped under .dialer-layout so IMP shell outside BDR is unchanged.
+ * BDR visual tokens — matched to sample CRM
+ * E:\AI module project\.builds\last-source\frontend\dist
+ * (graphite / amber-op / teal-signal Tailwind theme)
  */
 
 .dialer-layout {
-  --bdr-void: #0f172a;
-  --bdr-chrome: #1f2937;
+  --bdr-void: #111827; /* graphite-900 */
+  --bdr-chrome: #1f2937; /* graphite-800 */
   --bdr-sidebar: #1f2937;
   --bdr-panel: #1f2937;
-  --bdr-control: #334155;
-  --bdr-control-alt: #374151;
+  --bdr-panel-alt: #1e293b; /* slate-800 (dialer tab panel) */
+  --bdr-control: #374151; /* graphite-700 */
+  --bdr-control-alt: #2d3748; /* graphite-750 */
+  --bdr-idle: #2a2d35;
+  --bdr-idle-text: #8b8f96;
   --bdr-border: #374151;
-  --bdr-border-soft: rgba(75, 85, 99, 0.55);
-  --bdr-text: #ffffff;
-  --bdr-text-secondary: #94a3b8;
-  --bdr-text-muted: #64748b;
-  --bdr-brand: #f59e0b;
-  --bdr-brand-strong: #d97706;
+  --bdr-border-soft: rgba(55, 65, 81, 0.95);
+  --bdr-text: #f3f4f6; /* graphite-100 */
+  --bdr-text-secondary: #9ca3af; /* graphite-400 */
+  --bdr-text-muted: #6b7280; /* graphite-500 */
+  --bdr-brand: #f59e0b; /* amber-op-500 */
+  --bdr-brand-strong: #d97706; /* amber-600 */
   --bdr-brand-deep: #785820;
-  --bdr-schedule: #d87000;
-  --bdr-searching: #f87810;
-  --bdr-connected: #18b050;
+  --bdr-schedule: #d97706; /* amber-600 CTA */
+  --bdr-searching-from: #f59e0b;
+  --bdr-searching-to: #f97316;
+  --bdr-connected-from: #22c55e;
+  --bdr-connected-to: #16a34a;
   --bdr-ready: #22c55e;
-  --bdr-hangup: #ef4444;
-  --bdr-unavailable: #581828;
-  --bdr-link: #38bdf8;
+  --bdr-hangup: #dc2626; /* red-600 */
+  --bdr-unavailable: #5a1a2a;
+  --bdr-link: #60a5fa;
   --bdr-script-h: #60a5fa;
-  --bdr-progress-a: #2dd4bf;
+  --bdr-progress-a: #2dd4bf; /* teal-signal-400 */
   --bdr-progress-b: #22c55e;
-  --bdr-radius-sm: 8px;
+  --bdr-status-offline: #3a3a1a;
+  --bdr-status-active: #1a3a2a;
+  --bdr-status-break: #3a2a1a;
+  --bdr-status-busy: #5a1a2a;
+  --bdr-radius-sm: 8px; /* rounded-lg */
   --bdr-radius-md: 8px;
-  --bdr-radius-lg: 8px;
-  --bdr-pad-page: 1.5rem;
-  --bdr-gap: 1rem;
+  --bdr-radius-lg: 12px; /* rounded-xl */
+  --bdr-pad-page: 1.5rem; /* p-6 */
+  --bdr-gap: 1.5rem; /* gap-6 */
+  --bdr-content-max: 80rem; /* max-w-7xl = 1280px */
+  --bdr-sidebar-expanded: 16rem; /* w-64 */
+  --bdr-sidebar-collapsed: 5rem; /* w-20 */
 
-  /* Remap shared dialer vars inside BDR shell */
   --dialer-panel: var(--bdr-panel);
   --dialer-panel-active: var(--bdr-brand-deep);
   --dialer-muted: var(--bdr-text-secondary);
@@ -48,6 +60,6 @@
   --radius-lg: var(--bdr-radius-lg);
 
   background: var(--bdr-void);
-  color: #e2e8f0;
+  color: var(--bdr-text);
   font-family: var(--sans);
 }

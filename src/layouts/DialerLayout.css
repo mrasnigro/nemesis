@@ -5,11 +5,11 @@
 }
 
 .dialer-layout--collapsed {
-  --bdr-sidebar-width: 72px;
+  --bdr-sidebar-width: 5rem; /* sample w-20 */
 }
 
 .dialer-layout--expanded {
-  --bdr-sidebar-width: 252px;
+  --bdr-sidebar-width: 16rem; /* sample w-64 */
 }
 
 .dialer-layout__sidebar {
@@ -19,8 +19,8 @@
   gap: 0.75rem;
   width: var(--bdr-sidebar-width);
   flex-shrink: 0;
-  padding: 1rem 0.75rem 1rem;
-  border-right: 1px solid rgba(55, 65, 81, 0.85);
+  padding: 1.5rem 1rem;
+  border-right: 1px solid #374151;
   background: #1f2937;
   transition: width 0.18s ease;
 }
@@ -64,7 +64,7 @@
 .dialer-layout__collapse {
   appearance: none;
   position: absolute;
-  top: 4.25rem;
+  top: 50%;
   right: -0.875rem;
   z-index: 3;
   display: grid;
@@ -79,6 +79,7 @@
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transform: translateY(-50%);
 }
 
 .dialer-layout__collapse:hover {
@@ -171,15 +172,26 @@
 }
 
 .dialer-layout--collapsed .dialer-layout__nav-link {
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.7rem 0.25rem;
-  font-size: 0.58rem;
-  text-align: center;
+  justify-content: center;
+  padding: 0.85rem 0.35rem;
 }
 
-.dialer-layout__nav-short {
-  color: inherit;
+.dialer-layout--collapsed .dialer-layout__nav-link .dialer-layout__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.dialer-layout--collapsed .dialer-layout__modules {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem;
+}
+
+.dialer-layout--collapsed .dialer-layout__modules .dialer-layout__icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .dialer-layout__group-toggle:hover,
@@ -222,7 +234,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #0f172a;
+  background: #111827;
 }
 
 .dialer-layout__header {
@@ -231,10 +243,24 @@
   justify-content: space-between;
   gap: 1rem;
   min-height: 64px;
-  padding: 0.65rem 1.5rem;
-  border-bottom: 1px solid rgba(55, 65, 81, 0.65);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #374151;
   background: #1f2937;
   box-sizing: border-box;
+}
+
+.dialer-layout__page-title {
+  margin: 0;
+  min-width: 0;
+  color: #fff;
+  font-family: var(--display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dialer-layout__header-left {
@@ -379,6 +405,7 @@
   .dialer-layout__collapse {
     position: static;
     margin-left: auto;
+    transform: none;
   }
 
   .dialer-layout__sidebar nav {

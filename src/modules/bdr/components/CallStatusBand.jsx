@@ -29,8 +29,12 @@ export default function CallStatusBand() {
           </svg>
         </span>
         <div>
-          <strong>{searching ? 'Aguardando ligação…' : 'Falando'}</strong>
-          {connected && phone ? <span>{phone}</span> : searching ? <span>…</span> : null}
+          <span className="bdr-call-band__label">
+            {searching ? 'Aguardando ligação' : 'Falando'}
+          </span>
+          <strong className="bdr-call-band__phone">
+            {connected && phone ? phone : '...'}
+          </strong>
         </div>
       </div>
       <div className="bdr-call-band__right">

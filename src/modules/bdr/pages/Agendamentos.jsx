@@ -9,8 +9,7 @@ export default function BdrAgendamentosPage() {
 
   return (
     <section className="bdr-section">
-      <div className="bdr-discagem__header">
-        <h2>Agendamentos</h2>
+      <div className="bdr-discagem__header bdr-discagem__header--toolbar">
         <Link to="/modules/bdr" className="bdr-page__back">
           ← Voltar
         </Link>

@@ -40,7 +40,7 @@ const MODULE_NAV = [
       },
       {
         id: 'script-resposta',
-        label: 'Script de Resposta',
+        label: 'Script de Respostas',
         to: null,
       },
     ],
@@ -94,6 +94,14 @@ function DialerIcon({ name }) {
         />
       </svg>
     ),
+    modules: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 3h3v-3h2v3h3v2h-3v3h-2v-3h-3v-2z"
+        />
+      </svg>
+    ),
   }
 
   return <span className="dialer-layout__icon">{icons[name]}</span>
@@ -107,6 +115,15 @@ function AttendanceTimer() {
       <strong>{formatDurationHHMMSS(tempoAtendimentoSec)}</strong>
     </div>
   )
+}
+
+function pageTitleForRoute(pathname) {
+  if (pathname === '/modules/bdr') return 'Painel'
+  if (pathname.startsWith('/modules/bdr/historico')) return 'Histórico de Chamadas'
+  if (pathname.startsWith('/modules/bdr/agendamentos')) return 'Agendamentos Realizados'
+  if (pathname.startsWith('/modules/bdr/manual')) return 'Ligação Manual'
+  if (pathname.startsWith('/modules/bdr/discagem')) return 'Discagem Automática'
+  return 'CRM IMP'
 }
 
 function DialerShell() {
@@ -179,17 +196,22 @@ function DialerShell() {
                     key={group.id}
                     to={firstLink.to}
                     title={group.label}
+                    aria-label={group.label}
                     className={() => className}
                   >
                     <DialerIcon name={group.icon} />
-                    <span className="dialer-layout__nav-short">{group.shortLabel}</span>
                   </NavLink>
                 )
               }
               return (
-                <button key={group.id} type="button" className={className} title={`${group.label} (em breve)`}>
+                <button
+                  key={group.id}
+                  type="button"
+                  className={className}
+                  title={`${group.label} (em breve)`}
+                  aria-label={group.label}
+                >
                   <DialerIcon name={group.icon} />
-                  <span className="dialer-layout__nav-short">{group.shortLabel}</span>
                 </button>
               )
             }
@@ -259,14 +281,18 @@ function DialerShell() {
             className="dialer-layout__modules"
             onClick={() => navigate('/dashboard')}
             title="Voltar aos módulos"
+            aria-label="Módulos IMP"
           >
-            {collapsed ? 'Mods' : 'Módulos IMP'}
+            {collapsed ? <DialerIcon name="modules" /> : 'Módulos IMP'}
           </button>
         </div>
       </aside>
 
       <div className="dialer-layout__shell">
         <header className="dialer-layout__header">
+          <h1 className="dialer-layout__page-title">
+            {pageTitleForRoute(location.pathname)}
+          </h1>
           <div className="dialer-layout__header-actions">
             <AttendanceTimer />
             <div className="dialer-layout__role-block">

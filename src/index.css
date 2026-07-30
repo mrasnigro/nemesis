@@ -1,16 +1,17 @@
 :root {
   /* CRM IMP / acelereseucrescimento.com.br visual identity */
+  /* Sample CRM graphite theme */
   --bg: #111827;
   --bg-elevated: #1f2937;
   --surface: #1f2937;
   --surface-solid: #1f2937;
   --surface-hover: #374151;
   --glass: #1f2937;
-  --glass-border: rgba(75, 85, 99, 0.65);
-  --border: rgba(75, 85, 99, 0.65);
-  --border-strong: rgb(75, 85, 99);
+  --glass-border: #374151;
+  --border: #374151;
+  --border-strong: #374151;
 
-  --text: #d1d5db;
+  --text: #f3f4f6;
   --text-h: #f3f4f6;
   --text-muted: #9ca3af;
 

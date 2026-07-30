@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import CallStatusBand, { DialerTabBar } from '../components/CallStatusBand.jsx'
 import LeadCompanyPanel from '../components/LeadCompanyPanel.jsx'
@@ -12,9 +12,12 @@ import '../../../pages/modules/Bdr.css'
 import '../styles/bdr-foundation.css'
 
 /**
- * Discagem workspace — searching/connected + full script / objections / diagnosis.
+ * Discagem workspace — parity with sample SDRDialer
+ * (status band → tab panel → Agendar / Desligar)
+ * Manual mode opens Ligação Manual as a centered modal overlay.
  */
 export default function BdrDiscagemPage() {
+  const navigate = useNavigate()
   const [params] = useSearchParams()
   const mode = params.get('mode') === 'manual' ? 'manual' : 'automatic'
   const autoStartedRef = useRef(false)
@@ -41,23 +44,25 @@ export default function BdrDiscagemPage() {
     startAutomatic()
   }, [mode, dialAllowed, call.status, startAutomatic])
 
-  const showManualForm = mode === 'manual' && call.status === 'idle'
+  const showManualModal = mode === 'manual' && call.status === 'idle'
   const inCall = call.status === 'searching' || call.status === 'connected'
+  const connected = call.status === 'connected'
   const openSchedule = () => setScheduleOpen(true)
+
+  function closeManualModal() {
+    navigate('/modules/bdr', { replace: true })
+  }
 
   return (
     <section className="bdr-section bdr-discagem">
       <header className="bdr-discagem__header">
-        <div>
-          <h2>Discagem Automática</h2>
-          <p>Gerenciamento de leads frios e qualificação</p>
-        </div>
+        <p className="bdr-discagem__subtitle">Gerenciamento de leads frios e qualificação</p>
         <Link to="/modules/bdr" className="bdr-page__back">
           ← Voltar
         </Link>
       </header>
 
-      {!dialAllowed && call.status === 'idle' ? (
+      {!dialAllowed && call.status === 'idle' && mode !== 'manual' ? (
         <article className="bdr-section__card">
           <p>
             Defina o status <strong>Em atendimento</strong> no painel para iniciar a discagem.
@@ -68,32 +73,30 @@ export default function BdrDiscagemPage() {
         </article>
       ) : null}
 
-      {showManualForm ? <ManualDialForm /> : null}
+      <ManualDialForm open={showManualModal} onClose={closeManualModal} />
 
       {inCall ? (
-        <article className="bdr-section__card bdr-discagem__workspace">
+        <>
           <CallStatusBand />
-          <DialerTabBar />
 
-          {call.status === 'connected' && activeTab === 'company' ? <LeadCompanyPanel /> : null}
-          {call.status === 'connected' && activeTab === 'script' ? (
-            <SalesScript onRequestSchedule={openSchedule} />
-          ) : null}
-          {call.status === 'connected' && activeTab === 'questions' ? <ObjectionPanel /> : null}
-          {call.status === 'connected' && activeTab === 'diagnosis' ? (
-            <QualificationForm onRequestSchedule={openSchedule} />
-          ) : null}
+          {connected ? (
+            <div className="bdr-discagem__panel">
+              <DialerTabBar />
 
-          {call.status === 'searching' ? (
-            <p className="bdr-foundation-placeholder">
-              O sistema procura automaticamente por números para ligar…
-            </p>
-          ) : null}
+              {activeTab === 'company' ? <LeadCompanyPanel /> : null}
+              {activeTab === 'script' ? <SalesScript onRequestSchedule={openSchedule} /> : null}
+              {activeTab === 'questions' ? <ObjectionPanel /> : null}
+              {activeTab === 'diagnosis' ? (
+                <QualificationForm onRequestSchedule={openSchedule} />
+              ) : null}
 
-          {call.status === 'connected' && scriptCompleted ? (
-            <p className="bdr-script__ok bdr-discagem__script-flag">
-              Script concluído — use Agendar Reunião e Finalizar Atendimento na aba de diagnóstico.
-            </p>
+              {scriptCompleted ? (
+                <p className="bdr-script__ok bdr-discagem__script-flag">
+                  Script concluído — use Agendar Reunião e Finalizar Atendimento na aba de
+                  diagnóstico.
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="bdr-discagem__footer">
@@ -101,7 +104,7 @@ export default function BdrDiscagemPage() {
               type="button"
               className="bdr-discagem__schedule"
               disabled={!scheduleAllowed}
-              title={!scheduleAllowed ? 'Aguarde a conexão da chamada' : undefined}
+              title={!scheduleAllowed ? 'Aguarde a conexão da chamada' : 'Agendar Reunião'}
               onClick={openSchedule}
             >
               Agendar Reunião
@@ -110,7 +113,7 @@ export default function BdrDiscagemPage() {
               Desligar
             </button>
           </div>
-        </article>
+        </>
       ) : null}
 
       <ScheduleMeetingModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />

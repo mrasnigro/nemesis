@@ -8,6 +8,55 @@ import { useBdrSession } from '../hooks/useBdrSession.js'
 import '../../../pages/modules/Bdr.css'
 import '../styles/bdr-foundation.css'
 
+function ActionIcon({ name }) {
+  const icons = {
+    notes: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 14H5.17L4 17.17V4h16v12z"
+        />
+      </svg>
+    ),
+    user: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"
+        />
+      </svg>
+    ),
+    play: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M8 5v14l11-7L8 5z" />
+      </svg>
+    ),
+    download: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M5 20h14v-2H5v2zm7-18-5.5 5.5h3.5V15h4V7.5h3.5L12 2z"
+        />
+      </svg>
+    ),
+  }
+  return <span className="bdr-history-actions__icon">{icons[name]}</span>
+}
+
+/** Normalize seed timestamps toward sample `YYYY-MM-DD HH:mm`. */
+function formatHistoryTimestamp(value) {
+  if (!value) return '—'
+  const br = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2})/)
+  if (br) return `${br[3]}-${br[2]}-${br[1]} ${br[4]}:${br[5]}`
+  return String(value).replace('T', ' ').slice(0, 16)
+}
+
+function situationTone(status) {
+  if (status === 'Atendida') return 'answered'
+  if (status === 'Não atendida') return 'missed'
+  return 'default'
+}
+
 export default function BdrHistoricoPage() {
   const { history } = useBdrSession()
   const [situation, setSituation] = useState('')
@@ -40,9 +89,8 @@ export default function BdrHistoricoPage() {
   }
 
   return (
-    <section className="bdr-section">
-      <div className="bdr-discagem__header">
-        <h2>Histórico de Chamadas</h2>
+    <section className="bdr-section bdr-history">
+      <div className="bdr-discagem__header bdr-discagem__header--toolbar">
         <Link to="/modules/bdr" className="bdr-page__back">
           ← Voltar
         </Link>
@@ -73,100 +121,89 @@ export default function BdrHistoricoPage() {
         </label>
       </div>
 
-      <p className="bdr-script__hint">
-        {rows.length} chamada(s) · conclusões da Discagem aparecem no topo na mesma sessão.
-      </p>
-
-      <div className="bdr-history-layout">
-        <div className="bdr-history-table-wrap">
-          <table className="bdr-history-table">
-            <thead>
-              <tr>
-                <th>Data/Hora</th>
-                <th>Cliente</th>
-                <th>Telefone</th>
-                <th>Duração</th>
-                <th>Situação</th>
-                <th>Status Cliente</th>
-                <th>Qualificação</th>
-                <th>Ações</th>
+      <div className="bdr-history-table-wrap">
+        <table className="bdr-history-table">
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Cliente</th>
+              <th>Telefone</th>
+              <th>Duração</th>
+              <th>Situação</th>
+              <th>Status Cliente</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className={selectedId === row.id ? 'is-selected' : ''}>
+                <td>{formatHistoryTimestamp(row.timestamp)}</td>
+                <td>
+                  <strong className="bdr-history-client-name">{row.leadName}</strong>
+                </td>
+                <td>{row.phone}</td>
+                <td>{formatDurationShort(row.duration)}</td>
+                <td>
+                  <span
+                    className={`bdr-history-pill bdr-history-pill--${situationTone(row.callStatus)}`}
+                  >
+                    {row.callStatus}
+                  </span>
+                </td>
+                <td>
+                  <span className="bdr-history-status">{row.clientStatus}</span>
+                </td>
+                <td>
+                  <div className="bdr-history-actions">
+                    <button
+                      type="button"
+                      title="Notas / detalhes"
+                      aria-label="Notas"
+                      onClick={() => setSelectedId(row.id)}
+                    >
+                      <ActionIcon name="notes" />
+                    </button>
+                    <a
+                      href={`tel:${String(row.phone || '').replace(/\D/g, '')}`}
+                      title="Contato"
+                      aria-label="Contato"
+                    >
+                      <ActionIcon name="user" />
+                    </a>
+                    <button
+                      type="button"
+                      title="Ouvir gravação"
+                      aria-label="Ouvir gravação"
+                      onClick={(e) => playRecording(row, e)}
+                    >
+                      <ActionIcon name="play" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Baixar gravação"
+                      aria-label="Baixar gravação"
+                      onClick={(e) => downloadRecording(row, e)}
+                    >
+                      <ActionIcon name="download" />
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className={selectedId === row.id ? 'is-selected' : ''}
-                  onClick={() => setSelectedId(row.id)}
-                >
-                  <td>{row.timestamp}</td>
-                  <td>
-                    <div className="bdr-history-client">
-                      <strong>{row.leadName}</strong>
-                      <span>{row.company}</span>
-                    </div>
-                  </td>
-                  <td>{row.phone}</td>
-                  <td>{formatDurationShort(row.duration)}</td>
-                  <td>{row.callStatus}</td>
-                  <td>
-                    <span className="bdr-history-status">{row.clientStatus}</span>
-                  </td>
-                  <td>{row.qualification}</td>
-                  <td>
-                    <div className="bdr-history-actions">
-                      <button
-                        type="button"
-                        title="Notas / detalhes"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedId(row.id)
-                        }}
-                      >
-                        📝
-                      </button>
-                      <a
-                        href={`tel:${String(row.phone || '').replace(/\D/g, '')}`}
-                        title="Contato"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        📞
-                      </a>
-                      <button
-                        type="button"
-                        title="Ouvir gravação"
-                        onClick={(e) => playRecording(row, e)}
-                      >
-                        ▶
-                      </button>
-                      <button
-                        type="button"
-                        title="Baixar gravação"
-                        onClick={(e) => downloadRecording(row, e)}
-                      >
-                        ⬇
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8}>Nenhuma chamada para os filtros selecionados.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-
-        {selected ? (
-          <CallHistoryDetail row={selected} onClose={() => setSelectedId(null)} />
-        ) : (
-          <aside className="bdr-history-detail bdr-history-detail--empty">
-            <p>Selecione uma chamada para ver diagnóstico, qualificação e detalhes.</p>
-          </aside>
-        )}
+            ))}
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={7}>Nenhuma chamada para os filtros selecionados.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </div>
+
+      {selected ? (
+        <div className="bdr-history-detail-slot">
+          <CallHistoryDetail row={selected} onClose={() => setSelectedId(null)} />
+        </div>
+      ) : null}
     </section>
   )
 }
