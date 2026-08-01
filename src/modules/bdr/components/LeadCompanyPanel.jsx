@@ -1,6 +1,6 @@
 import { useBdrSession } from '../hooks/useBdrSession.js'
 
-/** Foundation company panel — full dialer script/diagnosis come in later phases */
+/** Company data grid — sample SDRDialer Dados da Empresa tab */
 export default function LeadCompanyPanel() {
   const { call } = useBdrSession()
   const lead = call.currentLead
@@ -14,25 +14,33 @@ export default function LeadCompanyPanel() {
   }
 
   const rows = [
-    ['Protocolo', lead.protocol],
-    ['Identificador', lead.identifier || lead.company],
-    ['CNPJ', lead.cnpj],
-    ['Razão Social', lead.socialReason || lead.company],
-    ['Nome do Sócio', lead.partnerName || lead.name],
-    ['CPF do Sócio', lead.partnerCpf],
-    ['Email Principal', lead.email],
-    ['Endereço', lead.address],
+    { label: 'Protocolo', value: lead.protocol },
+    {
+      label: 'Identificador',
+      value: lead.identifier || lead.company,
+      accent: true,
+    },
+    { label: 'CNPJ', value: lead.cnpj },
+    { label: 'Razão Social', value: lead.socialReason || lead.company },
+    { label: 'Nome do Sócio', value: lead.partnerName || lead.name },
+    { label: 'CPF do Sócio', value: lead.partnerCpf },
+    { label: 'Email Principal', value: lead.email },
+    { label: 'Endereço', value: lead.address },
   ]
 
   return (
     <div className="bdr-lead-panel">
       <div className="bdr-lead-panel__grid">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong className={label === 'Identificador' ? 'bdr-lead-panel__link' : undefined}>
-              {value || '—'}
-            </strong>
+        {rows.map((row) => (
+          <div key={row.label}>
+            <p className="bdr-lead-panel__label">{row.label}</p>
+            <p
+              className={`bdr-lead-panel__value${
+                row.accent ? ' bdr-lead-panel__value--accent' : ''
+              }`}
+            >
+              {row.value || '—'}
+            </p>
           </div>
         ))}
       </div>

@@ -3,21 +3,28 @@
 .bdr-page__back {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid #374151;
-  background: #1f2937;
-  color: #9ca3af;
-  font-size: 0.82rem;
-  font-weight: 600;
+  gap: 0.5rem;
+  padding: 0.5rem 1.5rem; /* px-6 py-2 */
+  border-radius: 0.5rem;
+  border: 0;
+  background-color: #334155; /* bg-slate-700 */
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
+  transition: background-color 0.15s ease;
 }
 
 .bdr-page__back:hover {
   color: #fff;
-  border-color: #f59e0b;
+  background-color: #475569; /* hover:bg-slate-600 */
+}
+
+.bdr-page__back-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
 .bdr-home {
@@ -422,12 +429,6 @@
   display: inline-flex;
 }
 
-.bdr-discagem__panel {
-  padding: 1.5rem;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  background: #1e293b;
-}
 
 .bdr-section__cta:hover {
   filter: brightness(1.06);

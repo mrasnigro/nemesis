@@ -23,11 +23,12 @@ export const EQUIPE_OPTIONS = [
   { value: '50plus', label: 'Mais de 50 colaboradores', companySize: 'media' },
 ]
 
+/** Labels match live Dialer “Anotações de Diagnóstico” selects. */
 export const FATURAMENTO_OPTIONS = [
-  { value: 'ate-200k', label: 'Até R$ 200 mil / mês' },
-  { value: '200k-500k', label: 'R$ 200 a 500 mil / mês' },
-  { value: '500k-800k', label: 'R$ 500 a 800 mil / mês' },
-  { value: 'acima-800k', label: 'Acima de R$ 800 mil / mês' },
+  { value: 'ate-200k', label: 'até r$ 200 mil mês' },
+  { value: '200k-500k', label: 'entre r$ 200 – r$ 500 mil mês' },
+  { value: '500k-800k', label: 'entre r$ 500 – r$ 800 mil mês' },
+  { value: 'acima-800k', label: 'acima de r$ 800 mil mês' },
 ]
 
 export const DECISAO_OPTIONS = [
@@ -36,18 +37,24 @@ export const DECISAO_OPTIONS = [
 ]
 
 export const PRIORITY_OPTIONS = [
-  { value: 'alta', label: 'Alta — precisa resolver agora' },
-  { value: 'media', label: 'Média — importante, mas não urgente' },
-  { value: 'baixa', label: 'Baixa — só explorando' },
+  { value: 'alta', label: 'Sim, Alta Prioridade (Urgente)' },
+  { value: 'media', label: 'Média Prioridade (Procurando entender)' },
+  { value: 'baixa', label: 'Baixa Prioridade (Sem urgência / frio)' },
 ]
 
 export const COMPANY_SIZE_OPTIONS = [
-  { value: 'micro', label: 'Micro (até 5)' },
-  { value: 'pequena', label: 'Pequena (6–49)' },
-  { value: 'media', label: 'Média (50+)' },
+  { value: 'micro', label: 'Micro (1 - 5 colaboradores)' },
+  { value: 'pequena', label: 'Pequena (6 - 49 colaboradores)' },
+  { value: 'media', label: 'Média (50 - 249 colaboradores)' },
+  { value: 'grande', label: 'Grande (250+ colaboradores)' },
 ]
 
-export const EMPLOYEE_OPTIONS = EQUIPE_OPTIONS.map(({ value, label }) => ({ value, label }))
+export const EMPLOYEE_OPTIONS = [
+  { value: '1-5', label: '1 a 5' },
+  { value: '6-20', label: '6 a 20' },
+  { value: '21-50', label: '21 a 50' },
+  { value: '50plus', label: 'Mais de 50' },
+]
 export const REVENUE_OPTIONS = FATURAMENTO_OPTIONS.map(({ value, label }) => ({ value, label }))
 export const PARTNER_OPTIONS = [
   { value: 'sim', label: 'Sim' },

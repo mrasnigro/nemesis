@@ -53,8 +53,8 @@
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 
   font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px; /* sample CRM Inter base */
+  line-height: 1.6;
   color: var(--text);
   background: var(--bg);
   color-scheme: dark;

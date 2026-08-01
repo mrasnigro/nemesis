@@ -61,47 +61,59 @@ const MODULE_NAV = [
   },
 ]
 
+function StrokeIcon({ children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  )
+}
+
 function DialerIcon({ name }) {
   const icons = {
     grid: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"
-        />
-      </svg>
+      <StrokeIcon>
+        <rect width="7" height="7" x="3" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="14" rx="1" />
+        <rect width="7" height="7" x="3" y="14" rx="1" />
+      </StrokeIcon>
     ),
     doc: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7V3.5L19.5 9H15zM8 13h8v2H8v-2zm0 4h8v2H8v-2zm0-8h5v2H8V9z"
-        />
-      </svg>
+      <StrokeIcon>
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" x2="8" y1="13" y2="13" />
+        <line x1="16" x2="8" y1="17" y2="17" />
+        <line x1="10" x2="8" y1="9" y2="9" />
+      </StrokeIcon>
     ),
     briefcase: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M10 2h4a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v3H2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 4h4V4h-4v2zM2 13h20v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7z"
-        />
-      </svg>
+      <StrokeIcon>
+        <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </StrokeIcon>
     ),
     chevron: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M9.29 6.71a1 1 0 0 0 0 1.41L13.17 12l-3.88 3.88a1 1 0 1 0 1.41 1.41l4.59-4.58a1 1 0 0 0 0-1.42L10.7 6.7a1 1 0 0 0-1.41.01z"
-        />
-      </svg>
+      <StrokeIcon>
+        <path d="m9 18 6-6-6-6" />
+      </StrokeIcon>
     ),
     modules: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 3h3v-3h2v3h3v2h-3v3h-2v-3h-3v-2z"
-        />
-      </svg>
+      <StrokeIcon>
+        <rect width="7" height="7" x="3" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="14" rx="1" />
+        <rect width="7" height="7" x="3" y="14" rx="1" />
+      </StrokeIcon>
     ),
   }
 
@@ -123,7 +135,7 @@ function pageTitleForRoute(pathname) {
   if (pathname.startsWith('/modules/bdr/historico')) return 'Histórico de Chamadas'
   if (pathname.startsWith('/modules/bdr/agendamentos')) return 'Agendamentos Realizados'
   if (pathname.startsWith('/modules/bdr/manual')) return 'Ligação Manual'
-  if (pathname.startsWith('/modules/bdr/discagem')) return 'Discagem Automática'
+  if (pathname.startsWith('/modules/bdr/discagem')) return ''
   return 'CRM IMP'
 }
 
@@ -132,7 +144,11 @@ function DialerShell() {
   const { currentUser } = useWorkspace()
   const navigate = useNavigate()
   const location = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  /* Sample SDRDialer starts collapsed (w-20) */
+  const [collapsed, setCollapsed] = useState(true)
+  const pageTitle = pageTitleForRoute(location.pathname)
+  const isDiscagemRoute = location.pathname.startsWith('/modules/bdr/discagem')
+    || location.pathname.startsWith('/modules/bdr/manual')
 
   const activeGroupIds = useMemo(
     () =>
@@ -159,7 +175,11 @@ function DialerShell() {
   }
 
   return (
-    <div className={`dialer-layout${collapsed ? ' dialer-layout--collapsed' : ' dialer-layout--expanded'}`}>
+    <div
+      className={`dialer-layout${collapsed ? ' dialer-layout--collapsed' : ' dialer-layout--expanded'}${
+        isDiscagemRoute ? ' dialer-layout--discagem' : ''
+      }`}
+    >
       <aside className="dialer-layout__sidebar" aria-label="CRM IMP GROUP">
         <div className="dialer-layout__brand">
           {collapsed ? (
@@ -177,10 +197,14 @@ function DialerShell() {
           type="button"
           className="dialer-layout__collapse"
           aria-expanded={!collapsed}
-          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          title={collapsed ? 'Abrir' : 'Recolher'}
           onClick={() => setCollapsed((v) => !v)}
         >
-          {collapsed ? '›' : '‹'}
+          <span
+            className={`dialer-layout__collapse-icon${collapsed ? '' : ' dialer-layout__collapse-icon--open'}`}
+          >
+            <DialerIcon name="chevron" />
+          </span>
         </button>
 
         <nav aria-label="Módulos">
@@ -290,23 +314,27 @@ function DialerShell() {
       </aside>
 
       <div className="dialer-layout__shell">
-        <header className="dialer-layout__header">
-          <h1 className="dialer-layout__page-title">
-            {pageTitleForRoute(location.pathname)}
-          </h1>
-          <div className="dialer-layout__header-actions">
-            <AttendanceTimer />
-            <div className="dialer-layout__role-block">
-              <strong>BDR - Prospecção</strong>
-              <span>{currentUser?.name || user?.name || 'Operador'}</span>
+        {isDiscagemRoute ? null : (
+          <header className="dialer-layout__header">
+            {pageTitle ? (
+              <h1 className="dialer-layout__page-title">{pageTitle}</h1>
+            ) : (
+              <div className="dialer-layout__page-title dialer-layout__page-title--spacer" />
+            )}
+            <div className="dialer-layout__header-actions">
+              <AttendanceTimer />
+              <div className="dialer-layout__role-block">
+                <strong>BDR - Prospecção</strong>
+                <span>{currentUser?.name || user?.name || 'Operador'}</span>
+              </div>
+              <button type="button" className="dialer-layout__logout" onClick={handleLogout}>
+                Sair
+              </button>
             </div>
-            <button type="button" className="dialer-layout__logout" onClick={handleLogout}>
-              Sair
-            </button>
-          </div>
-        </header>
+          </header>
+        )}
 
-        <main className="dialer-layout__content">
+        <main className={`dialer-layout__content${isDiscagemRoute ? ' dialer-layout__content--dialer' : ''}`}>
           <Outlet />
         </main>
       </div>

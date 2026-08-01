@@ -80,11 +80,29 @@
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   transform: translateY(-50%);
+  padding: 0;
 }
 
 .dialer-layout__collapse:hover {
   color: #fff;
   border-color: #f59e0b;
+}
+
+.dialer-layout__collapse-icon {
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.15s ease;
+}
+
+.dialer-layout__collapse-icon .dialer-layout__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dialer-layout__collapse-icon--open {
+  transform: rotate(180deg);
 }
 
 .dialer-layout__sidebar nav {
@@ -237,6 +255,112 @@
   background: #111827;
 }
 
+/* Sample SDRDialer shell — exact OUTHTML / computed-style parity */
+.dialer-layout--discagem {
+  background: #0f172a; /* bg-slate-900 */
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.dialer-layout--discagem .dialer-layout__shell {
+  background: #0f172a;
+  overflow: hidden;
+}
+
+.dialer-layout--discagem .dialer-layout__sidebar {
+  width: 5rem; /* w-20 */
+  background: #1f2937; /* bg-graphite-800 */
+  border-right: 1px solid #374151;
+  padding: 0;
+  gap: 0;
+  transition: width 0.3s ease;
+}
+
+.dialer-layout--discagem .dialer-layout__brand {
+  min-height: auto;
+  padding: 1.5rem 1rem; /* py-6 px-4 */
+  border-bottom: 1px solid #374151;
+  justify-content: center;
+}
+
+.dialer-layout--discagem.dialer-layout--collapsed .dialer-layout__brand-mark {
+  width: 2rem; /* w-8 */
+  height: 2rem;
+  min-height: 2rem;
+  border-radius: 0.25rem; /* rounded */
+  background: #374151; /* bg-graphite-700 */
+  color: #d1d5db; /* text-graphite-300 */
+  font-family: inherit;
+  font-size: 0.75rem; /* text-xs */
+  font-weight: 700;
+  line-height: 1rem;
+  letter-spacing: 0;
+}
+
+.dialer-layout--discagem .dialer-layout__collapse {
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: #374151;
+  border: 1px solid #4b5563;
+  color: #9ca3af;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1); /* shadow-lg */
+}
+
+.dialer-layout--discagem .dialer-layout__collapse:hover {
+  background: #4b5563; /* hover:bg-graphite-600 */
+  color: #fff;
+  border-color: #4b5563;
+}
+
+.dialer-layout--discagem .dialer-layout__sidebar nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0; /* py-4 */
+  margin-top: 0;
+  gap: 0;
+}
+
+.dialer-layout--discagem.dialer-layout--collapsed .dialer-layout__nav-link {
+  width: 100%;
+  padding: 0.75rem 1rem; /* py-3 px-4 */
+  border-radius: 0;
+  justify-content: center;
+  gap: 0.75rem;
+  color: #d1d5db; /* text-graphite-300 */
+  font-weight: 400;
+}
+
+.dialer-layout--discagem.dialer-layout--collapsed .dialer-layout__nav-link:hover {
+  color: #fff;
+  background: #374151;
+}
+
+.dialer-layout--discagem.dialer-layout--collapsed .dialer-layout__nav-link .dialer-layout__icon {
+  width: 1.5rem; /* w-6 */
+  height: 1.5rem;
+}
+
+.dialer-layout--discagem.dialer-layout--collapsed .dialer-layout__nav-link .dialer-layout__icon svg {
+  width: 1.25rem; /* w-5 */
+  height: 1.25rem;
+}
+
+.dialer-layout--discagem .dialer-layout__collapse-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dialer-layout--discagem .dialer-layout__sidebar-foot {
+  display: none;
+}
+
 .dialer-layout__header {
   display: flex;
   align-items: center;
@@ -261,6 +385,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dialer-layout__page-title--spacer {
+  flex: 1;
+  min-height: 1.25rem;
 }
 
 .dialer-layout__header-left {
@@ -373,6 +502,12 @@
   padding: 1.5rem;
   overflow: auto;
   box-sizing: border-box;
+}
+
+.dialer-layout__content--dialer {
+  flex: 1;
+  padding: 1.5rem; /* p-6 */
+  overflow: auto;
 }
 
 @media (max-width: 1100px) {

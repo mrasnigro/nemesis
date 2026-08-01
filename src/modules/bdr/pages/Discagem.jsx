@@ -1,6 +1,11 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import CallStatusBand, { DialerTabBar } from '../components/CallStatusBand.jsx'
+import {
+  IconArrowLeft,
+  IconClock,
+  IconPhoneOff,
+} from '../components/DialerIcons.jsx'
 import LeadCompanyPanel from '../components/LeadCompanyPanel.jsx'
 import ManualDialForm from '../components/ManualDialForm.jsx'
 import ObjectionPanel from '../components/ObjectionPanel.jsx'
@@ -12,9 +17,8 @@ import '../../../pages/modules/Bdr.css'
 import '../styles/bdr-foundation.css'
 
 /**
- * Discagem workspace — parity with sample SDRDialer
- * (status band → tab panel → Agendar / Desligar)
- * Manual mode opens Ligação Manual as a centered modal overlay.
+ * Discagem workspace — parity with sample SDRDialer OUTHTML
+ * (header → status band → tab card → Agendar / Desligar)
  */
 export default function BdrDiscagemPage() {
   const navigate = useNavigate()
@@ -54,11 +58,17 @@ export default function BdrDiscagemPage() {
   }
 
   return (
-    <section className="bdr-section bdr-discagem">
+    <section className="bdr-discagem">
       <header className="bdr-discagem__header">
-        <p className="bdr-discagem__subtitle">Gerenciamento de leads frios e qualificação</p>
+        <div className="bdr-discagem__heading">
+          <h1>Discagem Automática</h1>
+          <p className="bdr-discagem__subtitle">
+            Gerenciamento de leads frios e qualificação
+          </p>
+        </div>
         <Link to="/modules/bdr" className="bdr-page__back">
-          ← Voltar
+          <IconArrowLeft className="bdr-page__back-icon" />
+          Voltar
         </Link>
       </header>
 
@@ -76,26 +86,25 @@ export default function BdrDiscagemPage() {
       <ManualDialForm open={showManualModal} onClose={closeManualModal} />
 
       {inCall ? (
-        <>
+        <div className="bdr-discagem__stack">
           <CallStatusBand />
 
           {connected ? (
             <div className="bdr-discagem__panel">
               <DialerTabBar />
-
-              {activeTab === 'company' ? <LeadCompanyPanel /> : null}
-              {activeTab === 'script' ? <SalesScript onRequestSchedule={openSchedule} /> : null}
-              {activeTab === 'questions' ? <ObjectionPanel /> : null}
-              {activeTab === 'diagnosis' ? (
-                <QualificationForm onRequestSchedule={openSchedule} />
-              ) : null}
-
-              {scriptCompleted ? (
-                <p className="bdr-script__ok bdr-discagem__script-flag">
-                  Script concluído — use Agendar Reunião e Finalizar Atendimento na aba de
-                  diagnóstico.
-                </p>
-              ) : null}
+              <div className="bdr-discagem__panel-body">
+                {activeTab === 'company' ? <LeadCompanyPanel /> : null}
+                {activeTab === 'script' ? (
+                  <SalesScript onRequestSchedule={openSchedule} />
+                ) : null}
+                {activeTab === 'questions' ? <ObjectionPanel /> : null}
+                {activeTab === 'diagnosis' ? <QualificationForm /> : null}
+                {scriptCompleted ? (
+                  <p className="bdr-script__ok bdr-discagem__script-flag">
+                    Script concluído — use Agendar Reunião ou Desligar abaixo.
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -104,16 +113,24 @@ export default function BdrDiscagemPage() {
               type="button"
               className="bdr-discagem__schedule"
               disabled={!scheduleAllowed}
+              aria-disabled={!scheduleAllowed}
               title={!scheduleAllowed ? 'Aguarde a conexão da chamada' : 'Agendar Reunião'}
               onClick={openSchedule}
             >
+              <IconClock className="bdr-discagem__cta-icon" />
               Agendar Reunião
             </button>
-            <button type="button" className="bdr-discagem__hangup" onClick={hangupToIdle}>
+            <button
+              type="button"
+              className="bdr-discagem__hangup"
+              title="Desligar"
+              onClick={hangupToIdle}
+            >
+              <IconPhoneOff className="bdr-discagem__cta-icon" />
               Desligar
             </button>
           </div>
-        </>
+        </div>
       ) : null}
 
       <ScheduleMeetingModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />

@@ -1,16 +1,63 @@
 import { OBJECTION_LIBRARY } from '../data/objections.js'
+import { openQuestionamentosWindow } from '../services/openQuestionamentosWindow.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 
+function entryLabel(entry) {
+  if (entry.label) return entry.label
+  const bare = String(entry.question || '')
+    .replace(/^\[|\]$/g, '')
+    .trim()
+  return `[${bare.toUpperCase()}]`
+}
+
+function EntryBody({ entry, onRegister }) {
+  const paragraphs =
+    entry.paragraphs || (entry.answer ? [entry.answer] : [])
+  const ganchoLines =
+    entry.ganchoLines || (entry.gancho ? [entry.gancho] : [])
+
+  return (
+    <div className="bdr-objections__entry-body">
+      {paragraphs.map((text) => (
+        <p key={text.slice(0, 64)}>{text}</p>
+      ))}
+
+      {ganchoLines.length > 0 ? (
+        <div className="bdr-objections__gancho">
+          {entry.ganchoTitle ? (
+            <p className="bdr-objections__gancho-title">{entry.ganchoTitle}</p>
+          ) : null}
+          {ganchoLines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="bdr-objections__resposta-wrap">
+        <span className="bdr-objections__resposta">[RESPOSTA]</span>
+      </div>
+
+      {onRegister ? (
+        <button type="button" className="bdr-objections__use" onClick={onRegister}>
+          Registrar na anotação de objeções
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 /**
- * Questionamentos Padrão — accordion library (7 categories).
+ * Questionamentos Padrão — PLUCK entry CTA:
+ * label + subtitle + ▼ chevron, bordered card, dashed left spine.
  */
 export default function ObjectionPanel() {
-  const { scriptProgress, patchScriptProgress, patchDiagnosis, diagnosis } = useBdrSession()
+  const { scriptProgress, patchScriptProgress, patchDiagnosis, diagnosis } =
+    useBdrSession()
   const openId = scriptProgress.openObjectionCategoryId
 
-  const toggleCategory = (id) => {
+  const onCategoryToggle = (id, isOpen) => {
     patchScriptProgress({
-      openObjectionCategoryId: openId === id ? null : id,
+      openObjectionCategoryId: isOpen ? id : null,
     })
   }
 
@@ -25,61 +72,100 @@ export default function ObjectionPanel() {
 
   return (
     <div className="bdr-objections">
-      <div className="bdr-objections__toolbar">
-        <div>
-          <h3>Questionamentos Padrão</h3>
-          <span className="bdr-objections__note">
-            Conteúdo de referência — use como apoio, não como motor de branch.
-          </span>
+      <div className="bdr-objections__scroll">
+        <div className="bdr-objections__toolbar">
+          <button
+            type="button"
+            className="bdr-objections__external"
+            onClick={() => {
+              const opened = openQuestionamentosWindow()
+              if (!opened) {
+                window.alert(
+                  'Permita pop-ups para abrir os Questionamentos em uma nova janela.',
+                )
+              }
+            }}
+          >
+            <span>Abrir Questionamentos em uma nova Janela</span>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path
+                fill="currentColor"
+                fillRule="evenodd"
+                d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"
+              />
+              <path
+                fill="currentColor"
+                fillRule="evenodd"
+                d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="bdr-objections__cats">
+          {OBJECTION_LIBRARY.map((cat) => {
+            const color = cat.color || '#94a3b8'
+            const open = openId === cat.id
+            return (
+              <details
+                key={cat.id}
+                className="bdr-objections__cat"
+                style={{
+                  '--obj-color': color,
+                  '--obj-tint': `color-mix(in srgb, ${color} 5%, transparent)`,
+                }}
+                open={open}
+                onToggle={(e) => onCategoryToggle(cat.id, e.currentTarget.open)}
+              >
+                <summary className="bdr-objections__cat-summary">
+                  <div className="bdr-objections__cat-copy">
+                    <h3 className="bdr-objections__cat-title">
+                      {cat.title} ({cat.entries.length})
+                    </h3>
+                    {cat.snippet ? (
+                      <p className="bdr-objections__snippet">{cat.snippet}</p>
+                    ) : null}
+                  </div>
+                  <span className="bdr-objections__chevron" aria-hidden="true">
+                    ▼
+                  </span>
+                </summary>
+
+                <div className="bdr-objections__cat-body">
+                  {cat.entries.map((entry) => (
+                    <details key={entry.id} className="bdr-objections__entry">
+                      <summary className="bdr-objections__entry-summary">
+                        <div className="bdr-objections__entry-copy">
+                          <span className="bdr-objections__entry-q">
+                            {entryLabel(entry)}
+                          </span>
+                          {entry.subtitle ? (
+                            <span className="bdr-objections__entry-sub">
+                              {entry.subtitle}
+                            </span>
+                          ) : null}
+                        </div>
+                        <span
+                          className="bdr-objections__entry-chevron"
+                          aria-hidden="true"
+                        >
+                          ▼
+                        </span>
+                      </summary>
+                      <EntryBody
+                        entry={entry}
+                        onRegister={() =>
+                          appendObjectionNote(entry.question || entryLabel(entry))
+                        }
+                      />
+                    </details>
+                  ))}
+                </div>
+              </details>
+            )
+          })}
         </div>
       </div>
-
-      <ul className="bdr-objections__cats">
-        {OBJECTION_LIBRARY.map((cat) => {
-          const open = openId === cat.id
-          return (
-            <li key={cat.id} className={`bdr-objections__cat${open ? ' is-open' : ''}`}>
-              <button
-                type="button"
-                className="bdr-objections__cat-btn"
-                aria-expanded={open}
-                onClick={() => toggleCategory(cat.id)}
-              >
-                <span>
-                  {cat.title} <em>({cat.entries.length})</em>
-                </span>
-                <span className="bdr-objections__chevron">{open ? '▾' : '▸'}</span>
-              </button>
-              {!open ? (
-                <p className="bdr-objections__snippet">{cat.entries[0]?.question}</p>
-              ) : null}
-              {open ? (
-                <ul className="bdr-objections__entries">
-                  {cat.entries.map((entry) => (
-                    <li key={entry.id} className="bdr-objections__entry">
-                      <strong>{entry.question}</strong>
-                      <p>
-                        <span className="bdr-script__tag">Resposta sugerida</span> {entry.answer}
-                      </p>
-                      <p>
-                        <span className="bdr-script__tag bdr-script__tag--cyan">Gancho</span>{' '}
-                        {entry.gancho}
-                      </p>
-                      <button
-                        type="button"
-                        className="bdr-objections__use"
-                        onClick={() => appendObjectionNote(entry.question)}
-                      >
-                        Registrar na anotação de objeções
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </li>
-          )
-        })}
-      </ul>
     </div>
   )
 }

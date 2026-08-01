@@ -1,216 +1,301 @@
 /**
- * Questionamentos Padrão — 7 categories, live counts (functional §5.5).
- * Reference content / suggested answers — not a hard branching engine.
+ * Questionamentos Padrão — live Dialer / PLUCK parity.
+ * Reference talk-tracks — not a hard branching engine.
  */
 
 export const OBJECTION_LIBRARY = [
   {
     id: 'produto',
     title: 'Sobre o produto',
+    color: '#2dd4bf',
+    snippet:
+      'O que vende? Não entendi? Como funciona? Quanto tempo dura? É uma mentoria ou curso?',
     entries: [
       {
         id: 'p1',
-        question: 'O que vocês vendem exatamente?',
-        answer:
-          'Trabalhamos com uma metodologia prática de gestão e crescimento para empresas que já faturam e querem estruturar lucro, vendas e liderança — não é só um curso teórico.',
-        gancho: 'O que você imagina que faltaria na sua operação hoje: método, gente ou execução?',
+        label: '[O QUE VOCÊS VENDEM]',
+        subtitle: 'Explicação objetiva da oferta.',
+        question: 'O que vocês vendem?',
+        paragraphs: [
+          'Só para contextualizar rapidamente: o que nós oferecemos não é um software, nem um curso para você assistir sozinho. Também não é uma consultoria que entrega um relatório e vai embora.',
+          'Nós implementamos uma metodologia de crescimento empresarial personalizada para pequenas e médias empresas. Na prática, nós trabalhamos lado a lado com a empresa na implementação. Um especialista acompanha a empresa durante todo o processo para garantir que as mudanças gerem resultado.',
+        ],
+        ganchoTitle: 'GANCHO PARA CONTINUAR A CONVERSA',
+        ganchoLines: [
+          '- Mas me ajuda a entender uma coisa: na sua empresa hoje, qual é o principal desafio?',
+          '- Se você pudesse resolver já nas próximas semanas o maior desafio que você está enfrentando hoje na sua empresa, qual faria maior diferença para o seu negócio?',
+        ],
       },
       {
         id: 'p2',
-        question: 'Ainda não entendi o que é.',
-        answer:
-          'Em uma frase: ajudamos o dono a sair do operacional e construir um sistema de lucro previsível, com diagnóstico e plano de ação.',
-        gancho: 'Se eu resumir em 60 segundos o que fazemos, você me diz se faz sentido continuar?',
+        label: '[AINDA NÃO ENTENDI O QUE VOCÊS VENDEM]',
+        subtitle: 'Versão resumida com exemplo prático.',
+        question: 'Ainda não entendi o que vocês vendem',
+        paragraphs: [
+          'Perfeito, deixa eu resumir em uma frase. Nós implementamos uma metodologia de crescimento empresarial para pequenas e médias empresas.',
+          'Na prática, ajudamos a empresa a aumentar a lucratividade, estruturar as vendas, organizar a gestão e desenvolver líderes, acompanhando a implementação até que as mudanças gerem resultado.',
+        ],
+        ganchoTitle: 'GANCHO PARA CONTINUAR',
+        ganchoLines: [
+          '- Se eu resumir em 60 segundos o que fazemos, você me diz se faz sentido continuar?',
+        ],
       },
       {
         id: 'p3',
+        label: '[COMO FUNCIONA NA PRÁTICA]',
+        subtitle: 'Mostra a lógica do processo.',
         question: 'Como funciona na prática?',
-        answer:
-          'Começamos com um diagnóstico gratuito/estruturado, mapeamos gargalos e, se fizer sentido, desenhamos o acompanhamento com metas claras.',
-        gancho: 'Qual área dói mais agora: lucro, vendas, gestão ou liderança?',
+        paragraphs: [
+          'Primeiro entendemos a realidade da empresa e identificamos o principal gargalo.',
+          'Depois construímos um plano de ação e acompanhamos a implementação junto com a equipe. O foco é transformar as melhorias em rotina e gerar resultados consistentes.',
+        ],
       },
       {
         id: 'p4',
-        question: 'Quanto tempo dura?',
-        answer:
-          'O diagnóstico é curto; o acompanhamento depende do estágio da empresa. O importante é o resultado do ciclo, não o “pacote eterno”.',
-        gancho: 'Você está buscando algo pontual ou uma transformação de 6–12 meses?',
+        label: '[QUANTO TEMPO DURA O TRABALHO]',
+        subtitle: 'Explica duração e frentes de atuação.',
+        question: 'Quanto tempo dura o trabalho?',
+        paragraphs: [
+          'Excelente pergunta. A implementação normalmente leva entre 3 e 6 meses, dependendo da complexidade do negócio.',
+          'Parece bastante tempo, mas é justamente esse período que permite implantar as mudanças, acompanhar a equipe e consolidar os resultados.',
+        ],
       },
       {
         id: 'p5',
-        question: 'É curso, software ou mentoria?',
-        answer:
-          'É metodologia com aplicação assistida — conteúdo + rotina + acompanhamento. Não é só vídeo gravado nem só planilha.',
-        gancho: 'Você já tentou curso sozinho e não conseguiu aplicar?',
+        label: '[É UM CURSO, SOFTWARE OU MENTORIA?]',
+        subtitle: 'Quebra comparações erradas e reposiciona.',
+        question: 'É um curso, software ou mentoria?',
+        paragraphs: [
+          'Não é um curso nem um software. Também não é uma consultoria tradicional que entrega um relatório e vai embora.',
+          'Nós implementamos uma metodologia junto com a empresa. Um especialista acompanha a execução para garantir que as mudanças gerem resultados.',
+        ],
       },
     ],
   },
   {
     id: 'comparacao',
     title: 'Comparação com outros produtos',
+    color: '#60a5fa',
+    snippet: 'Por que é diferente? Qual a diferença das outras Mentorias?',
     entries: [
       {
         id: 'c1',
-        question: 'Qual o diferencial da metodologia?',
-        answer:
-          'Foco em lucro e previsibilidade com o dono no centro da decisão — não só “aumentar venda” sem estruturar gestão.',
-        gancho: 'O que já tentaram com consultoria/curso e não resolveu?',
+        label: '[POR QUE A METODOLOGIA DE VOCÊS É DIFERENTE]',
+        subtitle: 'Diferença estrutural da abordagem.',
+        question: 'Por que a metodologia de vocês é diferente?',
+        paragraphs: [
+          'Porque ela integra três camadas que normalmente são tratadas separadamente: lucratividade, crescimento e operações, que engloba gestão e liderança.',
+          'Em vez de atacar apenas um sintoma, buscamos o gargalo principal que está limitando o crescimento da empresa.',
+        ],
       },
       {
         id: 'c2',
-        question: 'Como se compara a uma consultoria comum?',
-        answer:
-          'Consultoria tradicional muitas vezes entrega relatório. Aqui o valor é execução semanal e métricas que o dono acompanha.',
-        gancho: 'Vocês já tiveram consultor que só entregou diagnóstico e sumiu?',
+        label: '[O QUE DIFERENCIA DE UMA CONSULTORIA COMUM?]',
+        subtitle: 'Mostra personalização e acompanhamento.',
+        question: 'O que diferencia de uma consultoria comum?',
+        paragraphs: [
+          'O que faz funcionar não é a metodologia por si só, mas a forma como ela é aplicada. Empresas diferentes têm desafios diferentes.',
+          'Por isso não trabalhamos com uma receita pronta. Primeiro entendemos profundamente a operação, depois adaptamos a implementação à realidade de cada empresa.',
+        ],
       },
     ],
   },
   {
     id: 'empresa',
     title: 'Sobre a empresa',
+    color: '#a78bfa',
+    snippet:
+      'O que é o IMP? O que já fizeram? Vocês tem Cases? Qual são seus clientes? Já atenderam empresas como a minha?',
     entries: [
       {
         id: 'e1',
+        label: '[O QUE É O IMP]',
+        subtitle: 'Explicativo da empresa.',
         question: 'O que é o IMP?',
-        answer:
-          'O IMP é a plataforma/metodologia que estrutura o crescimento de empresas com processos, liderança e lucro sob controle.',
-        gancho: 'Você conhece alguém que já passou por um programa parecido?',
+        paragraphs: [
+          'Claro. O IMP é uma empresa especializada em crescimento empresarial. Há mais de 25 anos ajudamos Pequenas e Médias empresas a aumentar os lucros, organizar a gestão, desenvolver líderes e estruturar vendas.',
+        ],
+        ganchoTitle: 'GANCHO PARA CONTINUAR',
+        ganchoLines: [
+          '- Posso te fazer uma pergunta rápida para entender se faz sentido para a realidade da sua empresa?',
+        ],
       },
       {
         id: 'e2',
-        question: 'Há quanto tempo existem / qual o know-how?',
-        answer:
-          'Temos cases e rotina consolidada em empresas de diferentes portes — o método é testado no campo, não só em teoria.',
-        gancho: 'Quer que eu cite um tipo de empresa parecida com a sua?',
+        label: '[HÁ QUANTO TEMPO ATUAM COM ISSO? VOCÊS TÊM KNOW-HOW?]',
+        subtitle: 'Histórico, método e experiência.',
+        question: 'Há quanto tempo atuam com isso? Vocês têm know-how?',
+        paragraphs: [
+          'Ótima pergunta. Temos uma metodologia desenvolvida ao longo de mais de 25 anos, reunindo práticas utilizadas em organizações como Kraft, Petrobras e Tribunal de Justiça, adaptadas para pequenas e médias empresas.',
+        ],
       },
       {
         id: 'e3',
-        question: 'Têm cases?',
-        answer:
-          'Sim — empresas que saíram da dependência do dono, organizaram vendas e recuperaram margem. Posso trazer exemplos na reunião diagnóstica.',
-        gancho: 'Qual case seria mais relevante: lucro, vendas ou gestão?',
+        label: '[E VOCÊS TÊM CASES]',
+        subtitle: 'Casos, segmentos e resultados.',
+        question: 'E vocês têm cases?',
+        paragraphs: [
+          'Temos, sim. Ao longo dos últimos 25 anos, já ajudamos empresas de diferentes segmentos e portes.',
+          'Além disso, empresas que aplicaram essa metodologia já geraram, juntas, mais de R$ 300 milhões em resultados.',
+        ],
       },
       {
         id: 'e4',
-        question: 'Quem são os clientes?',
-        answer:
-          'Empresários que já faturam e sentem que o crescimento travou por gestão, equipe ou falta de método.',
-        gancho: 'Sua empresa está mais no estágio de estabilizar ou de escalar?',
+        label: '[QUEM SÃO OS CLIENTES DE VOCÊS]',
+        subtitle: 'Perfil das empresas atendidas.',
+        question: 'Quem são os clientes de vocês?',
+        paragraphs: [
+          'Atendemos principalmente pequenas e médias empresas em fase de crescimento, de diferentes segmentos.',
+        ],
       },
       {
         id: 'e5',
-        question: 'Atendem empresas como a minha?',
-        answer:
-          'Sim — o diagnóstico serve exatamente para ver se o fit existe. Se não fizer sentido, falamos com transparência.',
-        gancho: 'Me conta em uma frase o que mais trava o crescimento hoje.',
+        label: '[JÁ ATENDERAM EMPRESAS COMO A MINHA]',
+        subtitle: 'Semelhança de desafio, não só de segmento.',
+        question: 'Já atenderam empresas como a minha?',
+        paragraphs: [
+          'Sim — o mais importante não é só o segmento, e sim o tipo de desafio. Empresas com dores parecidas passam pelo mesmo processo de diagnóstico e adaptação da metodologia.',
+        ],
       },
     ],
   },
   {
     id: 'preco',
     title: 'Preço e investimento',
+    color: '#fbbf24',
+    snippet: 'Quanto custa? Você não falou sobre preço?',
     entries: [
       {
         id: 'pr1',
+        label: '[QUANTO CUSTA]',
+        subtitle: 'Investimento depende do diagnóstico.',
         question: 'Quanto custa?',
-        answer:
+        paragraphs: [
           'O investimento depende do diagnóstico e do plano. Antes disso, qualquer número seria chute. O primeiro passo é entender o tamanho do problema.',
-        gancho: 'Se o diagnóstico mostrar um ganho claro de margem, faz sentido avaliar o investimento?',
+        ],
       },
       {
         id: 'pr2',
-        question: 'Insistência no preço / “manda o valor já”',
-        answer:
+        label: '[VOCÊ NÃO FALOU SOBRE PREÇO]',
+        subtitle: 'Reposiciona urgência sem chute de valor.',
+        question: 'Você não falou sobre preço?',
+        paragraphs: [
           'Entendo a urgência. Sem entender faturamento, equipe e dor, o valor não ajuda — pode até afastar. Vamos alinhar o contexto em 15–20 min?',
-        gancho: 'O que é mais importante: o menor preço ou o retorno em lucro?',
+        ],
       },
     ],
   },
   {
     id: 'seguranca',
     title: 'Segurança para avançar',
+    color: '#4ade80',
+    snippet: 'E se a minha empresa for diferente? Vocês garantem que funciona? Eu já tentei isso.',
     entries: [
       {
         id: 's1',
-        question: 'Minha realidade é diferente.',
-        answer:
+        label: '[E SE A MINHA EMPRESA FOR DIFERENTE]',
+        subtitle: 'Particularidade e adaptação do método.',
+        question: 'E se a minha empresa for diferente?',
+        paragraphs: [
           'Toda empresa tem particularidades — por isso o diagnóstico. O método se adapta ao estágio, não o contrário.',
-        gancho: 'O que na sua realidade você acha que tornaria isso inviável?',
+        ],
       },
       {
         id: 's2',
-        question: 'Tem garantia?',
-        answer:
+        label: '[VOCÊS GARANTEM QUE FUNCIONA]',
+        subtitle: 'Clareza de escopo e medição.',
+        question: 'Vocês garantem que funciona?',
+        paragraphs: [
           'Trabalhamos com clareza de escopo e acompanhamento. Na reunião mostramos como medimos progresso para você não “comprar no escuro”.',
-        gancho: 'O que precisaria ver para se sentir seguro de avançar?',
+        ],
       },
       {
         id: 's3',
-        question: 'Já tentei de tudo.',
-        answer:
+        label: '[EU JÁ TENTEI ISSO]',
+        subtitle: 'Sequência e indicadores.',
+        question: 'Eu já tentei isso.',
+        paragraphs: [
           'Muitas vezes o que faltou não foi esforço, e sim sequência e indicadores. É isso que o diagnóstico revela.',
-        gancho: 'O que você já tentou que mais se aproximou de funcionar?',
+        ],
       },
       {
         id: 's4',
+        label: '[POR QUE CONFIAR EM VOCÊS]',
+        subtitle: 'Convite ao diagnóstico sem pressão.',
         question: 'Por que confiar em vocês?',
-        answer:
+        paragraphs: [
           'Não peço confiança cega — peço 20 minutos para um diagnóstico. Se não fizer sentido, você sai com clareza do próximo passo mesmo assim.',
-        gancho: 'Posso te mostrar o roteiro da reunião para você avaliar?',
+        ],
       },
     ],
   },
   {
     id: 'decisao',
     title: 'Decisão e alinhamento interno',
+    color: '#3b82f6',
+    snippet: 'Vou falar com meu Sócio. Já temos uma consultoria.',
     entries: [
       {
         id: 'd1',
-        question: 'Preciso falar com o sócio.',
-        answer:
+        label: '[VOU FALAR COM MEU SÓCIO]',
+        subtitle: 'Inclui o sócio na reunião diagnóstica.',
+        question: 'Vou falar com meu sócio.',
+        paragraphs: [
           'Perfeito — a reunião diagnóstica é exatamente o momento de alinhar os dois. Podemos incluir o sócio no convite.',
-        gancho: 'Qual dia/horário os dois conseguem 20 minutos juntos?',
+        ],
       },
       {
         id: 'd2',
-        question: 'Já temos consultoria.',
-        answer:
+        label: '[JÁ TEMOS UMA CONSULTORIA]',
+        subtitle: 'Complementa, não compete às cegas.',
+        question: 'Já temos uma consultoria.',
+        paragraphs: [
           'Ótimo ter apoio. Muitas empresas usam o diagnóstico para validar se o que estão fazendo está gerando lucro de verdade.',
-        gancho: 'A consultoria atual está focada em quê: vendas, gestão ou financeiro?',
+        ],
       },
     ],
   },
   {
     id: 'timing',
     title: 'Objeções de timing e prioridade',
+    color: '#94a3b8',
+    snippet: 'Eu não tenho problema nenhum. Agora não é um bom momento. Manda Material.',
     entries: [
       {
         id: 't1',
-        question: 'Não tenho problema.',
-        answer:
+        label: '[EU NÃO TENHO PROBLEMA NENHUM]',
+        subtitle: 'Oportunidade mesmo sem crise.',
+        question: 'Eu não tenho problema nenhum.',
+        paragraphs: [
           'Ótimo sinal. Mesmo assim, empresários sem “crise” usam o diagnóstico para proteger margem e escalar com menos dependência do dono.',
-        gancho: 'Se pudesse melhorar uma coisa sem dor de cabeça, o que seria?',
+        ],
       },
       {
         id: 't2',
-        question: 'Agora não.',
-        answer:
-          'Entendo. Posso deixar um horário na agenda daqui a X dias — o problema raramente espera o “momento perfeito”.',
-        gancho: 'Quando seria um bom momento: esta semana ou na próxima?',
+        label: '[AGORA NÃO É UM BOM MOMENTO]',
+        subtitle: 'Agenda sem perder o gancho.',
+        question: 'Agora não é um bom momento.',
+        paragraphs: [
+          'Entendo. Posso deixar um horário na agenda daqui a alguns dias — o problema raramente espera o “momento perfeito”.',
+        ],
       },
       {
         id: 't3',
+        label: '[O PROBLEMA É O MERCADO]',
+        subtitle: 'Processo protege margem no ciclo ruim.',
         question: 'O problema é o mercado.',
-        answer:
+        paragraphs: [
           'Mercado piora para quem não tem processo. Empresas com método protegido de margem sofrem menos em ciclo ruim.',
-        gancho: 'O que mais te preocupa no mercado hoje: demanda, preço ou custo?',
+        ],
       },
       {
         id: 't4',
-        question: 'Manda um material.',
-        answer:
+        label: '[MANDA MATERIAL]',
+        subtitle: 'Material + diagnóstico curto.',
+        question: 'Manda material.',
+        paragraphs: [
           'Posso enviar, mas o material não substitui o diagnóstico do seu caso. 15 minutos costumam valer mais que 20 PDFs.',
-        gancho: 'Se eu enviar e marcarmos 15 min depois, funciona?',
+        ],
       },
     ],
   },
@@ -221,6 +306,7 @@ export function objectionCategorySummaries() {
     id: cat.id,
     title: cat.title,
     count: cat.entries.length,
-    snippet: cat.entries[0]?.question || '',
+    snippet: cat.snippet || cat.entries[0]?.question || '',
+    color: cat.color,
   }))
 }

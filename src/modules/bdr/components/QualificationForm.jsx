@@ -1,205 +1,109 @@
-import { useState } from 'react'
 import {
   COMPANY_SIZE_OPTIONS,
   EMPLOYEE_OPTIONS,
   PARTNER_OPTIONS,
   PRIORITY_OPTIONS,
   REVENUE_OPTIONS,
-} from '../data/scriptContent.js'
+} from '../data/scriptContent'
 import { useBdrSession } from '../hooks/useBdrSession.js'
-import DispositionSelector from './DispositionSelector.jsx'
-import PainPointSelector from './PainPointSelector.jsx'
-import ThermometerControl from './ThermometerControl.jsx'
+import PainPointSelector from './PainPointSelector'
+
+function Field({ id, label, value, onChange, options, className = '' }) {
+  return (
+    <div className={className}>
+      <label className="bdr-qualification__label" htmlFor={id}>
+        {label}
+      </label>
+      <select
+        id={id}
+        className="bdr-qualification__select"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Selecione...</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 /**
- * Anotações de Diagnóstico — qualification selects + deep notes + wrap-up.
+ * Anotações de Diagnóstico — Qualificação + Dores + Registro de Objeções (live Dialer).
+ * Schedule / hangup live in the page footer outside this panel.
  */
-export default function QualificationForm({ onRequestSchedule }) {
-  const {
-    diagnosis,
-    notes,
-    setNotes,
-    patchDiagnosisField,
-    finalizeAttendance,
-    dispositionId,
-    scriptCompleted,
-    call,
-  } = useBdrSession()
-
-  const [finalizeError, setFinalizeError] = useState('')
-  const [finalizing, setFinalizing] = useState(false)
-
-  const onSelect = (field) => (e) => {
-    patchDiagnosisField(field, e.target.value)
-  }
-
-  const onText = (field) => (e) => {
-    patchDiagnosisField(field, e.target.value)
-  }
-
-  const handleFinalize = async () => {
-    setFinalizeError('')
-    setFinalizing(true)
-    const result = await finalizeAttendance()
-    setFinalizing(false)
-    if (!result.ok) {
-      setFinalizeError(result.error || 'Não foi possível finalizar.')
-    }
-  }
+export default function QualificationForm() {
+  const { diagnosis, patchDiagnosis, patchDiagnosisField, togglePain, call } = useBdrSession()
+  const d = diagnosis || {}
+  const disabled = call?.status !== 'connected'
+  const selectedPains = Object.entries(d.pains || {})
+    .filter(([, on]) => on)
+    .map(([id]) => id)
 
   return (
-    <div className="bdr-qualification">
-      <section className="bdr-qualification__block">
-        <h3>Qualificação do Negócio</h3>
+    <fieldset className={`bdr-qualification${disabled ? ' is-disabled' : ''}`} disabled={disabled}>
+      <div className="bdr-qualification__block">
+        <h3 className="bdr-qualification__heading">Qualificação do Negócio</h3>
         <div className="bdr-qualification__grid">
-          <label>
-            Porte da empresa
-            <select value={diagnosis.companySize || ''} onChange={onSelect('companySize')}>
-              <option value="">Selecione...</option>
-              {COMPANY_SIZE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Faturamento mensal estimado
-            <select value={diagnosis.monthlyRevenue || ''} onChange={onSelect('monthlyRevenue')}>
-              <option value="">Selecione...</option>
-              {REVENUE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Nº de colaboradores
-            <select value={diagnosis.employees || ''} onChange={onSelect('employees')}>
-              <option value="">Selecione...</option>
-              {EMPLOYEE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Prioridade no momento?
-            <select value={diagnosis.priority || ''} onChange={onSelect('priority')}>
-              <option value="">Selecione...</option>
-              {PRIORITY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Necessária presença do(s) sócio(s)?
-            <select value={diagnosis.partnerPresence || ''} onChange={onSelect('partnerPresence')}>
-              <option value="">Selecione...</option>
-              {PARTNER_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Field
+            id="bdr-company-size"
+            label="PORTE DA EMPRESA"
+            value={d.companySize}
+            onChange={(v) => patchDiagnosisField('companySize', v)}
+            options={COMPANY_SIZE_OPTIONS}
+          />
+          <Field
+            id="bdr-revenue"
+            label="FATURAMENTO MENSAL ESTIMADO"
+            value={d.monthlyRevenue}
+            onChange={(v) => patchDiagnosisField('monthlyRevenue', v)}
+            options={REVENUE_OPTIONS}
+          />
+          <Field
+            id="bdr-employees"
+            label="Nº DE COLABORADORES"
+            value={d.employees}
+            onChange={(v) => patchDiagnosisField('employees', v)}
+            options={EMPLOYEE_OPTIONS}
+          />
+          <Field
+            id="bdr-priority"
+            label="PRIORIDADE NO MOMENTO?"
+            value={d.priority}
+            onChange={(v) => patchDiagnosisField('priority', v)}
+            options={PRIORITY_OPTIONS}
+          />
+          <Field
+            id="bdr-partner"
+            label="NECESSÁRIA PRESENÇA DO(S) SÓCIO(S)?"
+            value={d.partnerPresence}
+            onChange={(v) => patchDiagnosisField('partnerPresence', v)}
+            options={PARTNER_OPTIONS}
+            className="bdr-qualification__field--start"
+          />
         </div>
-        {diagnosis.partnerPresence === 'nao' ? (
-          <p className="bdr-script__callout">
-            Soft rule: o interlocutor não é o único decisor — busque o real tomador de decisão
-            antes do compromisso comercial.
-          </p>
-        ) : null}
-      </section>
-
-      <PainPointSelector />
-
-      <section className="bdr-qualification__block">
-        <h3>Diagnóstico profundo</h3>
-        <label>
-          Problemas / gargalos (dores)
-          <textarea
-            rows={3}
-            value={diagnosis.painPoints || ''}
-            onChange={onText('painPoints')}
-            placeholder="Sincronizado com as dores selecionadas; edite livremente."
-          />
-        </label>
-        <label>
-          Necessidades
-          <textarea rows={3} value={diagnosis.needs || ''} onChange={onText('needs')} />
-        </label>
-        <label>
-          Registro de objeções
-          <textarea
-            rows={3}
-            value={diagnosis.objections || ''}
-            onChange={onText('objections')}
-            placeholder="Objeções levantadas na conversa…"
-          />
-        </label>
-        <label>
-          Observações extras
-          <textarea
-            rows={2}
-            value={diagnosis.extraObservations || ''}
-            onChange={onText('extraObservations')}
-          />
-        </label>
-        <label>
-          Resumo / feeling do lead (handoff Closer)
-          <textarea
-            rows={3}
-            value={diagnosis.conversationSummary || ''}
-            onChange={onText('conversationSummary')}
-          />
-        </label>
-        <label>
-          Notas gerais da chamada
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </label>
-      </section>
-
-      <ThermometerControl />
-      <DispositionSelector />
-
-      <div className="bdr-qualification__actions">
-        {scriptCompleted ? (
-          <p className="bdr-script__ok">Script concluído — agendamento e finalização liberados.</p>
-        ) : (
-          <p className="bdr-script__hint">
-            Complete o Script de Abordagem (abertura, dores, decisão, equipe e faturamento) para
-            marcar o fluxo como concluído.
-          </p>
-        )}
-        <button
-          type="button"
-          className="bdr-discagem__schedule"
-          disabled={call.status !== 'connected'}
-          title={call.status !== 'connected' ? 'Aguarde a conexão da chamada' : undefined}
-          onClick={onRequestSchedule}
-        >
-          Agendar Reunião
-        </button>
-        <button
-          type="button"
-          className="bdr-qualification__finalize"
-          disabled={finalizing || call.status !== 'connected'}
-          onClick={handleFinalize}
-        >
-          {finalizing ? 'Finalizando…' : 'Finalizar Atendimento'}
-        </button>
-        {!dispositionId ? (
-          <p className="bdr-manual-form__error">
-            Selecione uma qualificação (disposição) para finalizar.
-          </p>
-        ) : null}
-        {finalizeError ? <p className="bdr-manual-form__error">{finalizeError}</p> : null}
       </div>
-    </div>
+
+      <div className="bdr-qualification__block">
+        <PainPointSelector selected={selectedPains} onToggle={togglePain} />
+      </div>
+
+      <div className="bdr-qualification__block">
+        <label className="bdr-qualification__label" htmlFor="bdr-objections-log">
+          REGISTRO DE OBJEÇÕES
+        </label>
+        <textarea
+          id="bdr-objections-log"
+          className="bdr-qualification__textarea"
+          rows={4}
+          value={d.objections || ''}
+          onChange={(e) => patchDiagnosis({ objections: e.target.value })}
+          placeholder="Levantou alguma objeção preliminar? Ex: 'Achei caro', 'Sem tempo', 'Já uso um software'..."
+        />
+      </div>
+    </fieldset>
   )
 }

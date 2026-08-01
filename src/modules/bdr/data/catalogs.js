@@ -112,10 +112,10 @@ export const CONTACT_METHODS = [
 ]
 
 export const DIALER_TABS = [
-  { id: 'company', label: 'Dados da Empresa' },
-  { id: 'script', label: 'Script de Abordagem' },
-  { id: 'questions', label: 'Questionamentos Padrão' },
-  { id: 'diagnosis', label: 'Anotações de Diagnóstico' },
+  { id: 'company', label: 'Dados da Empresa', icon: 'grid' },
+  { id: 'script', label: 'Script de Abordagem', icon: 'message' },
+  { id: 'questions', label: 'Questionamentos Padrão', icon: 'help' },
+  { id: 'diagnosis', label: 'Anotações de Diagnóstico', icon: 'file' },
 ]
 
 export const SCHEDULE_HOURS = {
