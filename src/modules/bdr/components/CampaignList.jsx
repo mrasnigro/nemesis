@@ -31,9 +31,15 @@ export default function CampaignList() {
                 onClick={() => selectCampaign(campaign.id)}
               >
                 <div className="bdr-home__campaign-top">
-                  <strong>{campaign.name}</strong>
+                  <strong className="bdr-home__campaign-title">
+                    {selected ? (
+                      <span className="bdr-home__campaign-check" aria-hidden="true">
+                        ✓
+                      </span>
+                    ) : null}
+                    {campaign.name}
+                  </strong>
                   <span className={`bdr-home__badge bdr-home__badge--${badgeTone}`}>
-                    {selected ? '✓ ' : ''}
                     {statusLabel}
                   </span>
                 </div>

@@ -11,6 +11,8 @@ import ManualDialForm from '../components/ManualDialForm.jsx'
 import ObjectionPanel from '../components/ObjectionPanel.jsx'
 import QualificationForm from '../components/QualificationForm.jsx'
 import SalesScript from '../components/SalesScript.jsx'
+import DiscagemCallHistory from '../components/DiscagemCallHistory.jsx'
+import EndCallModal from '../components/EndCallModal.jsx'
 import ScheduleMeetingModal from '../components/ScheduleMeetingModal.jsx'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 import '../../../pages/modules/Bdr.css'
@@ -18,7 +20,7 @@ import '../styles/bdr-foundation.css'
 
 /**
  * Discagem workspace — parity with sample SDRDialer OUTHTML
- * (header → status band → tab card → Agendar / Desligar)
+ * (header → status band → tab card → Agendar / Desligar → session history)
  */
 export default function BdrDiscagemPage() {
   const navigate = useNavigate()
@@ -26,6 +28,8 @@ export default function BdrDiscagemPage() {
   const mode = params.get('mode') === 'manual' ? 'manual' : 'automatic'
   const autoStartedRef = useRef(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [endCallOpen, setEndCallOpen] = useState(false)
+  const [sessionHistory, setSessionHistory] = useState([])
   const {
     call,
     dialAllowed,
@@ -52,6 +56,14 @@ export default function BdrDiscagemPage() {
   const inCall = call.status === 'searching' || call.status === 'connected'
   const connected = call.status === 'connected'
   const openSchedule = () => setScheduleOpen(true)
+
+  function openEndCall() {
+    if (call.status === 'connected') {
+      setEndCallOpen(true)
+      return
+    }
+    hangupToIdle()
+  }
 
   function closeManualModal() {
     navigate('/modules/bdr', { replace: true })
@@ -128,16 +140,25 @@ export default function BdrDiscagemPage() {
               type="button"
               className="bdr-discagem__hangup"
               title="Desligar"
-              onClick={hangupToIdle}
+              onClick={openEndCall}
             >
               <IconPhoneOff className="bdr-discagem__cta-icon" />
               Desligar
             </button>
           </div>
+
+          <DiscagemCallHistory rows={sessionHistory} />
         </div>
       ) : null}
 
       <ScheduleMeetingModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
+      <EndCallModal
+        open={endCallOpen}
+        onClose={() => setEndCallOpen(false)}
+        onFinalized={(row) => {
+          setSessionHistory((prev) => [row, ...prev.filter((item) => item.id !== row.id)])
+        }}
+      />
     </section>
   )
 }

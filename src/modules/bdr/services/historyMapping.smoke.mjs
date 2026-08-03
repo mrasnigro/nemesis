@@ -24,12 +24,12 @@ assert.ok(atendidas.every((r) => r.callStatus === 'Atendida'))
 const agendados = filterHistoryRows(SEED_HISTORY, { clientStatus: 'Agendado' })
 assert.ok(agendados.some((r) => r.id === 'h3'))
 
-const day = meetingsForDate(SEED_MEETINGS, '2026-07-31')
+const day = meetingsForDate(SEED_MEETINGS, '2026-08-06')
 assert.equal(day.length, 1)
-assert.equal(day[0].leadName, 'Maria Santos')
+assert.equal(day[0].leadName, 'Carlos Oliveira')
 
-const grid = buildMonthGrid(2026, 6) // July
-assert.ok(grid.some((c) => c && c.iso === '2026-07-31'))
+const grid = buildMonthGrid(2026, 7) // August
+assert.ok(grid.some((c) => c && c.iso === '2026-08-06'))
 
 const summary = formatDiagnosisSummary(SEED_HISTORY[0].diagnosis)
 assert.ok(summary.some((line) => line.includes('Termômetro')))

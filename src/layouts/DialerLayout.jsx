@@ -127,6 +127,7 @@ function DialerShell() {
   const [collapsed, setCollapsed] = useState(true)
   const isDiscagemRoute = location.pathname.startsWith('/modules/bdr/discagem')
     || location.pathname.startsWith('/modules/bdr/manual')
+  const isAgendamentosRoute = location.pathname.startsWith('/modules/bdr/agendamentos')
 
   const activeGroupIds = useMemo(
     () =>
@@ -294,21 +295,48 @@ function DialerShell() {
       <div className="dialer-layout__shell">
         {isDiscagemRoute ? null : (
           <header className="dialer-layout__header">
-            <div className="dialer-layout__header-inner">
-              <div className="dialer-layout__header-actions">
-                <AttendanceTimer />
-                <div className="dialer-layout__role-block">
-                  <p className="dialer-layout__role-title">BDR - Prospecção</p>
-                  <p className="dialer-layout__role-sub">Operador</p>
+            <div
+              className={`dialer-layout__header-inner${
+                isAgendamentosRoute ? ' dialer-layout__header-inner--agenda' : ''
+              }`}
+            >
+              {isAgendamentosRoute ? (
+                <>
+                  <h1 className="dialer-layout__page-title">Agendamentos Realizados</h1>
+                  <button
+                    type="button"
+                    className="dialer-layout__page-back"
+                    onClick={() => navigate('/modules/bdr')}
+                  >
+                    <svg
+                      className="bdr-page__back-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                    Voltar
+                  </button>
+                </>
+              ) : (
+                <div className="dialer-layout__header-actions">
+                  <AttendanceTimer />
+                  <div className="dialer-layout__role-block">
+                    <p className="dialer-layout__role-title">BDR - Prospecção</p>
+                    <p className="dialer-layout__role-sub">Operador</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="dialer-layout__logout"
+                    onClick={handleLogout}
+                  >
+                    Sair
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="dialer-layout__logout"
-                  onClick={handleLogout}
-                >
-                  Sair
-                </button>
-              </div>
+              )}
             </div>
           </header>
         )}

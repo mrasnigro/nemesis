@@ -76,6 +76,16 @@ export function formatIsoDatePt(iso) {
   return `${d}/${m}/${y}`
 }
 
+const WEEKDAY_NAMES_PT = [
+  'domingo',
+  'segunda-feira',
+  'terça-feira',
+  'quarta-feira',
+  'quinta-feira',
+  'sexta-feira',
+  'sábado',
+]
+
 const MONTH_NAMES_PT = [
   'janeiro',
   'fevereiro',
@@ -91,8 +101,22 @@ const MONTH_NAMES_PT = [
   'dezembro',
 ]
 
+/** e.g. "quinta-feira, 6 de agosto de 2026" */
+export function formatLongDatePt(iso) {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  if (Number.isNaN(date.getTime())) return formatIsoDatePt(iso)
+  return `${WEEKDAY_NAMES_PT[date.getDay()]}, ${d} de ${MONTH_NAMES_PT[m - 1]} de ${y}`
+}
+
 export function monthTitlePt(year, monthIndex) {
   return `${MONTH_NAMES_PT[monthIndex]} de ${year}`
+}
+
+export function todayIsoLocal() {
+  const now = new Date()
+  return toIsoDate(now.getFullYear(), now.getMonth(), now.getDate())
 }
 
 /** Calendar cells for month grid (Sun–Sat), including leading/trailing blanks as null */
