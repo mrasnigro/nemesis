@@ -1,39 +1,33 @@
 import {
-  DECISAO_OPTIONS,
   EQUIPE_OPTIONS,
   FATURAMENTO_OPTIONS,
   PRIORITY_OPTIONS,
-  SCRIPT_SECTIONS,
-  substituteScriptPlaceholders,
 } from '../data/scriptContent.js'
+import { SCRIPT_PAIN_DETAILS } from '../data/scriptPainDetails.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
-import PainPointSelector from './PainPointSelector.jsx'
+import { IconClock } from './DialerIcons.jsx'
 
-function Marker({ children, tone = 'red' }) {
-  return <span className={`bdr-script__chip bdr-script__chip--${tone}`}>{children}</span>
+function Resposta() {
+  return <span className="bdr-script__resposta">[RESPOSTA]</span>
 }
 
-function RadioGroup({ name, options, value, onChange }) {
+function Tag({ children }) {
+  return <span className="bdr-script__tag">{children}</span>
+}
+
+function Card({ title, titleMb = 'default', children }) {
   return (
-    <div className="bdr-script__radios" role="radiogroup" aria-label={name}>
-      {options.map((opt) => (
-        <label key={opt.value} className={`bdr-script__radio${value === opt.value ? ' is-selected' : ''}`}>
-          <input
-            type="radio"
-            name={name}
-            value={opt.value}
-            checked={value === opt.value}
-            onChange={() => onChange(name, opt.value)}
-          />
-          <span>{opt.label}</span>
-        </label>
-      ))}
-    </div>
+    <article className="bdr-script__card">
+      <h3 className={`bdr-script__card-title${titleMb === 'sm' ? ' bdr-script__card-title--sm' : ''}`}>
+        {title}
+      </h3>
+      {children}
+    </article>
   )
 }
 
 /**
- * Full Script de Abordagem — progression + conditional branches + diagnosis sync.
+ * Script de Abordagem — sample SDRDialer card stack (space-y-10 / p-8 cards).
  */
 export default function SalesScript({ onRequestSchedule }) {
   const {
@@ -41,239 +35,391 @@ export default function SalesScript({ onRequestSchedule }) {
     diagnosis,
     scriptProgress,
     answerScriptRadio,
-    setScriptSection,
+    togglePain,
     markScriptCompleted,
     scriptCompleted,
-    selectedCampaign,
   } = useBdrSession()
 
-  const lead = call.currentLead
   const answered = scriptProgress.answered || {}
-  const placeholders = {
-    agentName: 'Consultor IMP',
-    companyName: 'IMP',
-    prospectName: lead?.company || lead?.name || '[CLIENTE]',
-    productName: selectedCampaign?.name
-      ? `solução vinculada à campanha ${selectedCampaign.name}`
-      : 'metodologia IMP de crescimento',
-  }
-  const t = (text) => substituteScriptPlaceholders(text, placeholders)
-
-  const sectionIdx = SCRIPT_SECTIONS.indexOf(scriptProgress.section || 'abertura')
+  const pains = diagnosis.pains || {}
+  const decisao = answered.decisao || diagnosis.partnerPresence || ''
 
   return (
     <div className="bdr-script">
-      <nav className="bdr-script__progress" aria-label="Progresso do script">
-        {SCRIPT_SECTIONS.map((id, idx) => (
-          <button
-            key={id}
-            type="button"
-            className={`bdr-script__step${idx === sectionIdx ? ' is-current' : ''}${
-              idx < sectionIdx ? ' is-done' : ''
-            }`}
-            onClick={() => setScriptSection(id)}
-          >
-            {idx + 1}
-          </button>
-        ))}
-      </nav>
-
-      <section className="bdr-script__section" data-section="abertura">
-        <h3>ABERTURA</h3>
-        <p>{t('Olá, tudo bem? Meu nome é [AGENTE] e estou ligando da [EMPRESA].')}</p>
-        <p>
-          {t(
-            'A razão da minha ligação é que identificamos que a [EMPRESA_PROSPECT] pode se beneficiar muito com a nossa solução de [PRODUTO/SERVIÇO].',
-          )}
-        </p>
-        <p>Você teria 2 minutos para conversar sobre isso?</p>
-        <p>
-          <Marker>[AGUARDAR RESPOSTA]</Marker>
-        </p>
-        <RadioGroup
-          name="abertura"
-          options={[
-            { value: 'sim', label: 'SIM — Ótimo! Então…' },
-            { value: 'nao', label: 'NÃO — Sem problema, quando seria um melhor momento?' },
-          ]}
-          value={answered.abertura || ''}
-          onChange={answerScriptRadio}
-        />
-        {answered.abertura === 'nao' ? (
-          <p className="bdr-script__callout">
-            Encaminhe para agendamento de retorno ou registre disposição{' '}
-            <strong>Agendamento / Retorno</strong>.
+      <Card title="ABERTURA">
+        <div className="bdr-script__stack bdr-script__stack--tight">
+          <p>
+            Bom dia, <Tag>[CLIENTE]</Tag>, aqui é o <Tag>[SDR]</Tag>, do IMP.
           </p>
-        ) : null}
-      </section>
+          <p>Prometo ser breve.</p>
+          <p>
+            Sei que quem toca uma empresa normalmente vive com a agenda cheia e sendo
+            interrompido o tempo todo.
+          </p>
+          <p>Posso tomar 2 minutos do seu tempo?</p>
+        </div>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="dores_intro">
-        <h3>Descoberta de dor</h3>
-        <p>
-          {t(
-            '[BDR]: [CLIENTE], a maioria dos empresários com quem falamos está em uma destas situações…',
-          )}
+      <Card title="INTRODUÇÃO DAS DORES">
+        <div className="bdr-script__stack">
+          <p>Perfeito.</p>
+          <p>
+            Com frequência falamos com empresários que vivem três situações bem comuns no
+            dia a dia:
+          </p>
+          <ul className="bdr-script__bullets">
+            <li>
+              <span className="bdr-script__dash" aria-hidden="true">
+                -
+              </span>
+              <span>o lucro não acompanha o crescimento;</span>
+            </li>
+            <li>
+              <span className="bdr-script__dash" aria-hidden="true">
+                -
+              </span>
+              <span>as vendas oscilam e fica difícil ter previsibilidade;</span>
+            </li>
+            <li>
+              <span className="bdr-script__dash" aria-hidden="true">
+                -
+              </span>
+              <span>
+                ou o empresário passa mais tempo resolvendo problemas do que pensando no
+                crescimento, e a empresa acaba ficando dependente dele para funcionar.
+              </span>
+            </li>
+          </ul>
+          <p className="bdr-script__emphasis">
+            Olhando para a sua empresa hoje... qual dessas situações mais se parece com a
+            sua realidade?
+          </p>
+        </div>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+      </Card>
+
+      <Card title="VER DORES DOS EMPRESÁRIOS" titleMb="sm">
+        <p className="bdr-script__hint-italic">
+          Clique na seta para abrir a explicação correspondente.
         </p>
-        <ul className="bdr-script__list">
-          <li>O dinheiro entra, mas não sobra (Lucro)</li>
-          <li>As vendas caíram / dependo de indicação (Vendas)</li>
-          <li>A equipe depende de mim para tudo (Liderança / Gestão)</li>
-        </ul>
-        <p>
-          <Marker>[RESPOSTA]</Marker>
+        <div className="bdr-script__pains">
+          {SCRIPT_PAIN_DETAILS.map((pain) => (
+            <details key={pain.id} className="bdr-script__pain">
+              <summary className="bdr-script__pain-summary">
+                <div className="bdr-script__pain-copy">
+                  <span className="bdr-script__pain-title" style={{ color: pain.color }}>
+                    <input
+                      type="checkbox"
+                      className="bdr-script__inline-check"
+                      checked={Boolean(pains[pain.id])}
+                      onChange={() => togglePain(pain.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    {pain.title}
+                  </span>
+                  <span className="bdr-script__pain-sub">{pain.subtitle}</span>
+                </div>
+                <span className="bdr-script__pain-chevron" aria-hidden="true">
+                  ▼
+                </span>
+              </summary>
+              <div className="bdr-script__pain-body">
+                <p className="bdr-script__pain-prompt">{pain.prompt}</p>
+                <div className="bdr-script__resposta-wrap">
+                  <Resposta />
+                </div>
+                {pain.followUps?.length ? (
+                  <div className="bdr-script__pain-follow">
+                    {pain.followUps.map((line) => (
+                      <p key={line.slice(0, 48)}>{line}</p>
+                    ))}
+                  </div>
+                ) : null}
+                {pain.note ? <p className="bdr-script__pain-note">{pain.note}</p> : null}
+              </div>
+            </details>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="PRIORIZAÇÃO / IMPACTO DA DOR">
+        <p className="bdr-script__lead">
+          Se você conseguisse resolver esse problema definitivamente, o que mudaria na
+          empresa e, principalmente, na sua rotina?
         </p>
-      </section>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="dores">
-        <h3>VER DORES DOS EMPRESÁRIOS</h3>
-        <p className="bdr-script__hint">
-          Marque as dores mencionadas — sincroniza com Anotações de Diagnóstico.
-        </p>
-        <PainPointSelector title={null} />
-      </section>
-
-      <section className="bdr-script__section" data-section="priorizacao">
-        <h3>Priorização / impacto</h3>
-        <p>Dessas dores, qual tem mais impacto no resultado da empresa neste momento?</p>
-        <RadioGroup
-          name="priority"
-          options={PRIORITY_OPTIONS}
-          value={answered.priority || diagnosis.priority || ''}
-          onChange={answerScriptRadio}
-        />
-      </section>
-
-      <section className="bdr-script__section" data-section="contexto_decisorio">
-        <h3>CONTEXTO DECISÓRIO</h3>
-        <p>
-          Nas decisões estratégicas da empresa — investimentos, mudanças de processo — quem
-          participa além de você?
-        </p>
-        <RadioGroup
-          name="decisao"
-          options={DECISAO_OPTIONS}
-          value={answered.decisao || diagnosis.partnerPresence || ''}
-          onChange={answerScriptRadio}
-        />
-
-        {(answered.decisao || diagnosis.partnerPresence) === 'nao' ? (
-          <div className="bdr-script__branch">
-            <strong>[Se decide sozinho]</strong>
+      <Card title="CONTEXTO DECISÓRIO">
+        <div className="bdr-script__stack bdr-script__stack--loose">
+          <p>
+            Certo. Pelo que você me contou, isso já deixou de ser apenas um problema e
+            passou a limitar o crescimento da empresa. Faz sentido dizer que resolver isso
+            já se tornou uma prioridade para vocês?
+          </p>
+          <div className="bdr-script__priority">
+            {PRIORITY_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`bdr-script__priority-opt bdr-script__priority-opt--${opt.accent}`}
+              >
+                <input
+                  type="radio"
+                  name="priority"
+                  value={opt.value}
+                  checked={(answered.priority || diagnosis.priority || '') === opt.value}
+                  onChange={() => answerScriptRadio('priority', opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+          <div className="bdr-script__resposta-wrap">
+            <Resposta />
+          </div>
+          <div className="bdr-script__decisao-intro">
             <p>
-              {t(
-                'Perfeito, [CLIENTE]. Então na reunião diagnóstica vamos olhar os números e o plano com você no comando da decisão.',
-              )}
+              Só para eu entender melhor a dinâmica da empresa: quando surge uma decisão
+              estratégica ou um investimento importante, quem normalmente participa dessa
+              decisão?
             </p>
-            <p className="bdr-script__callout">
-              Soft rule: confirme se não há outro sócio oculto antes de fechar compromisso.
+            <p className="bdr-script__muted">
+              Faço essa pergunta porque a forma como as decisões são tomadas costuma
+              revelar onde estão os gargalos da empresa e como ela está preparada para
+              crescer.
             </p>
           </div>
-        ) : null}
-
-        {(answered.decisao || diagnosis.partnerPresence) === 'sim' ? (
-          <div className="bdr-script__branch">
-            <strong>[Se a decisão é compartilhada]</strong>
-            <p>
-              {t(
-                'Ótimo, [CLIENTE]. Vamos incluir o(s) sócio(s) no convite da reunião diagnóstica para alinharem juntos.',
-              )}
-            </p>
+          <div className="bdr-script__decisao-grid">
+            <label
+              className={`bdr-script__decisao-card${decisao === 'nao' ? ' is-selected' : ''}`}
+            >
+              <p className="bdr-script__decisao-title">
+                <input
+                  type="radio"
+                  name="decisao"
+                  value="nao"
+                  checked={decisao === 'nao'}
+                  onChange={() => answerScriptRadio('decisao', 'nao')}
+                />{' '}
+                [Se decide sozinho]
+              </p>
+              <p className="bdr-script__lead">
+                Entendi <Tag>[CLIENTE]</Tag>.
+              </p>
+              <p className="bdr-script__muted">
+                Isso explica por que tanta coisa acaba ficando concentrada em você. Com o
+                crescimento da empresa, essa responsabilidade costuma pesar bastante.
+              </p>
+            </label>
+            <label
+              className={`bdr-script__decisao-card${decisao === 'sim' ? ' is-selected' : ''}`}
+            >
+              <p className="bdr-script__decisao-title">
+                <input
+                  type="radio"
+                  name="decisao"
+                  value="sim"
+                  checked={decisao === 'sim'}
+                  onChange={() => answerScriptRadio('decisao', 'sim')}
+                />{' '}
+                [Se a decisão é compartilhada]
+              </p>
+              <p className="bdr-script__lead">
+                Perfeito <Tag>[CLIENTE]</Tag>.
+              </p>
+              <p className="bdr-script__muted">
+                É importante que vocês dois tenham a mesma visão sobre os desafios da
+                empresa, porque normalmente as decisões estratégicas são tomadas em
+                conjunto.
+              </p>
+            </label>
           </div>
-        ) : null}
-      </section>
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="qualificacao">
-        <h3>PERGUNTAS DE QUALIFICAÇÃO</h3>
-        <p className="bdr-script__hint">Respostas sincronizam porte, faturamento e equipe no diagnóstico.</p>
+      <Card title="PERGUNTAS DE QUALIFICAÇÃO">
+        <div className="bdr-script__stack bdr-script__stack--loose">
+          <p>
+            Mas... só para eu entender melhor o contexto da empresa... deixa eu te fazer
+            duas perguntas rápidas.
+          </p>
+          <div>
+            <p className="bdr-script__lead">Em qual faixa de faturamento vocês estão hoje:</p>
+            <ul className="bdr-script__radio-list">
+              {FATURAMENTO_OPTIONS.map((opt) => (
+                <li key={opt.value}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="faturamento"
+                      value={opt.value}
+                      checked={
+                        (answered.faturamento || diagnosis.monthlyRevenue || '') ===
+                        opt.value
+                      }
+                      onChange={() => answerScriptRadio('faturamento', opt.value)}
+                    />
+                    {opt.label}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bdr-script__resposta-wrap">
+            <Resposta />
+          </div>
+          <div>
+            <p className="bdr-script__lead">
+              Perfeito. E hoje a equipe tem quantas pessoas?
+            </p>
+            <div className="bdr-script__equipe">
+              {EQUIPE_OPTIONS.map((opt) => (
+                <label key={opt.value}>
+                  <input
+                    type="radio"
+                    name="equipe"
+                    value={opt.value}
+                    checked={(answered.equipe || diagnosis.employees || '') === opt.value}
+                    onChange={() => answerScriptRadio('equipe', opt.value)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="bdr-script__resposta-wrap">
+            <Resposta />
+          </div>
+        </div>
+      </Card>
 
-        <h4>Faixa de faturamento mensal</h4>
-        <RadioGroup
-          name="faturamento"
-          options={FATURAMENTO_OPTIONS}
-          value={answered.faturamento || diagnosis.monthlyRevenue || ''}
-          onChange={answerScriptRadio}
-        />
+      <Card title="TRANSIÇÃO PARA OFERTA">
+        <p className="bdr-script__body">
+          Excelente. Pelo que você me contou, acredito que faça sentido uma conversa com um
+          dos nossos especialistas.
+        </p>
+      </Card>
 
-        <h4>Tamanho da equipe</h4>
-        <RadioGroup
-          name="equipe"
-          options={EQUIPE_OPTIONS}
-          value={answered.equipe || diagnosis.employees || ''}
-          onChange={answerScriptRadio}
-        />
-      </section>
+      <Card title="POSICIONAMENTO DO IMP">
+        <div className="bdr-script__stack">
+          <p>
+            Só para contextualizar rapidamente o que nós oferecemos não é um software, nem
+            um curso para você assistir sozinho. Também não é uma consultoria que entrega um
+            relatório e vai embora.
+          </p>
+          <p className="bdr-script__lead">
+            Nós implementamos uma metodologia de crescimento empresarial personalizada para
+            pequenas e médias empresas.
+          </p>
+          <p>Na prática, nós trabalhamos lado a lado com a empresa na implementação.</p>
+          <p>
+            Um especialista acompanha a empresa durante todo o processo para garantir que as
+            mudanças realmente aconteçam.
+          </p>
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="transicao">
-        <h3>Transição / posicionamento</h3>
-        <p>
-          {t(
-            '[BDR]: Com base no que você me contou, o próximo passo natural é um diagnóstico rápido para entender se a metodologia faz sentido para a [EMPRESA_PROSPECT].',
-          )}
-        </p>
-        <p>
-          <Marker tone="cyan">[POSICIONAMENTO]</Marker> Não é proposta comercial nesta ligação —
-          é clareza do problema e do caminho.
-        </p>
-      </section>
+      <Card title="CONVITE PARA REUNIÃO">
+        <div className="bdr-script__stack">
+          <p>
+            Em uma conversa de aproximadamente 30 minutos, nosso especialista mapeia o
+            principal gargalo e mostra 2–3 ações práticas que podem ajudar a melhorar lucro
+            e organização. Sem compromisso.
+          </p>
+          <p className="bdr-script__lead">Faz sentido agendarmos essa conversa?</p>
+        </div>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="convite">
-        <h3>Convite / disponibilidade</h3>
-        <p>
-          {t(
-            'Você teria 20 minutos esta semana ou na próxima para essa reunião diagnóstica comigo e, se fizer sentido, com o especialista?',
-          )}
+      <Card title="DISPONIBILIDADE">
+        <p className="bdr-script__lead">
+          Você costuma ter mais disponibilidade pela manhã ou à tarde?
         </p>
-        <p>
-          <Marker>[RESPOSTA]</Marker>
-        </p>
-      </section>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+      </Card>
 
-      <section className="bdr-script__section" data-section="agenda">
-        <h3>Sugestão de agenda</h3>
-        <p>
-          {t(
-            'Posso te enviar o convite por e-mail com data e horário. Qual o melhor encaixe na agenda de [CLIENTE]?',
-          )}
-        </p>
-        <button
-          type="button"
-          className="bdr-discagem__schedule"
-          disabled={call.status !== 'connected'}
-          title={
-            call.status !== 'connected'
-              ? 'Aguarde a conexão da chamada'
-              : scriptCompleted
-                ? 'Abrir agendamento'
-                : 'Complete o script para facilitar o handoff (agendar já liberado em chamada conectada)'
-          }
-          onClick={onRequestSchedule}
-        >
-          Agendar Reunião
-        </button>
-      </section>
-
-      <section className="bdr-script__section" data-section="confirmacao">
-        <h3>CONFIRMAÇÃO FINAL</h3>
-        <p>
-          {t(
-            'Perfeito, [CLIENTE]. Vou te mandar o convite para [HORA:MIN] — confirma o e-mail principal para o invite?',
-          )}
-        </p>
-        <p>
-          E-mail sugerido:{' '}
-          <Marker tone="cyan">{lead?.email || 'confirmar com o lead'}</Marker>
-        </p>
-        <p>
-          <Marker>[RESPOSTA]</Marker>
-        </p>
-        {!scriptCompleted ? (
-          <button type="button" className="bdr-script__complete-btn" onClick={markScriptCompleted}>
-            Marcar script como concluído
+      <Card title="SUGESTÃO DE AGENDA">
+        <div className="bdr-script__stack">
+          <p>
+            Perfeito <Tag>[CLIENTE]</Tag>,
+          </p>
+          <p>No periodo da [... manhã ou tarde...] tenho opções na:</p>
+          <ul className="bdr-script__slots">
+            <li>[... segunda, terça, quarta...] às [HORA:MIN]</li>
+            <li>ou [... segunda, terça, quarta...] às [HORA:MIN]</li>
+          </ul>
+        </div>
+        <div className="bdr-script__resposta-wrap">
+          <Resposta />
+        </div>
+        <div className="bdr-script__schedule-wrap">
+          <button
+            type="button"
+            className="bdr-script__schedule-btn"
+            disabled={call.status !== 'connected'}
+            onClick={() => {
+              markScriptCompleted()
+              onRequestSchedule?.()
+            }}
+          >
+            <IconClock className="bdr-discagem__cta-icon" />
+            Agendar Reunião
           </button>
-        ) : (
-          <p className="bdr-script__ok">Script concluído — prossiga para diagnóstico / finalização.</p>
-        )}
-      </section>
+        </div>
+        {decisao === 'sim' ? (
+          <div className="bdr-script__partner-note">
+            <p className="bdr-script__decisao-title">
+              [Se ele já respondeu que tem um decisor junto]
+            </p>
+            <p>
+              Ótimo. Você comentou que possui outra pessoa que também toma as decisões
+              junto com você. Então faz bastante sentido que essa pessoa participe também.
+              Assim, vocês conseguem ouvir o diagnóstico juntos, tirar dúvidas na hora e
+              avaliar tudo com a mesma visão. Pode ser?.
+            </p>
+          </div>
+        ) : null}
+      </Card>
+
+      <Card title="CONFIRMAÇÃO FINAL">
+        <div className="bdr-script__stack">
+          <p className="bdr-script__confirm-q">
+            Qual é o melhor e-mail para eu enviar o convite?
+          </p>
+          <div className="bdr-script__resposta-wrap">
+            <Resposta />
+          </div>
+          <div className="bdr-script__confirm-close">
+            <p>
+              Perfeito <Tag>[CLIENTE]</Tag>.
+            </p>
+            <p>Vou encaminhar o convite com todas as informações por email.</p>
+            <p>
+              Ficou combinado então para a <Tag>[...segunda, terça, quarta...]</Tag> às{' '}
+              <Tag>[HORA:MIN]</Tag>.
+            </p>
+            <p>
+              Muito obrigado pelo seu tempo e tenho certeza de que essa conversa vai trazer
+              uma visão bem clara das oportunidades da empresa.
+            </p>
+            <p>Tenha um excelente dia.</p>
+          </div>
+          {scriptCompleted ? (
+            <p className="bdr-script__ok">Script concluído — prossiga para diagnóstico / finalização.</p>
+          ) : null}
+        </div>
+      </Card>
     </div>
   )
 }

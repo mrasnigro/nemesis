@@ -11,16 +11,40 @@ function entryLabel(entry) {
 }
 
 function EntryBody({ entry, onRegister }) {
-  const paragraphs =
-    entry.paragraphs || (entry.answer ? [entry.answer] : [])
-  const ganchoLines =
-    entry.ganchoLines || (entry.gancho ? [entry.gancho] : [])
+  const paragraphs = entry.paragraphs || (entry.answer ? [entry.answer] : [])
+  const paragraphsAfter = entry.paragraphsAfter || []
+  const bullets = entry.bullets || []
+  const branches = entry.branches || []
+  const ganchoLines = entry.ganchoLines || (entry.gancho ? [entry.gancho] : [])
 
   return (
     <div className="bdr-objections__entry-body">
       {paragraphs.map((text) => (
         <p key={text.slice(0, 64)}>{text}</p>
       ))}
+
+      {bullets.length > 0 ? (
+        <ul className="bdr-objections__list">
+          {bullets.map((item) => (
+            <li key={item.slice(0, 64)}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {paragraphsAfter.map((text) => (
+        <p key={text.slice(0, 64)}>{text}</p>
+      ))}
+
+      {branches.length > 0 ? (
+        <div className="bdr-objections__branches">
+          {branches.map((branch) => (
+            <p key={branch.title}>
+              {branch.text}{' '}
+              <span className="bdr-objections__branch-title">{branch.title}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
 
       {ganchoLines.length > 0 ? (
         <div className="bdr-objections__gancho">
@@ -47,17 +71,22 @@ function EntryBody({ entry, onRegister }) {
 }
 
 /**
- * Questionamentos Padrão — PLUCK entry CTA:
- * label + subtitle + ▼ chevron, bordered card, dashed left spine.
+ * Questionamentos Padrão — PLUCK spacing:
+ * space-y-12 / mb-12 categories, mt-8 space-y-8 entries, border-l-8 + dashed spine.
  */
 export default function ObjectionPanel() {
   const { scriptProgress, patchScriptProgress, patchDiagnosis, diagnosis } =
     useBdrSession()
   const openId = scriptProgress.openObjectionCategoryId
+  // null/undefined → first category open (PLUCK); '' → all collapsed
+  const effectiveOpenId =
+    openId === undefined || openId === null
+      ? OBJECTION_LIBRARY[0]?.id
+      : openId
 
   const onCategoryToggle = (id, isOpen) => {
     patchScriptProgress({
-      openObjectionCategoryId: isOpen ? id : null,
+      openObjectionCategoryId: isOpen ? id : '',
     })
   }
 
@@ -103,16 +132,17 @@ export default function ObjectionPanel() {
         </div>
 
         <div className="bdr-objections__cats">
-          {OBJECTION_LIBRARY.map((cat) => {
+          {OBJECTION_LIBRARY.map((cat, catIndex) => {
             const color = cat.color || '#94a3b8'
-            const open = openId === cat.id
+            const open = effectiveOpenId === cat.id
             return (
               <details
                 key={cat.id}
                 className="bdr-objections__cat"
                 style={{
                   '--obj-color': color,
-                  '--obj-tint': `color-mix(in srgb, ${color} 5%, transparent)`,
+                  /* PLUCK: rgba(accent, 0.05) as 8-digit hex */
+                  '--obj-tint': `${color}0d`,
                 }}
                 open={open}
                 onToggle={(e) => onCategoryToggle(cat.id, e.currentTarget.open)}
@@ -132,15 +162,27 @@ export default function ObjectionPanel() {
                 </summary>
 
                 <div className="bdr-objections__cat-body">
-                  {cat.entries.map((entry) => (
-                    <details key={entry.id} className="bdr-objections__entry">
+                  {/* PLUCK leading hr before first entry */}
+                  <hr className="bdr-objections__rule" />
+                  {cat.entries.map((entry, entryIndex) => (
+                    <details
+                      key={entry.id}
+                      className="bdr-objections__entry"
+                      defaultOpen={catIndex === 0 && entryIndex === 0}
+                    >
                       <summary className="bdr-objections__entry-summary">
                         <div className="bdr-objections__entry-copy">
-                          <span className="bdr-objections__entry-q">
+                          <span
+                            className="bdr-objections__entry-q"
+                            style={{ color, marginBottom: 0 }}
+                          >
                             {entryLabel(entry)}
                           </span>
                           {entry.subtitle ? (
-                            <span className="bdr-objections__entry-sub">
+                            <span
+                              className="bdr-objections__entry-sub"
+                              style={{ marginTop: 0 }}
+                            >
                               {entry.subtitle}
                             </span>
                           ) : null}

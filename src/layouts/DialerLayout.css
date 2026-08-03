@@ -361,115 +361,76 @@
   display: none;
 }
 
+/* Sample sticky header — right-aligned timer / role / Sair */
 .dialer-layout__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 64px;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #374151;
-  background: #1f2937;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 6.25rem; /* 100px */
+  border-bottom: 1px solid #374151; /* border-graphite-700 */
+  background: #1f2937; /* bg-graphite-800 */
   box-sizing: border-box;
 }
 
-.dialer-layout__page-title {
-  margin: 0;
-  min-width: 0;
-  color: #fff;
-  font-family: var(--display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dialer-layout__page-title--spacer {
-  flex: 1;
-  min-height: 1.25rem;
-}
-
-.dialer-layout__header-left {
+.dialer-layout__header-inner {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.dialer-layout__product {
-  color: #fff;
-  font-family: var(--display);
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.dialer-layout__product-sub {
-  color: #64748b;
-  font-size: 0.72rem;
-}
-
-.dialer-layout__timer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: 8px;
-  background: #1f2937;
-  border: 1px solid rgba(75, 85, 99, 0.55);
-}
-
-.dialer-layout__timer span {
-  color: #94a3b8;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.dialer-layout__timer strong {
-  color: #fff;
-  font-family: var(--mono);
-  font-size: 1.05rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  padding: 1rem 1.5rem; /* py-4 px-6 */
+  box-sizing: border-box;
 }
 
 .dialer-layout__header-actions {
   display: flex;
   align-items: center;
-  gap: 0.95rem;
-  margin-left: auto;
+  gap: 1.5rem; /* gap-6 */
 }
 
 .dialer-layout__role-block {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 0.08rem;
   text-align: right;
 }
 
-.dialer-layout__role-block strong {
-  color: #f3f4f6;
-  font-size: 0.88rem;
-  font-weight: 700;
+.dialer-layout__role-title {
+  margin: 0;
+  color: #fff;
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 500;
+  line-height: 1.25rem;
 }
 
-.dialer-layout__role-block span {
-  color: #94a3b8;
-  font-size: 0.75rem;
+.dialer-layout__role-sub {
+  margin: 0;
+  color: #9ca3af; /* text-graphite-400 */
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1rem;
 }
 
-.dialer-layout__modules,
 .dialer-layout__logout {
+  appearance: none;
+  border: 0;
+  padding: 0.5rem 1rem; /* py-2 px-4 */
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #9ca3af; /* text-graphite-400 */
+  font-size: 0.875rem; /* text-sm */
+  font-weight: 400;
+  line-height: 1.25rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dialer-layout__logout:hover {
+  color: #fff;
+  background: #374151; /* hover:bg-graphite-700 */
+}
+
+.dialer-layout__modules {
   padding: 0.55rem 0.9rem;
   border: 1px solid rgba(75, 85, 99, 0.75);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   background: #1f2937;
   color: #f3f4f6;
   font-size: 0.82rem;
@@ -484,17 +445,6 @@
 .dialer-layout__modules:hover {
   border-color: rgba(245, 158, 11, 0.55);
   color: #f59e0b;
-}
-
-.dialer-layout__logout {
-  background: transparent;
-  border-color: transparent;
-  color: #d1d5db;
-  padding-inline: 0.35rem;
-}
-
-.dialer-layout__logout:hover {
-  color: #fca5a5;
 }
 
 .dialer-layout__content {
@@ -564,17 +514,13 @@
     width: 100%;
   }
 
-  .dialer-layout__header {
-    flex-direction: column;
-    align-items: stretch;
+  .dialer-layout__header-inner {
+    padding: 0.75rem 1rem;
   }
 
   .dialer-layout__header-actions {
-    justify-content: space-between;
-    margin-left: 0;
-  }
-
-  .dialer-layout__product-sub {
-    display: none;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }

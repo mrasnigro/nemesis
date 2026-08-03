@@ -1,0 +1,67 @@
+/* Attendance timer chip — graphite header metadata */
+
+.attendance-timer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem; /* gap-3 → 12px */
+  padding: 0.5rem 1rem; /* py-2 px-4 → 8px 16px */
+  width: 14rem; /* 224px */
+  height: 4.25rem; /* 68px */
+  max-width: 100%;
+  color: var(--bdr-text, #f3f4f6);
+  border: 1px solid var(--bdr-border, #374151); /* border-graphite-700 */
+  border-radius: var(--bdr-radius-sm, 0.5rem); /* rounded-lg */
+  background: #1f2937; /* graphite-800 */
+  cursor: auto;
+  box-sizing: border-box;
+}
+
+.attendance-timer__dot {
+  display: block;
+  width: 0.625rem; /* w-2.5 → 10px */
+  height: 0.625rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--bdr-text-muted, #6b7280); /* bg-graphite-500 — paused */
+}
+
+.attendance-timer__dot--live {
+  background: var(--bdr-ready, #22c55e);
+}
+
+.attendance-timer__copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.attendance-timer__label {
+  margin: 0;
+  color: var(--bdr-text-secondary, #9ca3af); /* text-graphite-400 */
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  letter-spacing: 0.05em; /* tracking-wider */
+  text-transform: uppercase;
+}
+
+.attendance-timer__value {
+  margin: 0;
+  color: #fff;
+  font-family: var(--mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1rem; /* text-base */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5; /* ~24px at 1rem — matches captured value stack */
+}
+
+@media (max-width: 1024px) {
+  .attendance-timer {
+    cursor: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .attendance-timer {
+    cursor: auto;
+  }
+}

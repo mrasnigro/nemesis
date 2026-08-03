@@ -92,7 +92,11 @@ export default function BdrDiscagemPage() {
           {connected ? (
             <div className="bdr-discagem__panel">
               <DialerTabBar />
-              <div className="bdr-discagem__panel-body">
+              <div
+                className={`bdr-discagem__panel-body${
+                  activeTab === 'questions' ? ' bdr-discagem__panel-body--flush' : ''
+                }`}
+              >
                 {activeTab === 'company' ? <LeadCompanyPanel /> : null}
                 {activeTab === 'script' ? (
                   <SalesScript onRequestSchedule={openSchedule} />

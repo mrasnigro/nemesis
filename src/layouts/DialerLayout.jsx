@@ -1,9 +1,8 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { BdrSessionProvider, useBdrSession } from '../modules/bdr'
-import { formatDurationHHMMSS } from '../modules/bdr/services/formatters.js'
-import { useWorkspace } from '../workspace/WorkspaceContext'
+import { BdrSessionProvider } from '../modules/bdr'
+import AttendanceTimer from '../modules/bdr/components/AttendanceTimer.jsx'
 import '../modules/bdr/styles/bdr-theme.css'
 import './DialerLayout.css'
 
@@ -120,33 +119,12 @@ function DialerIcon({ name }) {
   return <span className="dialer-layout__icon">{icons[name]}</span>
 }
 
-function AttendanceTimer() {
-  const { tempoAtendimentoSec } = useBdrSession()
-  return (
-    <div className="dialer-layout__timer" title="Tempo em atendimento">
-      <span>Tempo em atendimento</span>
-      <strong>{formatDurationHHMMSS(tempoAtendimentoSec)}</strong>
-    </div>
-  )
-}
-
-function pageTitleForRoute(pathname) {
-  if (pathname === '/modules/bdr') return 'Painel'
-  if (pathname.startsWith('/modules/bdr/historico')) return 'Histórico de Chamadas'
-  if (pathname.startsWith('/modules/bdr/agendamentos')) return 'Agendamentos Realizados'
-  if (pathname.startsWith('/modules/bdr/manual')) return 'Ligação Manual'
-  if (pathname.startsWith('/modules/bdr/discagem')) return ''
-  return 'CRM IMP'
-}
-
 function DialerShell() {
-  const { user, logout } = useAuth()
-  const { currentUser } = useWorkspace()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   /* Sample SDRDialer starts collapsed (w-20) */
   const [collapsed, setCollapsed] = useState(true)
-  const pageTitle = pageTitleForRoute(location.pathname)
   const isDiscagemRoute = location.pathname.startsWith('/modules/bdr/discagem')
     || location.pathname.startsWith('/modules/bdr/manual')
 
@@ -316,20 +294,21 @@ function DialerShell() {
       <div className="dialer-layout__shell">
         {isDiscagemRoute ? null : (
           <header className="dialer-layout__header">
-            {pageTitle ? (
-              <h1 className="dialer-layout__page-title">{pageTitle}</h1>
-            ) : (
-              <div className="dialer-layout__page-title dialer-layout__page-title--spacer" />
-            )}
-            <div className="dialer-layout__header-actions">
-              <AttendanceTimer />
-              <div className="dialer-layout__role-block">
-                <strong>BDR - Prospecção</strong>
-                <span>{currentUser?.name || user?.name || 'Operador'}</span>
+            <div className="dialer-layout__header-inner">
+              <div className="dialer-layout__header-actions">
+                <AttendanceTimer />
+                <div className="dialer-layout__role-block">
+                  <p className="dialer-layout__role-title">BDR - Prospecção</p>
+                  <p className="dialer-layout__role-sub">Operador</p>
+                </div>
+                <button
+                  type="button"
+                  className="dialer-layout__logout"
+                  onClick={handleLogout}
+                >
+                  Sair
+                </button>
               </div>
-              <button type="button" className="dialer-layout__logout" onClick={handleLogout}>
-                Sair
-              </button>
             </div>
           </header>
         )}

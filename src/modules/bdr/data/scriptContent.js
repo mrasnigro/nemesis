@@ -11,16 +11,18 @@ export const SCRIPT_SECTIONS = [
   'contexto_decisorio',
   'qualificacao',
   'transicao',
+  'posicionamento',
   'convite',
+  'disponibilidade',
   'agenda',
   'confirmacao',
 ]
 
 export const EQUIPE_OPTIONS = [
-  { value: '1-5', label: '1 a 5 colaboradores', companySize: 'micro' },
-  { value: '6-20', label: '6 a 20 colaboradores', companySize: 'pequena' },
-  { value: '21-50', label: '21 a 50 colaboradores', companySize: 'pequena' },
-  { value: '50plus', label: 'Mais de 50 colaboradores', companySize: 'media' },
+  { value: '1-5', label: 'de 1 a 5', companySize: 'micro' },
+  { value: '6-20', label: 'de 6 a 20', companySize: 'pequena' },
+  { value: '21-50', label: 'de 21 a 50', companySize: 'pequena' },
+  { value: '50plus', label: 'mais de 50', companySize: 'media' },
 ]
 
 /** Labels match live Dialer “Anotações de Diagnóstico” selects. */
@@ -37,9 +39,9 @@ export const DECISAO_OPTIONS = [
 ]
 
 export const PRIORITY_OPTIONS = [
-  { value: 'alta', label: 'Sim, Alta Prioridade (Urgente)' },
-  { value: 'media', label: 'Média Prioridade (Procurando entender)' },
-  { value: 'baixa', label: 'Baixa Prioridade (Sem urgência / frio)' },
+  { value: 'alta', label: 'Alta Prioridade', accent: 'red' },
+  { value: 'media', label: 'Media Prioridade', accent: 'amber' },
+  { value: 'baixa', label: 'Baixa Prioridade', accent: 'green' },
 ]
 
 export const COMPANY_SIZE_OPTIONS = [
@@ -85,7 +87,7 @@ export function substituteScriptPlaceholders(text, { agentName, companyName, pro
 }
 
 export function requiredScriptAnswers() {
-  return ['abertura', 'equipe', 'faturamento', 'decisao', 'priority']
+  return ['equipe', 'faturamento', 'decisao', 'priority']
 }
 
 export function isScriptCompleted(scriptProgress) {

@@ -9,7 +9,7 @@ export const OBJECTION_LIBRARY = [
     title: 'Sobre o produto',
     color: '#2dd4bf',
     snippet:
-      'O que vende? Não entendi? Como funciona? Quanto tempo dura? É uma mentoria ou curso?',
+      'O que vende? Não entendi? Como funciona? Quanto tempo dura? É uma mentoria ou curso?.',
     entries: [
       {
         id: 'p1',
@@ -34,10 +34,15 @@ export const OBJECTION_LIBRARY = [
         paragraphs: [
           'Perfeito, deixa eu resumir em uma frase. Nós implementamos uma metodologia de crescimento empresarial para pequenas e médias empresas.',
           'Na prática, ajudamos a empresa a aumentar a lucratividade, estruturar as vendas, organizar a gestão e desenvolver líderes, acompanhando a implementação até que as mudanças gerem resultado.',
+          'Por exemplo:',
         ],
-        ganchoTitle: 'GANCHO PARA CONTINUAR',
-        ganchoLines: [
-          '- Se eu resumir em 60 segundos o que fazemos, você me diz se faz sentido continuar?',
+        bullets: [
+          'Se hoje você me disser que o dinheiro entra, mas não sobra, nós trabalhamos para descobrir onde a empresa está perdendo margem e corrigir isso.',
+          'Se o problema for vendas, estruturamos o processo comercial.',
+          'Se for gestão ou equipe, organizamos a operação e desenvolvemos os líderes.',
+        ],
+        paragraphsAfter: [
+          'Em resumo, ajudamos a empresa a crescer resolvendo o principal gargalo que está limitando os resultados.',
         ],
       },
       {
@@ -57,7 +62,13 @@ export const OBJECTION_LIBRARY = [
         question: 'Quanto tempo dura o trabalho?',
         paragraphs: [
           'Excelente pergunta. A implementação normalmente leva entre 3 e 6 meses, dependendo da complexidade do negócio.',
-          'Parece bastante tempo, mas é justamente esse período que permite implantar as mudanças, acompanhar a equipe e consolidar os resultados.',
+          'Parece bastante tempo, mas é justamente esse período que permite implantar as mudanças, acompanhar a equipe e consolidar os resultados para garantir que realmente façam parte da operação.',
+          'Durante esse processo, atuamos em três frentes principais:',
+        ],
+        bullets: [
+          'Aumentar a lucratividade.',
+          'Estruturar um processo comercial previsível.',
+          'Organizar a gestão e desenvolver líderes para que a empresa deixe de depender exclusivamente do empresário.',
         ],
       },
       {
@@ -69,6 +80,20 @@ export const OBJECTION_LIBRARY = [
           'Não é um curso nem um software. Também não é uma consultoria tradicional que entrega um relatório e vai embora.',
           'Nós implementamos uma metodologia junto com a empresa. Um especialista acompanha a execução para garantir que as mudanças gerem resultados.',
         ],
+        branches: [
+          {
+            title: 'SE PERGUNTAR “É UM CURSO?”',
+            text: 'Não. É uma metodologia de implementação acompanhada por um especialista. Ela é personalizada para a realidade de cada empresa. Agora me conta: hoje o maior desafio está mais na operação, nas vendas ou na gestão?',
+          },
+          {
+            title: 'SE PERGUNTAR “É UM SOFTWARE?”',
+            text: 'Também não. Nós utilizamos ferramentas durante o processo, mas o principal é a implementação da metodologia junto com a empresa. Deixa eu entender melhor: quando você falou que vive apagando incêndios, o que mais toma o seu tempo hoje?',
+          },
+          {
+            title: 'SE PERGUNTAR “É UMA MENTORIA?”',
+            text: 'Existe um acompanhamento próximo, mas o foco não é apenas orientar. O trabalho é implementar uma metodologia de crescimento empresarial junto com a empresa. E me conta: qual é o maior desafio hoje para o seu negócio?',
+          },
+        ],
       },
     ],
   },
@@ -76,7 +101,7 @@ export const OBJECTION_LIBRARY = [
     id: 'comparacao',
     title: 'Comparação com outros produtos',
     color: '#60a5fa',
-    snippet: 'Por que é diferente? Qual a diferença das outras Mentorias?',
+    snippet: 'Por que é diferente? Qual a diferença das outras Mentorias?.',
     entries: [
       {
         id: 'c1',
