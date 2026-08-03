@@ -8,9 +8,11 @@ export default function BdrPainelPage() {
   return (
     <section className="bdr-home">
       <MetricCards />
-      <OperatorStatusBar />
       <div className="bdr-home__grid">
-        <CampaignList />
+        <div className="bdr-home__main">
+          <OperatorStatusBar />
+          <CampaignList />
+        </div>
         <QuickActions />
       </div>
     </section>

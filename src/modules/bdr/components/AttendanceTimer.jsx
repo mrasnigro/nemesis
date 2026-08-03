@@ -26,10 +26,6 @@ export default function AttendanceTimer({
       aria-label={`${label}: ${formatDurationHHMMSS(valueSec)}`}
       aria-live="polite"
     >
-      <span
-        className={`attendance-timer__dot${paused ? '' : ' attendance-timer__dot--live'}`}
-        aria-hidden="true"
-      />
       <div className="attendance-timer__copy">
         <p className="attendance-timer__label">{label}</p>
         <p className="attendance-timer__value">{formatDurationHHMMSS(valueSec)}</p>

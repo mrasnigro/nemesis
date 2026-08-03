@@ -5,31 +5,25 @@
   align-items: center;
   gap: 0.75rem; /* gap-3 → 12px */
   padding: 0.5rem 1rem; /* py-2 px-4 → 8px 16px */
-  width: 14rem; /* 224px */
-  height: 4.25rem; /* 68px */
+  width: 14rem; /* ~224px */
+  height: 4.25rem; /* ~68px */
   max-width: 100%;
-  color: var(--bdr-text, #f3f4f6);
+  color: var(--bdr-text, #f3f4f6); /* graphite-100 */
+  font-family: var(--sans), Inter, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
   border: 1px solid var(--bdr-border, #374151); /* border-graphite-700 */
-  border-radius: var(--bdr-radius-sm, 0.5rem); /* rounded-lg */
-  background: #1f2937; /* graphite-800 */
+  border-radius: var(--bdr-radius-sm, 0.5rem); /* rounded-lg → 8px */
+  background: #1f2937; /* graphite-800 — matches header chrome */
   cursor: auto;
   box-sizing: border-box;
 }
 
-.attendance-timer__dot {
-  display: block;
-  width: 0.625rem; /* w-2.5 → 10px */
-  height: 0.625rem;
-  flex-shrink: 0;
-  border-radius: 9999px;
-  background: var(--bdr-text-muted, #6b7280); /* bg-graphite-500 — paused */
-}
-
-.attendance-timer__dot--live {
-  background: var(--bdr-ready, #22c55e);
-}
-
 .attendance-timer__copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -37,11 +31,11 @@
 .attendance-timer__label {
   margin: 0;
   color: var(--bdr-text-secondary, #9ca3af); /* text-graphite-400 */
+  font-family: 'Inter', var(--sans), sans-serif;
+  font-style: normal;
   font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5rem;
-  letter-spacing: 0.05em; /* tracking-wider */
-  text-transform: uppercase;
+  font-weight: 400;
+  line-height: 1.6rem; /* ~25.6px stack height from capture */
 }
 
 .attendance-timer__value {
@@ -51,7 +45,7 @@
   font-size: 1rem; /* text-base */
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 1.5; /* ~24px at 1rem — matches captured value stack */
+  line-height: 1.5; /* ~24px at 1rem */
 }
 
 @media (max-width: 1024px) {
