@@ -36,6 +36,7 @@ export default function BdrDiscagemPage() {
     scheduleAllowed,
     startAutomatic,
     hangupToIdle,
+    disconnectSession,
     activeTab,
     scriptCompleted,
   } = useBdrSession()
@@ -65,6 +66,11 @@ export default function BdrDiscagemPage() {
     hangupToIdle()
   }
 
+  function handleVoltar() {
+    disconnectSession()
+    navigate('/modules/bdr')
+  }
+
   function closeManualModal() {
     navigate('/modules/bdr', { replace: true })
   }
@@ -78,10 +84,10 @@ export default function BdrDiscagemPage() {
             Gerenciamento de leads frios e qualificação
           </p>
         </div>
-        <Link to="/modules/bdr" className="bdr-page__back">
+        <button type="button" className="bdr-page__back" onClick={handleVoltar}>
           <IconArrowLeft className="bdr-page__back-icon" />
           Voltar
-        </Link>
+        </button>
       </header>
 
       {!dialAllowed && call.status === 'idle' && mode !== 'manual' ? (

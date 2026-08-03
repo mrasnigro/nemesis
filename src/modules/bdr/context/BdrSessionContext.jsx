@@ -334,6 +334,21 @@ function reducer(state, action) {
         activeCallMeetingIds: [],
       }
 
+    /** Leave dialer via Voltar — end call and force Desconectado (exit path, not status matrix). */
+    case 'DISCONNECT_SESSION':
+      return {
+        ...state,
+        operatorStatus: 'desconectado',
+        call: createIdleCall(),
+        diagnosis: createEmptyDiagnosis(),
+        scriptProgress: createEmptyScriptProgress(),
+        dispositionId: null,
+        salesTemperature: 50,
+        notes: '',
+        activeTab: 'company',
+        activeCallMeetingIds: [],
+      }
+
     default:
       return state
   }
@@ -626,6 +641,10 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'HANGUP_TO_IDLE' })
   }, [])
 
+  const disconnectSession = useCallback(() => {
+    dispatch({ type: 'DISCONNECT_SESSION' })
+  }, [])
+
   const value = useMemo(() => {
     const dialAllowed = isDialAllowed(state.operatorStatus)
     const scheduleAllowed = state.call.status === 'connected'
@@ -658,6 +677,7 @@ export function BdrSessionProvider({ children }) {
       setNotes,
       finalizeAttendance,
       hangupToIdle,
+      disconnectSession,
       prependMeeting,
       updateMeeting,
       removeMeeting,
@@ -682,6 +702,7 @@ export function BdrSessionProvider({ children }) {
     setNotes,
     finalizeAttendance,
     hangupToIdle,
+    disconnectSession,
     prependMeeting,
     updateMeeting,
     removeMeeting,
