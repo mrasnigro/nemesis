@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useBdrPermissions } from '../hooks/useBdrPermissions.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
+import { IconPhoneOff } from './DialerIcons.jsx'
 
 function ActionIcon({ name }) {
   const icons = {
@@ -12,14 +13,7 @@ function ActionIcon({ name }) {
         />
       </svg>
     ),
-    call: (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="currentColor"
-          d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.4-.1-.8 0-1.1.3l-2.2 2.2c-2.8-1.5-5.2-3.8-6.6-6.6L8.7 8.6c.3-.3.4-.7.3-1.1C8.6 6.3 8.4 5 8.4 3.8c0-.6-.4-1-1-1H3.9c-.6 0-1 .4-1 1C2.9 13.4 10.5 21 20 21c.6 0 1-.4 1-1v-3.5c0-.6-.4-1-1-1z"
-        />
-      </svg>
-    ),
+    phoneOff: <IconPhoneOff />,
     history: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path
@@ -88,7 +82,7 @@ export default function QuickActions() {
           }
           onClick={goManual}
         >
-          <ActionIcon name="call" />
+          <ActionIcon name="phoneOff" />
           <span>Ligação Manual</span>
         </button>
 
