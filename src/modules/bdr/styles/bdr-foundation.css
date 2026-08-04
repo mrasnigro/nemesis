@@ -696,14 +696,14 @@
 
 /* —— Script / qualification / objections —— */
 
-/* Script de Abordagem — sample space-y-10 / bg-slate-800/40 p-8 cards */
+/* Script de Abordagem — sample space-y-10 / bg-slate-800/40 p-8 cards
+   Page scroll (not inner box) so Agendar/Desligar stay at the end and
+   accordion answers expand downward. */
 .bdr-script {
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-height: min(53.125rem, 70vh); /* max-h-[850px] */
-  overflow: auto;
-  padding: 0 1rem 6rem 0; /* pr-4 pb-24 */
+  padding: 0 1rem 1.5rem 0; /* pr-4 */
   color: #cbd5e1;
 }
 
@@ -1144,7 +1144,7 @@
   .bdr-script {
     gap: 0;
     padding-right: 0.5rem;
-    padding-bottom: 4rem;
+    padding-bottom: 1rem;
   }
 
   .bdr-script__card {
@@ -1413,8 +1413,6 @@
 }
 
 .bdr-objections__scroll {
-  overflow: auto;
-  max-height: min(53.125rem, 70vh);
   padding: 24px;
 }
 
@@ -1724,7 +1722,6 @@
 @media (max-width: 1024px) {
   .bdr-objections__scroll {
     padding: 24px;
-    max-height: min(53.125rem, 65vh);
   }
 
   .bdr-objections__cat {
