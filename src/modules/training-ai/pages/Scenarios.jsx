@@ -1,12 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
-import { getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
 
 export default function TrainingScenariosPage() {
   const navigate = useNavigate()
-  const { scenarios, canManage, getPersona } = useTrainingAi()
+  const { scenarios, canManage, getPersona, getEvaluationTemplate } = useTrainingAi()
 
   return (
     <section className="imp-module">

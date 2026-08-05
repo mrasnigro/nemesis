@@ -1,6 +1,6 @@
 import { DIFFICULTY_LABELS } from './catalogs.js'
 import { INDUSTRY_OPTIONS } from './personas.js'
-import { evaluationTemplates, getEvaluationTemplate } from './evaluationTemplates.js'
+import { getEvaluationTemplate } from './evaluationTemplates.js'
 
 /**
  * Training scenarios (mock) — bind persona + evaluation template + briefing.
@@ -20,12 +20,14 @@ export const FUNNEL_STAGE_OPTIONS = [
 
 export { DIFFICULTY_LABELS, INDUSTRY_OPTIONS }
 
-export const TEMPLATE_OPTIONS = evaluationTemplates.map((item) => ({
-  id: item.id,
-  title: item.title,
-  contactType: item.contactType,
-}))
-
+/** @deprecated prefer live templates from TrainingAiContext */
+export function buildTemplateOptions(templates) {
+  return (templates || []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    contactType: item.contactType,
+  }))
+}
 export const seedScenarios = [
   {
     id: 'scn_001',
@@ -123,7 +125,7 @@ export function createEmptyScenarioDraft(defaults = {}) {
   }
 }
 
-export function normalizeScenarioInput(input = {}) {
+export function normalizeScenarioInput(input = {}, options = {}) {
   const errors = []
   const title = String(input.title || '').trim()
   const description = String(input.description || '').trim()
@@ -168,7 +170,9 @@ export function normalizeScenarioInput(input = {}) {
   if (!SCENARIO_DIFFICULTIES.includes(difficulty)) {
     errors.push('Dificuldade inválida.')
   }
-  if (!getEvaluationTemplate(evaluationTemplateId)) {
+
+  const resolveTemplate = options.templateLookup || getEvaluationTemplate
+  if (!resolveTemplate(evaluationTemplateId)) {
     errors.push('Template de avaliação inválido.')
   }
 

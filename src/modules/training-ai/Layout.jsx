@@ -6,6 +6,7 @@ const NAV = [
   { id: 'catalog', label: 'Catálogo', to: '/modules/training-ai', end: true },
   { id: 'scenarios', label: 'Cenários', to: '/modules/training-ai/cenarios' },
   { id: 'personas', label: 'Personas', to: '/modules/training-ai/personas' },
+  { id: 'templates', label: 'Templates', to: '/modules/training-ai/templates' },
   { id: 'history', label: 'Histórico', to: '/modules/training-ai/historico' },
 ]
 

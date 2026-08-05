@@ -13,7 +13,7 @@ export {
   normalizeScenarioInput,
   FUNNEL_STAGE_OPTIONS,
   SCENARIO_DIFFICULTIES,
-  TEMPLATE_OPTIONS,
+  buildTemplateOptions,
 } from './scenarios.js'
 
 export const trainingMetricsSeed = {
@@ -440,11 +440,13 @@ export const simulationTurnsByScenario = {
  * @param {string} scenarioId
  * @param {(id: string) => object | null} [personaLookup]
  * @param {(id: string) => object | null | object[]} [scenarioLookup]
+ * @param {(id: string) => object | null} [templateLookup]
  */
 export function resolveScenarioBundle(
   scenarioId,
   personaLookup = getPersona,
   scenarioLookup = getScenarioFromList,
+  templateLookup = getEvaluationTemplate,
 ) {
   let scenario = null
   if (typeof scenarioLookup === 'function') {
@@ -456,7 +458,10 @@ export function resolveScenarioBundle(
   }
   if (!scenario) return null
   const persona = personaLookup(scenario.personaId)
-  const template = getEvaluationTemplate(scenario.evaluationTemplateId)
+  const template =
+    typeof templateLookup === 'function'
+      ? templateLookup(scenario.evaluationTemplateId)
+      : getEvaluationTemplate(scenario.evaluationTemplateId)
   const turns = simulationTurnsByScenario[scenarioId] || []
   return { scenario, persona, template, turns }
 }

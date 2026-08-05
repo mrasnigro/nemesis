@@ -143,6 +143,7 @@ const EARLY_PITCH_PATTERNS = [
 
 /**
  * Build synthetic answer objects (rubricImpact) from free-text conversation.
+ * Prefer criterion.passRule; fall back to legacy CRITERION_KEYWORD_RULES by id.
  */
 export function buildFreeTextAnswers({ template, userMessages = [] }) {
   const corpus = normalize(userMessages.map((m) => m.text || m).join(' \n '))
@@ -151,30 +152,7 @@ export function buildFreeTextAnswers({ template, userMessages = [] }) {
   let hitCount = 0
 
   for (const criterion of criteria) {
-    const rules = CRITERION_KEYWORD_RULES[criterion.id]
-
-    if (criterion.id === 'crit_sem_desconto') {
-      rubricImpact[criterion.id] = !DISCOUNT_PATTERNS.some((re) => re.test(corpus))
-      if (rubricImpact[criterion.id]) hitCount += 1
-      continue
-    }
-
-    if (criterion.id === 'crit_sem_pitch') {
-      const diagnosed =
-        CRITERION_KEYWORD_RULES.crit_processo.some((re) => re.test(corpus)) ||
-        CRITERION_KEYWORD_RULES.crit_gargalo.some((re) => re.test(corpus))
-      const pitchedHard = EARLY_PITCH_PATTERNS.some((re) => re.test(corpus))
-      rubricImpact[criterion.id] = diagnosed || !pitchedHard
-      if (rubricImpact[criterion.id]) hitCount += 1
-      continue
-    }
-
-    if (!rules?.length) {
-      rubricImpact[criterion.id] = false
-      continue
-    }
-
-    const passed = rules.some((re) => re.test(corpus))
+    const passed = evaluateCriterionPassRule(criterion, corpus)
     rubricImpact[criterion.id] = passed
     if (passed) hitCount += 1
   }
@@ -193,4 +171,42 @@ export function buildFreeTextAnswers({ template, userMessages = [] }) {
       mode: 'free',
     },
   ]
+}
+
+function keywordToRegex(keyword) {
+  const escaped = String(keyword || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (!escaped) return null
+  return new RegExp(escaped, 'i')
+}
+
+export function evaluateCriterionPassRule(criterion, corpus) {
+  const rule = criterion?.passRule
+  if (rule?.keywords?.length) {
+    const patterns = rule.keywords.map(keywordToRegex).filter(Boolean)
+    if (rule.type === 'avoid_keywords') {
+      return !patterns.some((re) => re.test(corpus))
+    }
+    return patterns.some((re) => re.test(corpus))
+  }
+
+  // Legacy hardcoded fallbacks
+  if (criterion.id === 'crit_sem_desconto') {
+    return !DISCOUNT_PATTERNS.some((re) => re.test(corpus))
+  }
+  if (criterion.id === 'crit_sem_pitch') {
+    const diagnosed =
+      CRITERION_KEYWORD_RULES.crit_processo.some((re) => re.test(corpus)) ||
+      CRITERION_KEYWORD_RULES.crit_gargalo.some((re) => re.test(corpus))
+    const pitchedHard = EARLY_PITCH_PATTERNS.some((re) => re.test(corpus))
+    return diagnosed || !pitchedHard
+  }
+
+  const rules = CRITERION_KEYWORD_RULES[criterion.id]
+  if (!rules?.length) return false
+  return rules.some((re) => re.test(corpus))
 }

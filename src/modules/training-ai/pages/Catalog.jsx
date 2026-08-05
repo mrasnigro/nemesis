@@ -1,13 +1,19 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
-import { getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
 
 export default function TrainingCatalogPage() {
   const navigate = useNavigate()
-  const { metrics, scenarios, history, canSimulate, startSimulation, getPersona } =
-    useTrainingAi()
+  const {
+    metrics,
+    scenarios,
+    history,
+    canSimulate,
+    startSimulation,
+    getPersona,
+    getEvaluationTemplate,
+  } = useTrainingAi()
 
   function handleStart(scenarioId) {
     const started = startSimulation(scenarioId)

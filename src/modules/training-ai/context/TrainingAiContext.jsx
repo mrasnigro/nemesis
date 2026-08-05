@@ -13,6 +13,14 @@ import {
   scenariosForPersona,
 } from '../data/scenarios.js'
 import {
+  createEmptyTemplateDraft,
+  createEmptyCriterionDraft,
+  normalizeTemplateInput,
+  seedEvaluationTemplates,
+  scenariosUsingTemplate,
+  templateToFormState,
+} from '../data/evaluationTemplates.js'
+import {
   createTrainingSession,
   resolveScenarioBundle,
   trainingMetricsSeed,
@@ -57,12 +65,14 @@ function completeSessionState({
   messages,
   answers = [],
   mode = 'free',
+  templateLookup,
 }) {
   const report = buildSessionEvaluation({
     session,
     scenario,
     persona,
     templateId: scenario.evaluationTemplateId,
+    templateLookup,
     answers,
     messages,
     mode,
@@ -91,6 +101,9 @@ export function TrainingAiProvider({ children }) {
 
   const [personas, setPersonas] = useState(() => structuredClone(seedPersonas))
   const [scenarios, setScenarios] = useState(() => structuredClone(seedScenarios))
+  const [evaluationTemplates, setEvaluationTemplates] = useState(() =>
+    structuredClone(seedEvaluationTemplates),
+  )
   const [session, setSession] = useState(null)
   const [messages, setMessages] = useState([])
   const [turnIndex, setTurnIndex] = useState(0)
@@ -111,9 +124,20 @@ export function TrainingAiProvider({ children }) {
     [scenarios],
   )
 
+  const findTemplate = useCallback(
+    (templateId) =>
+      evaluationTemplates.find((item) => item.id === templateId) || null,
+    [evaluationTemplates],
+  )
+
   const resolveBundle = useCallback(
     (scenarioId, personaIdOverride) => {
-      const bundle = resolveScenarioBundle(scenarioId, findPersona, findScenario)
+      const bundle = resolveScenarioBundle(
+        scenarioId,
+        findPersona,
+        findScenario,
+        findTemplate,
+      )
       if (!bundle?.scenario) return null
       if (personaIdOverride) {
         const persona = findPersona(personaIdOverride)
@@ -121,7 +145,7 @@ export function TrainingAiProvider({ children }) {
       }
       return bundle
     },
-    [findPersona, findScenario],
+    [findPersona, findScenario, findTemplate],
   )
 
   const selectedScenario = useMemo(() => {
@@ -193,7 +217,7 @@ export function TrainingAiProvider({ children }) {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
       }
-      const normalized = normalizeScenarioInput(input)
+      const normalized = normalizeScenarioInput(input, { templateLookup: findTemplate })
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
       }
@@ -207,7 +231,7 @@ export function TrainingAiProvider({ children }) {
       setScenarios((prev) => [scenario, ...prev])
       return { ok: true, scenario }
     },
-    [findPersona, permissions],
+    [findPersona, findTemplate, permissions],
   )
 
   const updateScenario = useCallback(
@@ -218,18 +242,21 @@ export function TrainingAiProvider({ children }) {
       const existing = findScenario(scenarioId)
       if (!existing) return { ok: false, error: 'Cenário não encontrado.' }
 
-      const normalized = normalizeScenarioInput({
-        ...existing,
-        ...input,
-        scriptHintsText:
-          input.scriptHintsText != null
-            ? input.scriptHintsText
-            : (existing.scriptHints || []).join('\n'),
-        focusText:
-          input.focusText != null
-            ? input.focusText
-            : (existing.focus || []).join('\n'),
-      })
+      const normalized = normalizeScenarioInput(
+        {
+          ...existing,
+          ...input,
+          scriptHintsText:
+            input.scriptHintsText != null
+              ? input.scriptHintsText
+              : (existing.scriptHints || []).join('\n'),
+          focusText:
+            input.focusText != null
+              ? input.focusText
+              : (existing.focus || []).join('\n'),
+        },
+        { templateLookup: findTemplate },
+      )
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
       }
@@ -240,7 +267,52 @@ export function TrainingAiProvider({ children }) {
       setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
       return { ok: true, scenario }
     },
-    [findPersona, findScenario, permissions],
+    [findPersona, findScenario, findTemplate, permissions],
+  )
+
+  const createTemplate = useCallback(
+    (input) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) {
+        return { ok: false, error: 'Sem permissão para gerenciar templates.' }
+      }
+      const normalized = normalizeTemplateInput(input)
+      if (!normalized.ok) {
+        return { ok: false, errors: normalized.errors }
+      }
+      const template = {
+        id: `tpl_${Date.now()}`,
+        ...normalized.template,
+      }
+      setEvaluationTemplates((prev) => [template, ...prev])
+      return { ok: true, template }
+    },
+    [permissions],
+  )
+
+  const updateTemplate = useCallback(
+    (templateId, input) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) {
+        return { ok: false, error: 'Sem permissão para gerenciar templates.' }
+      }
+      const existing = findTemplate(templateId)
+      if (!existing) return { ok: false, error: 'Template não encontrado.' }
+
+      const normalized = normalizeTemplateInput(input)
+      if (!normalized.ok) {
+        return { ok: false, errors: normalized.errors }
+      }
+      const template = { ...existing, ...normalized.template, id: templateId }
+      setEvaluationTemplates((prev) =>
+        prev.map((item) => (item.id === templateId ? template : item)),
+      )
+      return { ok: true, template }
+    },
+    [findTemplate, permissions],
+  )
+
+  const getScenariosForTemplate = useCallback(
+    (templateId) => scenariosUsingTemplate(templateId, scenarios),
+    [scenarios],
   )
 
   const startSimulation = useCallback(
@@ -411,6 +483,7 @@ export function TrainingAiProvider({ children }) {
       messages,
       answers: [],
       mode: 'free',
+      templateLookup: findTemplate,
     })
 
     setSession(completedSession)
@@ -419,7 +492,7 @@ export function TrainingAiProvider({ children }) {
     setHistory((prev) => [report, ...prev])
     setPhase('finished')
     return true
-  }, [messages, phase, selectedPersona, selectedScenario, session])
+  }, [findTemplate, messages, phase, selectedPersona, selectedScenario, session])
 
   /** Legacy MCQ path kept for smoke / optional demos. */
   const chooseOption = useCallback(
@@ -447,6 +520,7 @@ export function TrainingAiProvider({ children }) {
           messages: nextMessages,
           answers: nextAnswers,
           mode: 'mcq',
+          templateLookup: findTemplate,
         })
         setSession(completedSession)
         setAnswers(nextAnswers)
@@ -471,6 +545,7 @@ export function TrainingAiProvider({ children }) {
     },
     [
       answers,
+      findTemplate,
       messages,
       phase,
       resolveBundle,
@@ -497,15 +572,23 @@ export function TrainingAiProvider({ children }) {
     metrics: computeMetrics(history, scenarios),
     scenarios,
     personas,
+    evaluationTemplates,
     getPersona: findPersona,
     getScenario: findScenario,
+    getEvaluationTemplate: findTemplate,
     getScenariosForPersona,
+    getScenariosForTemplate,
     createEmptyPersonaDraft,
     createEmptyScenarioDraft,
+    createEmptyTemplateDraft,
+    createEmptyCriterionDraft,
+    templateToFormState,
     createPersona,
     updatePersona,
     createScenario,
     updateScenario,
+    createTemplate,
+    updateTemplate,
     session,
     selectedScenario,
     selectedPersona,

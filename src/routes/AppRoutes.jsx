@@ -32,6 +32,9 @@ import {
   TrainingScenarioFormPage,
   TrainingScenariosPage,
   TrainingSimulationPage,
+  TrainingTemplateDetailPage,
+  TrainingTemplateFormPage,
+  TrainingTemplatesPage,
 } from '../modules/training-ai'
 import {
   ProspectingLayout,
@@ -118,6 +121,16 @@ export default function AppRoutes() {
         <Route
           path="/modules/training-ai/personas/:personaId"
           element={<TrainingPersonaDetailPage />}
+        />
+        <Route path="/modules/training-ai/templates" element={<TrainingTemplatesPage />} />
+        <Route path="/modules/training-ai/templates/novo" element={<TrainingTemplateFormPage />} />
+        <Route
+          path="/modules/training-ai/templates/:templateId/editar"
+          element={<TrainingTemplateFormPage />}
+        />
+        <Route
+          path="/modules/training-ai/templates/:templateId"
+          element={<TrainingTemplateDetailPage />}
         />
         <Route path="/modules/training-ai/historico" element={<TrainingHistoryPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />

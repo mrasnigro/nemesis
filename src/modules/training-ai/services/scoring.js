@@ -110,17 +110,25 @@ export function buildCoachNotes(score) {
 
 /**
  * Full evaluation payload for a completed training session.
+ * Accepts live template object or templateLookup for context-managed rubrics.
  */
 export function buildSessionEvaluation({
   session,
   scenario,
   persona,
   templateId,
+  template: templateInput,
+  templateLookup,
   answers,
   messages,
   mode = 'free',
 }) {
-  const template = getEvaluationTemplate(templateId || scenario.evaluationTemplateId)
+  const resolvedId = templateId || scenario.evaluationTemplateId
+  const template =
+    templateInput ||
+    (typeof templateLookup === 'function' ? templateLookup(resolvedId) : null) ||
+    getEvaluationTemplate(resolvedId)
+
   if (!template) {
     throw new Error('Evaluation template not found')
   }

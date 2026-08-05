@@ -1,6 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
-import { getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
 
@@ -10,6 +9,7 @@ export default function TrainingScenarioDetailPage() {
   const {
     getScenario,
     getPersona,
+    getEvaluationTemplate,
     canManage,
     canSimulate,
     startSimulation,
@@ -103,7 +103,15 @@ export default function TrainingScenarioDetailPage() {
           </div>
           <div>
             <dt>Template de avaliação</dt>
-            <dd>{template?.title || scenario.evaluationTemplateId}</dd>
+            <dd>
+              {template ? (
+                <Link to={`/modules/training-ai/templates/${template.id}`}>
+                  {template.title}
+                </Link>
+              ) : (
+                scenario.evaluationTemplateId
+              )}
+            </dd>
           </div>
           <div className="training-ai__form-span-2">
             <dt>Instruções da conversa</dt>

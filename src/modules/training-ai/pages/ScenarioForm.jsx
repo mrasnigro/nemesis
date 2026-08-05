@@ -5,7 +5,6 @@ import {
   FUNNEL_STAGE_OPTIONS,
   INDUSTRY_OPTIONS,
   SCENARIO_DIFFICULTIES,
-  TEMPLATE_OPTIONS,
 } from '../data/scenarios.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
@@ -20,6 +19,7 @@ export default function TrainingScenarioFormPage() {
     updateScenario,
     createEmptyScenarioDraft,
     personas,
+    evaluationTemplates,
     canManage,
   } = useTrainingAi()
 
@@ -36,7 +36,7 @@ export default function TrainingScenarioFormPage() {
         durationMin: existing.durationMin || 10,
         funnelStage: existing.funnelStage || FUNNEL_STAGE_OPTIONS[0],
         personaId: existing.personaId || '',
-        evaluationTemplateId: existing.evaluationTemplateId || 'tpl_cold_call',
+        evaluationTemplateId: existing.evaluationTemplateId || evaluationTemplates[0]?.id || '',
         sellerInstructions: existing.sellerInstructions || '',
         scriptHintsText: (existing.scriptHints || []).join('\n'),
         focusText: (existing.focus || []).join('\n'),
@@ -44,13 +44,14 @@ export default function TrainingScenarioFormPage() {
     }
     const draft = createEmptyScenarioDraft({
       personaId: personas[0]?.id || '',
+      evaluationTemplateId: evaluationTemplates[0]?.id || '',
     })
     return {
       ...draft,
       scriptHintsText: '',
       focusText: '',
     }
-  }, [createEmptyScenarioDraft, existing, personas])
+  }, [createEmptyScenarioDraft, evaluationTemplates, existing, personas])
 
   const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState([])
@@ -231,7 +232,7 @@ export default function TrainingScenarioFormPage() {
               onChange={(event) => patch('evaluationTemplateId', event.target.value)}
               required
             >
-              {TEMPLATE_OPTIONS.map((item) => (
+              {evaluationTemplates.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title}
                 </option>
