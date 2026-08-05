@@ -1,6 +1,11 @@
 /**
- * Mock conversation helpers for free-text training (no LLM / voice / TTS).
+ * Conversation helpers for Training IA.
+ *
+ * Response generation lives under services/ai/ (provider abstraction).
+ * This module keeps message shape helpers + free-text scoring (not LLM).
  */
+
+export { generateMockReply } from './ai/mockProvider.js'
 
 let messageSeq = 0
 
@@ -22,87 +27,10 @@ function normalize(text) {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-function pick(list, index) {
-  if (!list?.length) return null
-  return list[index % list.length]
-}
-
-/**
- * Progressive mock replies driven by persona + scenario script turns.
- * Exchange index = number of completed user turns (0-based after user sends).
- */
-export function generateMockReply({
-  persona,
-  scenario,
-  scriptTurns = [],
-  exchangeIndex = 0,
-  userText = '',
-}) {
-  const objections = persona?.objections || []
-  const priorities = persona?.priorities || []
-  const industry = persona?.industry || scenario?.segment || 'seu mercado'
-  const user = normalize(userText)
-
-  const askedAgenda =
-    /\b(12|quinze|15|agenda|reuniao|discovery|proximo passo|marcar|agendar)\b/.test(user)
-  const askedPermission = /\b(segundos|minuto|momento|posso|permita|bom momento)\b/.test(user)
-  const mentionedValue =
-    /\b(valor|custo|econom|impacto|roi|eficiencia|pipeline|conversao)\b/.test(user)
-  const mentionedPilot = /\b(piloto|prova|teste|trial|playbook)\b/.test(user)
-
-  // Prefer scripted AI lines from legacy MCQ turns (skip index 0 = opening already shown).
-  const scripted = scriptTurns[exchangeIndex + 1]?.ai
-  if (scripted && exchangeIndex < 2) {
-    return scripted
-  }
-
-  if (exchangeIndex === 0) {
-    if (askedPermission) {
-      return 'Pode falar, mas seja breve — estou no meio de uma reunião.'
-    }
-    return pick(
-      [
-        `Ok… e por que isso importa para ${industry} agora?`,
-        `Entendi. Em ${persona?.company || 'nossa operação'} o tempo é curto — qual o ponto?`,
-        'Continuo ouvindo, mas preciso entender o ganho concreto.',
-      ],
-      exchangeIndex,
-    )
-  }
-
-  if (exchangeIndex === 1) {
-    const objection =
-      pick(objections, 0) ||
-      'Já temos um fornecedor e o orçamento está fechado.'
-    if (askedAgenda) {
-      return `Agenda eu até considero, mas primeiro: ${objection}`
-    }
-    return `${objection} Como vocês se diferenciam sem parecer pitch genérico?`
-  }
-
-  if (exchangeIndex === 2) {
-    if (mentionedValue || mentionedPilot) {
-      return `Hmm. Se houver um piloto enxuto e métricas claras, posso envolver meu time. Quem mais precisaria participar?`
-    }
-    const priority = pick(priorities, 0)
-    return priority
-      ? `O que mais pesa aqui é: ${priority}. Sem isso, fica difícil avançar.`
-      : `Ainda não vi como isso muda nossa rotina comercial. Tem um exemplo do segmento?`
-  }
-
-  if (exchangeIndex >= 3) {
-    if (askedAgenda || mentionedPilot) {
-      return `Certo. Se quiser, podemos fechar um próximo passo curto — me diga o objetivo e o tempo. Caso contrário, encerre o treino quando estiver pronto.`
-    }
-    return `Estou com menos margem nesta conversa. Resume o próximo passo ou podemos encerrar por aqui.`
-  }
-
-  return `Pode continuar — o que você propõe como próximo passo?`
-}
-
 /**
  * Rules that guide mock scoring from free-text trainee messages.
  * Patterns match normalized (accent-stripped) Portuguese.
+ * Legacy fallback when criterion.passRule is absent.
  */
 export const CRITERION_KEYWORD_RULES = {
   crit_saudacao: [/\bbom dia\b/, /\bboa tarde\b/, /\bola\b/, /\bsou da\b/, /\bme chamo\b/, /\bimp\b/],
@@ -123,13 +51,13 @@ export const CRITERION_KEYWORD_RULES = {
   ],
   crit_numero: [/\d+\s*%/, /\d+\s*(min|horas|dias|reais|r\$)/, /\b\d{2,}\b/],
   crit_piloto: [/\bpiloto\b/, /\bprova\b/, /\bteste\b/, /\btrial\b/, /\bcontrolad/],
-  crit_sem_desconto: [], // passed unless discount language appears
+  crit_sem_desconto: [],
 
   crit_processo: [/\bcomo funciona\b/, /\bprocesso\b/, /\bhoje\b/, /\batual\b/, /\brotina\b/],
   crit_gargalo: [/\bdor\b/, /\bgargalo\b/, /\btrava\b/, /\bdificuldade\b/, /\bproblema\b/],
   crit_cadencia: [/\bcadencia\b/, /\bmeta\b/, /\bowner\b/, /\bresponsavel\b/, /\bquem define\b/],
   crit_playbook: [/\bplaybook\b/, /\bmarco\b/, /\bproximo\b/, /\bagendar\b/, /\bdata\b/],
-  crit_sem_pitch: [], // passed unless heavy feature dump without diagnosis
+  crit_sem_pitch: [],
 }
 
 const DISCOUNT_PATTERNS = [/\bdesconto\b/, /\bmais barato\b/, /\babaixar preco\b/, /\bpreco menor\b/]
@@ -194,7 +122,6 @@ export function evaluateCriterionPassRule(criterion, corpus) {
     return patterns.some((re) => re.test(corpus))
   }
 
-  // Legacy hardcoded fallbacks
   if (criterion.id === 'crit_sem_desconto') {
     return !DISCOUNT_PATTERNS.some((re) => re.test(corpus))
   }

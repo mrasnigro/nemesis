@@ -25,10 +25,7 @@ import {
   resolveScenarioBundle,
   trainingMetricsSeed,
 } from '../data/seeds.js'
-import {
-  createConversationMessage,
-  generateMockReply,
-} from '../services/conversation.js'
+import { getConversationEngine } from '../services/ai/index.js'
 import { buildSessionEvaluation } from '../services/scoring.js'
 import {
   getTrainingPermissionsForUser,
@@ -336,10 +333,7 @@ export function TrainingAiProvider({ children }) {
       })
 
       const openingSource = personaForSession || bundle.persona
-      const opening =
-        openingSource?.openingLine ||
-        bundle.turns[0]?.ai ||
-        'Iniciando simulação…'
+      const engine = getConversationEngine()
 
       setSession(nextSession)
       setAnswers([])
@@ -351,10 +345,9 @@ export function TrainingAiProvider({ children }) {
       )
       setPhase(skipSetup ? 'briefing' : 'setup')
       setMessages([
-        createConversationMessage({
-          role: 'ai',
-          speaker: openingSource?.name || 'Persona',
-          text: opening,
+        engine.createOpeningMessage({
+          persona: openingSource,
+          scriptTurns: bundle.turns || [],
         }),
       ])
       return bundle.scenario
@@ -369,8 +362,7 @@ export function TrainingAiProvider({ children }) {
       if (!persona) return false
 
       const bundle = resolveBundle(session.scenarioId)
-      const opening =
-        persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
+      const engine = getConversationEngine()
 
       setDraftPersonaId(personaId)
       setSession((prev) =>
@@ -382,10 +374,9 @@ export function TrainingAiProvider({ children }) {
           : prev,
       )
       setMessages([
-        createConversationMessage({
-          role: 'ai',
-          speaker: persona.name,
-          text: opening,
+        engine.createOpeningMessage({
+          persona,
+          scriptTurns: bundle?.turns || [],
         }),
       ])
       return true
@@ -400,8 +391,7 @@ export function TrainingAiProvider({ children }) {
     if (!persona) return false
 
     const bundle = resolveBundle(session.scenarioId)
-    const opening =
-      persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
+    const engine = getConversationEngine()
 
     setSession((prev) =>
       prev
@@ -412,10 +402,9 @@ export function TrainingAiProvider({ children }) {
         : prev,
     )
     setMessages([
-      createConversationMessage({
-        role: 'ai',
-        speaker: persona.name,
-        text: opening,
+      engine.createOpeningMessage({
+        persona,
+        scriptTurns: bundle?.turns || [],
       }),
     ])
     setPhase('briefing')
@@ -435,24 +424,17 @@ export function TrainingAiProvider({ children }) {
 
       const bundle = resolveBundle(selectedScenario.id)
       const userCount = messages.filter((m) => m.role === 'user').length
-      const userMessage = createConversationMessage({
-        role: 'user',
-        speaker: 'Você',
-        text,
-      })
-
-      const replyText = generateMockReply({
+      const engine = getConversationEngine()
+      const userMessage = engine.createUserMessage(text)
+      const aiMessage = engine.generateReplyMessage({
         persona: selectedPersona,
         scenario: selectedScenario,
+        template: bundle?.template || null,
         scriptTurns: bundle?.turns || [],
+        messages,
         exchangeIndex: userCount,
         userText: text,
-      })
-
-      const aiMessage = createConversationMessage({
-        role: 'ai',
-        speaker: selectedPersona?.name || 'Persona',
-        text: replyText,
+        session,
       })
 
       const nextMessages = [...messages, userMessage, aiMessage]
@@ -503,12 +485,9 @@ export function TrainingAiProvider({ children }) {
       const currentTurn = turns[turnIndex]
       if (!currentTurn) return
 
+      const engine = getConversationEngine()
       const nextAnswers = [...answers, { ...option, turnId: currentTurn.id }]
-      const userMessage = createConversationMessage({
-        role: 'user',
-        speaker: 'Você',
-        text: option.label,
-      })
+      const userMessage = engine.createUserMessage(option.label)
       const nextMessages = [...messages, userMessage]
 
       const nextIndex = turnIndex + 1
@@ -536,10 +515,8 @@ export function TrainingAiProvider({ children }) {
       setTurnIndex(nextIndex)
       setMessages([
         ...nextMessages,
-        createConversationMessage({
-          role: 'ai',
+        engine.createAiMessage(turns[nextIndex].ai, {
           speaker: selectedPersona?.name || 'Persona',
-          text: turns[nextIndex].ai,
         }),
       ])
     },
