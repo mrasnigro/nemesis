@@ -1,10 +1,20 @@
-export const trainingMetrics = {
-  completed: 12,
-  avgScore: 78,
-  streakDays: 4,
+import { personas, getPersona } from './personas.js'
+import { getEvaluationTemplate } from './evaluationTemplates.js'
+
+export { personas, getPersona }
+export { evaluationTemplates, getEvaluationTemplate } from './evaluationTemplates.js'
+
+export const trainingMetricsSeed = {
+  completed: 0,
+  avgScore: 0,
+  streakDays: 0,
   pending: 3,
 }
 
+/**
+ * Training scenarios — each binds persona + evaluation template + MCQ turns.
+ * Options carry rubricImpact { criterionId: boolean }.
+ */
 export const trainingScenarios = [
   {
     id: 'scn_001',
@@ -12,15 +22,14 @@ export const trainingScenarios = [
     segment: 'SaaS B2B',
     difficulty: 'beginner',
     durationMin: 8,
+    funnelStage: 'Primeiro Contato Frio',
     focus: ['Rapport', 'Qualificação inicial', 'Agenda'],
     description:
-      'Simule a abertura de uma ligação frias com um diretor comercial cético.',
-    persona: {
-      name: 'Marina Costa',
-      role: 'Diretora Comercial',
-      company: 'Nexo Logística',
-      mood: 'Cética, objetiva',
-    },
+      'Simule a abertura de uma ligação fria com um diretor comercial cético.',
+    personaId: 'per_marina',
+    evaluationTemplateId: 'tpl_cold_call',
+    sellerInstructions:
+      'Você está ligando para um lead que baixou um material no site da IMP. Objetivo: ganhar 12 minutos de discovery na próxima semana.',
     scriptHints: [
       'Confirme se é um bom momento',
       'Cite um insight do segmento logístico',
@@ -33,15 +42,14 @@ export const trainingScenarios = [
     segment: 'Serviços',
     difficulty: 'intermediate',
     durationMin: 10,
+    funnelStage: 'Descoberta/Qualificação',
     focus: ['Objeções', 'Valor', 'Fechamento de próximo passo'],
     description:
       'O lead compara você com um concorrente mais barato. Reposicione valor sem desconto imediato.',
-    persona: {
-      name: 'Rafael Souza',
-      role: 'Head de Operações',
-      company: 'Atlas Retail',
-      mood: 'Pressão por custo',
-    },
+    personaId: 'per_rafael',
+    evaluationTemplateId: 'tpl_objection',
+    sellerInstructions:
+      'O prospect já usa um fornecedor mais barato. Não ofereça desconto na primeira reação — quantifique custo oculto e proponha um piloto.',
     scriptHints: [
       'Separe preço de custo de oportunidade',
       'Quantifique impacto operacional',
@@ -54,15 +62,14 @@ export const trainingScenarios = [
     segment: 'Indústria',
     difficulty: 'advanced',
     durationMin: 12,
+    funnelStage: 'Descoberta/Qualificação',
     focus: ['Diagnóstico', 'Perguntas abertas', 'Priorização'],
     description:
       'Conduza um discovery profundo e classifique o termômetro de interesse ao final.',
-    persona: {
-      name: 'Helena Prado',
-      role: 'Gerente de Expansão',
-      company: 'Forge Industrial',
-      mood: 'Analítica, detalhista',
-    },
+    personaId: 'per_helena',
+    evaluationTemplateId: 'tpl_discovery',
+    sellerInstructions:
+      'Antes de qualquer pitch, entenda o processo atual e onde o pipeline trava. Feche com um marco leve (playbook / termômetro).',
     scriptHints: [
       'Explore processo atual antes da solução',
       'Valide stakeholders',
@@ -81,16 +88,43 @@ export const simulationTurnsByScenario = {
           id: 'a',
           label: 'Bom dia, Marina. Sou da IMP. Posso ter 30 segundos?',
           quality: 'good',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
         {
           id: 'b',
           label: 'Ligo para vender uma solução de leads.',
           quality: 'weak',
+          rubricImpact: {
+            crit_saudacao: false,
+            crit_permissao: false,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
         {
           id: 'c',
           label: 'Você precisa melhorar sua geração de demanda.',
           quality: 'poor',
+          rubricImpact: {
+            crit_saudacao: false,
+            crit_permissao: false,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
       ],
     },
@@ -103,16 +137,43 @@ export const simulationTurnsByScenario = {
           label:
             'Ajudamos times B2B a abrir reuniões com decisores em logística. Vale 12 min semana que vem?',
           quality: 'good',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: true,
+            crit_agenda: true,
+            crit_beneficio: false,
+            crit_decisor: true,
+            crit_next: false,
+          },
         },
         {
           id: 'b',
           label: 'Temos o melhor CRM do mercado.',
           quality: 'weak',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
         {
           id: 'c',
           label: 'Posso te mandar um PDF?',
           quality: 'poor',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
       ],
     },
@@ -125,16 +186,43 @@ export const simulationTurnsByScenario = {
           label:
             'Um mapa do funil outbound para o seu ciclo médio de 45 dias e critérios de qualificação.',
           quality: 'good',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: true,
+            crit_agenda: true,
+            crit_beneficio: true,
+            crit_decisor: true,
+            crit_next: true,
+          },
         },
         {
           id: 'b',
           label: 'Vou te mostrar o produto todo.',
           quality: 'weak',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: true,
+            crit_agenda: true,
+            crit_beneficio: false,
+            crit_decisor: true,
+            crit_next: false,
+          },
         },
         {
           id: 'c',
           label: 'É só uma apresentação institucional.',
           quality: 'poor',
+          rubricImpact: {
+            crit_saudacao: true,
+            crit_permissao: true,
+            crit_insight: false,
+            crit_agenda: false,
+            crit_beneficio: false,
+            crit_decisor: false,
+            crit_next: false,
+          },
         },
       ],
     },
@@ -149,16 +237,37 @@ export const simulationTurnsByScenario = {
           label:
             'Faz sentido proteger o custo. O ponto é o custo oculto de no-shows e ciclo longo — posso mostrar o delta?',
           quality: 'good',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: false,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
         {
           id: 'b',
           label: 'A gente também faz desconto.',
           quality: 'weak',
+          rubricImpact: {
+            crit_empatia: false,
+            crit_custo_oculto: false,
+            crit_numero: false,
+            crit_piloto: false,
+            crit_sem_desconto: false,
+          },
         },
         {
           id: 'c',
           label: 'Seu fornecedor é ruim.',
           quality: 'poor',
+          rubricImpact: {
+            crit_empatia: false,
+            crit_custo_oculto: false,
+            crit_numero: false,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
       ],
     },
@@ -171,16 +280,37 @@ export const simulationTurnsByScenario = {
           label:
             'Em contas similares, reduzimos 18% do tempo até reunião qualificada em 60 dias.',
           quality: 'good',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: true,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
         {
           id: 'b',
           label: 'Resultados variam, mas geralmente é bom.',
           quality: 'weak',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: false,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
         {
           id: 'c',
           label: 'Garantimos 10x ROI.',
           quality: 'poor',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: false,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
       ],
     },
@@ -193,16 +323,37 @@ export const simulationTurnsByScenario = {
           label:
             'Uma call de 20 min com diagnóstico do processo atual e um plano piloto de 2 semanas.',
           quality: 'good',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: true,
+            crit_piloto: true,
+            crit_sem_desconto: true,
+          },
         },
         {
           id: 'b',
           label: 'Assina o contrato e a gente começa.',
           quality: 'poor',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: true,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
         {
           id: 'c',
           label: 'Te mando um case genérico por e-mail.',
           quality: 'weak',
+          rubricImpact: {
+            crit_empatia: true,
+            crit_custo_oculto: true,
+            crit_numero: true,
+            crit_piloto: false,
+            crit_sem_desconto: true,
+          },
         },
       ],
     },
@@ -217,16 +368,37 @@ export const simulationTurnsByScenario = {
           label:
             'Como vocês priorizam contas hoje e onde o pipeline mais trava entre MQL e reunião.',
           quality: 'good',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: false,
+            crit_playbook: false,
+            crit_sem_pitch: true,
+          },
         },
         {
           id: 'b',
           label: 'Quero saber se vocês compram software.',
           quality: 'poor',
+          rubricImpact: {
+            crit_processo: false,
+            crit_gargalo: false,
+            crit_cadencia: false,
+            crit_playbook: false,
+            crit_sem_pitch: false,
+          },
         },
         {
           id: 'c',
           label: 'Quantas pessoas tem no time?',
           quality: 'weak',
+          rubricImpact: {
+            crit_processo: false,
+            crit_gargalo: false,
+            crit_cadencia: false,
+            crit_playbook: false,
+            crit_sem_pitch: true,
+          },
         },
       ],
     },
@@ -239,16 +411,37 @@ export const simulationTurnsByScenario = {
           label:
             'Entendi. Quem define a cadência hoje e qual a meta de tentativas por lead?',
           quality: 'good',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: true,
+            crit_playbook: false,
+            crit_sem_pitch: true,
+          },
         },
         {
           id: 'b',
           label: 'Nossa ferramenta resolve tudo isso.',
           quality: 'weak',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: false,
+            crit_playbook: false,
+            crit_sem_pitch: false,
+          },
         },
         {
           id: 'c',
           label: 'Então o problema é o time.',
           quality: 'poor',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: false,
+            crit_playbook: false,
+            crit_sem_pitch: false,
+          },
         },
       ],
     },
@@ -261,54 +454,72 @@ export const simulationTurnsByScenario = {
           label:
             'Posso te mostrar um playbook leve com gates de qualificação e termômetro — 25 min amanhã?',
           quality: 'good',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: true,
+            crit_playbook: true,
+            crit_sem_pitch: true,
+          },
         },
         {
           id: 'b',
           label: 'Temos mil configurações avançadas.',
           quality: 'weak',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: true,
+            crit_playbook: false,
+            crit_sem_pitch: false,
+          },
         },
         {
           id: 'c',
           label: 'Sem processo não tem o que fazer.',
           quality: 'poor',
+          rubricImpact: {
+            crit_processo: true,
+            crit_gargalo: true,
+            crit_cadencia: true,
+            crit_playbook: false,
+            crit_sem_pitch: false,
+          },
         },
       ],
     },
   ],
 }
 
-export function buildEvaluation(scenario, answers) {
-  const qualityScore = { good: 34, weak: 18, poor: 6 }
-  const raw = answers.reduce((sum, answer) => sum + (qualityScore[answer.quality] || 0), 0)
-  const score = Math.min(100, Math.round(raw + (answers.length === 3 ? 8 : 0)))
+export function getScenario(scenarioId) {
+  return trainingScenarios.find((item) => item.id === scenarioId) || null
+}
 
-  const strengths = answers
-    .filter((a) => a.quality === 'good')
-    .map((a) => a.label)
-  const improvements = answers
-    .filter((a) => a.quality !== 'good')
-    .map((a) => a.label)
+export function resolveScenarioBundle(scenarioId) {
+  const scenario = getScenario(scenarioId)
+  if (!scenario) return null
+  const persona = getPersona(scenario.personaId)
+  const template = getEvaluationTemplate(scenario.evaluationTemplateId)
+  const turns = simulationTurnsByScenario[scenarioId] || []
+  return { scenario, persona, template, turns }
+}
 
+export function createTrainingSession({ scenario, persona }) {
   return {
+    id: `sess_${Date.now()}`,
     scenarioId: scenario.id,
-    scenarioTitle: scenario.title,
-    score,
-    completedAt: new Date().toISOString(),
-    dimensions: [
-      { id: 'rapport', label: 'Rapport', value: Math.min(100, score + 4) },
-      { id: 'clarity', label: 'Clareza', value: Math.max(40, score - 6) },
-      { id: 'value', label: 'Proposta de valor', value: Math.min(100, score + 2) },
-      { id: 'next', label: 'Próximo passo', value: Math.max(35, score - 3) },
-    ],
-    strengths: strengths.length
-      ? strengths
-      : ['Manteve a conversa ativa até o final'],
-    improvements: improvements.length
-      ? improvements.map((item) => `Evitar abordagem: “${item.slice(0, 60)}…”`)
-      : ['Aprofundar perguntas de diagnóstico'],
-    coachNotes:
-      score >= 80
-        ? 'Excelente controle da conversa. Pronto para cenários avançados.'
-        : 'Foque em valor concreto e próximo passo agendável nas próximas simulações.',
+    personaId: persona?.id || scenario.personaId,
+    evaluationTemplateId: scenario.evaluationTemplateId,
+    messages: [],
+    answers: [],
+    evaluation: null,
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    status: 'running',
   }
+}
+
+/** @deprecated use scoring.buildSessionEvaluation — kept for any leftover imports */
+export function buildEvaluation() {
+  throw new Error('Use buildSessionEvaluation from services/scoring.js')
 }

@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
+import { getPersona } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import '../styles/training-ai.css'
 
 export default function TrainingCatalogPage() {
   const navigate = useNavigate()
@@ -17,22 +19,22 @@ export default function TrainingCatalogPage() {
         <article className="imp-metric">
           <p>Simulações concluídas</p>
           <strong className="accent">{metrics.completed}</strong>
-          <span>Este mês</span>
+          <span>Nesta sessão</span>
         </article>
         <article className="imp-metric">
           <p>Score médio</p>
-          <strong>{metrics.avgScore}</strong>
+          <strong>{metrics.avgScore || '—'}</strong>
           <span>Meta: 80</span>
         </article>
         <article className="imp-metric">
           <p>Sequência</p>
           <strong className="success">{metrics.streakDays}d</strong>
-          <span>Dias consecutivos</span>
+          <span>Dias consecutivos (mock)</span>
         </article>
         <article className="imp-metric">
           <p>Pendentes</p>
           <strong>{metrics.pending}</strong>
-          <span>Trilha recomendada</span>
+          <span>Cenários sem conclusão</span>
         </article>
       </div>
 
@@ -41,30 +43,36 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Selecionar treinamento</h2>
-              <p>Escolha um cenário e inicie a simulação com IA.</p>
+              <p>Escolha um cenário, revise a persona e pratique com rubrica IMP.</p>
             </div>
           </div>
           <div className="imp-list">
-            {scenarios.map((scenario) => (
-              <div key={scenario.id} className="imp-list-item" style={{ cursor: 'default' }}>
-                <div>
-                  <h3>{scenario.title}</h3>
-                  <p>
-                    {scenario.segment} · {DIFFICULTY_LABELS[scenario.difficulty]} ·{' '}
-                    {scenario.durationMin} min
-                  </p>
-                  <p>{scenario.description}</p>
+            {scenarios.map((scenario) => {
+              const persona = getPersona(scenario.personaId)
+              return (
+                <div key={scenario.id} className="imp-list-item">
+                  <div>
+                    <h3>{scenario.title}</h3>
+                    <p>
+                      {scenario.funnelStage} · {scenario.segment} ·{' '}
+                      {DIFFICULTY_LABELS[scenario.difficulty]} · {scenario.durationMin} min
+                    </p>
+                    <p>
+                      Persona: {persona?.name || '—'} · {persona?.negotiatorType || ''}
+                    </p>
+                    <p>{scenario.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="imp-btn imp-btn--primary"
+                    disabled={!canSimulate}
+                    onClick={() => handleStart(scenario.id)}
+                  >
+                    Iniciar
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="imp-btn imp-btn--primary"
-                  disabled={!canSimulate}
-                  onClick={() => handleStart(scenario.id)}
-                >
-                  Iniciar
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -74,21 +82,26 @@ export default function TrainingCatalogPage() {
               <h2>Últimas avaliações</h2>
               <p>Histórico desta sessão (mock).</p>
             </div>
+            <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--ghost">
+              Ver histórico
+            </Link>
           </div>
           {history.length === 0 ? (
             <div className="imp-empty">Nenhuma simulação concluída ainda.</div>
           ) : (
             <div className="imp-list">
-              {history.map((item) => (
+              {history.slice(0, 5).map((item) => (
                 <Link
-                  key={`${item.scenarioId}-${item.completedAt}`}
-                  to={`/modules/training-ai/relatorio/${item.scenarioId}`}
+                  key={`${item.id}-${item.completedAt}`}
+                  to={`/modules/training-ai/relatorio/${item.scenarioId}?session=${item.sessionId || ''}`}
                   className="imp-list-item"
                   style={{ textDecoration: 'none' }}
                 >
                   <div>
                     <h3>{item.scenarioTitle}</h3>
-                    <p>{new Date(item.completedAt).toLocaleString('pt-BR')}</p>
+                    <p>
+                      {item.personaName} · {new Date(item.completedAt).toLocaleString('pt-BR')}
+                    </p>
                   </div>
                   <span className="imp-pill imp-pill--amber">{item.score} pts</span>
                 </Link>

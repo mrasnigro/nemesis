@@ -23,6 +23,7 @@ import {
 import {
   TrainingAiLayout,
   TrainingCatalogPage,
+  TrainingHistoryPage,
   TrainingReportPage,
   TrainingSimulationPage,
 } from '../modules/training-ai'
@@ -92,6 +93,7 @@ export default function AppRoutes() {
         }
       >
         <Route path="/modules/training-ai" element={<TrainingCatalogPage />} />
+        <Route path="/modules/training-ai/historico" element={<TrainingHistoryPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />
         <Route path="/modules/training-ai/relatorio/:scenarioId" element={<TrainingReportPage />} />
       </Route>

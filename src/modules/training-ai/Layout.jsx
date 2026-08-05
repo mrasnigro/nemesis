@@ -1,8 +1,10 @@
 import ModuleWorkspaceLayout from '../../layouts/ModuleWorkspaceLayout.jsx'
 import { TrainingAiProvider } from './context/TrainingAiContext.jsx'
+import './styles/training-ai.css'
 
 const NAV = [
   { id: 'catalog', label: 'Catálogo', to: '/modules/training-ai', end: true },
+  { id: 'history', label: 'Histórico', to: '/modules/training-ai/historico' },
 ]
 
 export default function TrainingAiLayout() {
