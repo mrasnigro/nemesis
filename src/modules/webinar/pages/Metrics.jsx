@@ -1,4 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
+import WebinarEmptyState from '../components/WebinarEmptyState.jsx'
+import WebinarPageToolbar from '../components/WebinarPageToolbar.jsx'
 import { useWebinar } from '../context/WebinarContext.jsx'
 
 export default function WebinarMetricsPage() {
@@ -9,18 +11,26 @@ export default function WebinarMetricsPage() {
 
   if (!canMetrics) {
     return (
-      <section className="imp-module">
-        <div className="imp-empty">Sem permissão para métricas.</div>
+      <section className="imp-module webinar-page">
+        <WebinarEmptyState
+          title="Sem permissão para métricas"
+          copy="Seu perfil não tem acesso às métricas deste webinar."
+          actionTo="/modules/webinar"
+          actionLabel="Voltar aos eventos"
+        />
       </section>
     )
   }
 
   if (!event) {
     return (
-      <section className="imp-module">
-        <div className="imp-empty">
-          Evento não encontrado. <Link to="/modules/webinar">Voltar</Link>
-        </div>
+      <section className="imp-module webinar-page">
+        <WebinarEmptyState
+          title="Evento não encontrado"
+          copy="Não foi possível carregar as métricas deste webinar."
+          actionTo="/modules/webinar"
+          actionLabel="Voltar aos eventos"
+        />
       </section>
     )
   }
@@ -38,25 +48,20 @@ export default function WebinarMetricsPage() {
           participants.reduce((sum, p) => sum + p.watchMin, 0) / Math.max(attended, 1),
         )
       : Math.round(event.durationMin * 0.7)
+  const engagement = event.engagement || Math.min(95, liveAttendance + 6)
 
   return (
-    <section className="imp-module">
-      <div className="imp-actions">
-        <Link to={`/modules/webinar/${eventId}`} className="imp-btn imp-btn--ghost">
-          ← Voltar ao evento
-        </Link>
-      </div>
+    <section className="imp-module webinar-page">
+      <WebinarPageToolbar backTo={`/modules/webinar/${eventId}`} backLabel="Voltar ao evento" />
 
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Métricas de presença</h2>
-            <p>{event.title}</p>
-          </div>
+      <header className="webinar-page__intro">
+        <div>
+          <h2>Métricas de presença</h2>
+          <p>{event.title}</p>
         </div>
-      </div>
+      </header>
 
-      <div className="imp-module__metrics">
+      <div className="imp-module__metrics webinar-metrics">
         <article className="imp-metric">
           <p>Inscritos</p>
           <strong>{registered}</strong>
@@ -87,16 +92,18 @@ export default function WebinarMetricsPage() {
               <p>Indicadores simulados do evento.</p>
             </div>
           </div>
-          <p style={{ margin: '0 0 0.5rem', color: 'var(--text-muted)' }}>
-            Tempo médio assistido: <strong style={{ color: 'var(--text-h)' }}>{avgWatch} min</strong>
+          <p className="webinar-stat-line">
+            Tempo médio assistido: <strong>{avgWatch} min</strong>
           </p>
           <div className="imp-progress">
-            <span style={{ width: `${Math.min(100, liveAttendance)}%` }} />
+            <span
+              className="webinar-progress-fill"
+              style={{ '--webinar-progress': `${Math.min(100, liveAttendance)}%` }}
+            />
           </div>
-          <p style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Engajamento estimado: {event.engagement || Math.min(95, liveAttendance + 6)}%
-          </p>
+          <p className="webinar-stat-note">Engajamento estimado: {engagement}%</p>
         </div>
+
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
@@ -104,12 +111,12 @@ export default function WebinarMetricsPage() {
               <p>Workflow recomendado pós-evento.</p>
             </div>
           </div>
-          <ul style={{ margin: 0, paddingLeft: '1.1rem', color: 'var(--text-muted)' }}>
-            <li style={{ marginBottom: '0.4rem' }}>Exportar presentes para Prospecção / BDR</li>
-            <li style={{ marginBottom: '0.4rem' }}>Reengajar no-shows com VSL curto</li>
-            <li style={{ marginBottom: '0.4rem' }}>Agendar follow-up em até 24h</li>
+          <ul className="webinar-checklist">
+            <li>Exportar presentes para Prospecção / BDR</li>
+            <li>Reengajar no-shows com VSL curto</li>
+            <li>Agendar follow-up em até 24h</li>
           </ul>
-          <div className="imp-actions" style={{ marginTop: '1rem' }}>
+          <div className="imp-actions webinar-handoff">
             <Link to="/modules/prospecting" className="imp-btn imp-btn--ghost">
               Abrir Prospecção
             </Link>

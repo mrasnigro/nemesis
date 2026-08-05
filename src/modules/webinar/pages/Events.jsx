@@ -1,13 +1,30 @@
-import { Link } from 'react-router-dom'
-import { STATUS_LABELS } from '../data/seeds.js'
+import { IconPlus, IconUsers } from '../components/WebinarIcons.jsx'
+import WebinarEmptyState from '../components/WebinarEmptyState.jsx'
+import WebinarEventCard from '../components/WebinarEventCard.jsx'
 import { useWebinar } from '../context/WebinarContext.jsx'
 
 export default function WebinarEventsPage() {
   const { metrics, events, publishDraft, canManage } = useWebinar()
 
   return (
-    <section className="imp-module">
-      <div className="imp-module__metrics">
+    <section className="imp-module webinar-page">
+      <header className="webinar-page__intro">
+        <div>
+          <h2>Gestão de webinars</h2>
+          <p>Acompanhe agenda, publicação e resultados dos eventos do workspace.</p>
+        </div>
+        <button
+          type="button"
+          className="imp-btn imp-btn--primary"
+          disabled
+          title="Criação de eventos na próxima onda"
+        >
+          <IconPlus />
+          Novo evento
+        </button>
+      </header>
+
+      <div className="imp-module__metrics webinar-metrics">
         <article className="imp-metric">
           <p>Próximos</p>
           <strong className="accent">{metrics.upcoming}</strong>
@@ -33,59 +50,29 @@ export default function WebinarEventsPage() {
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>Gestão de eventos</h2>
-            <p>Webinars do workspace — simulação operacional.</p>
+            <h2>Eventos</h2>
+            <p>Lista operacional com status, host e ações rápidas.</p>
           </div>
         </div>
 
-        <div className="imp-list">
-          {events.map((event) => (
-            <div key={event.id} className="imp-list-item" style={{ cursor: 'default' }}>
-              <div>
-                <h3>{event.title}</h3>
-                <p>
-                  {new Date(event.startsAt).toLocaleString('pt-BR')} · {event.durationMin} min ·
-                  Host {event.host}
-                </p>
-                <p>{event.description}</p>
-              </div>
-              <div className="imp-actions" style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
-                <span
-                  className={`imp-pill ${
-                    event.status === 'completed'
-                      ? 'imp-pill--green'
-                      : event.status === 'draft'
-                        ? 'imp-pill--muted'
-                        : 'imp-pill--amber'
-                  }`}
-                >
-                  {STATUS_LABELS[event.status]}
-                </span>
-                <Link to={`/modules/webinar/${event.id}`} className="imp-btn imp-btn--ghost">
-                  Abrir
-                </Link>
-                {event.status === 'draft' ? (
-                  <button
-                    type="button"
-                    className="imp-btn imp-btn--primary"
-                    disabled={!canManage}
-                    onClick={() => publishDraft(event.id)}
-                  >
-                    Publicar
-                  </button>
-                ) : null}
-                {event.status === 'completed' ? (
-                  <Link
-                    to={`/modules/webinar/${event.id}/metricas`}
-                    className="imp-btn imp-btn--ghost"
-                  >
-                    Métricas
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
+        {events.length === 0 ? (
+          <WebinarEmptyState
+            icon={IconUsers}
+            title="Nenhum evento ainda"
+            copy="Quando houver webinars no workspace, eles aparecerão aqui com status e atalhos."
+          />
+        ) : (
+          <div className="imp-list">
+            {events.map((event) => (
+              <WebinarEventCard
+                key={event.id}
+                event={event}
+                canManage={canManage}
+                onPublish={publishDraft}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

@@ -41,7 +41,12 @@ export default function ModuleWorkspaceLayout({
                 `module-workspace__link${isActive ? ' is-active' : ''}`
               }
             >
-              {item.label}
+              {item.icon ? (
+                <span className="module-workspace__link-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+              ) : null}
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
