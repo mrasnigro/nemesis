@@ -160,6 +160,12 @@ export default function TrainingSimulationPage() {
                 <dt>Instruções ao vendedor</dt>
                 <dd>{scenario.sellerInstructions}</dd>
               </dl>
+              {scenario.objective ? (
+                <dl className="training-ai__briefing-block">
+                  <dt>Objetivo</dt>
+                  <dd>{scenario.objective}</dd>
+                </dl>
+              ) : null}
               <dl className="training-ai__briefing-block">
                 <dt>Persona</dt>
                 <dd>

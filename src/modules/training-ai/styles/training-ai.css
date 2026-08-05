@@ -261,7 +261,14 @@
   gap: 1rem;
 }
 
-.training-ai__persona-card {
+.training-ai__scenario-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+}
+
+.training-ai__persona-card,
+.training-ai__scenario-card {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -271,26 +278,30 @@
   background: rgba(17, 24, 39, 0.45);
 }
 
-.training-ai__persona-card-head {
+.training-ai__persona-card-head,
+.training-ai__scenario-card-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.training-ai__persona-card-head h3 {
+.training-ai__persona-card-head h3,
+.training-ai__scenario-card-head h3 {
   margin: 0;
   color: var(--text-h);
   font-size: 1.05rem;
 }
 
-.training-ai__persona-card-head p {
+.training-ai__persona-card-head p,
+.training-ai__scenario-card-head p {
   margin: 0.25rem 0 0;
   color: var(--text-muted);
   font-size: 0.82rem;
 }
 
-.training-ai__persona-card-behavior {
+.training-ai__persona-card-behavior,
+.training-ai__scenario-card-desc {
   margin: 0;
   color: var(--text);
   font-size: 0.88rem;

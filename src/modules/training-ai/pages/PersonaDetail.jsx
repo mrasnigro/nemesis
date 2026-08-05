@@ -125,11 +125,16 @@ export default function TrainingPersonaDetailPage() {
             {linkedScenarios.map((scenario) => (
               <div key={scenario.id} className="imp-list-item">
                 <div>
-                  <h3>{scenario.title}</h3>
+                  <h3>
+                    <Link to={`/modules/training-ai/cenarios/${scenario.id}`}>
+                      {scenario.title}
+                    </Link>
+                  </h3>
                   <p>
-                    {scenario.funnelStage} · {scenario.segment} · {scenario.durationMin} min
+                    {scenario.funnelStage} · {scenario.industry || scenario.segment} ·{' '}
+                    {scenario.durationMin} min
                   </p>
-                  <p>{scenario.description}</p>
+                  <p>{scenario.objective || scenario.description}</p>
                 </div>
                 <button
                   type="button"

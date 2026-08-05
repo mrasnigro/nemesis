@@ -7,11 +7,15 @@ import {
   seedPersonas,
 } from '../data/personas.js'
 import {
+  createEmptyScenarioDraft,
+  normalizeScenarioInput,
+  seedScenarios,
+  scenariosForPersona,
+} from '../data/scenarios.js'
+import {
   createTrainingSession,
   resolveScenarioBundle,
-  scenariosForPersona,
   trainingMetricsSeed,
-  trainingScenarios,
 } from '../data/seeds.js'
 import {
   createConversationMessage,
@@ -25,11 +29,11 @@ import {
 
 const TrainingAiContext = createContext(null)
 
-function computeMetrics(history) {
+function computeMetrics(history, scenarios) {
   if (!history.length) {
     return {
       ...trainingMetricsSeed,
-      pending: trainingScenarios.length,
+      pending: scenarios.length,
     }
   }
   const avg = Math.round(
@@ -41,7 +45,7 @@ function computeMetrics(history) {
     streakDays: Math.min(history.length, 7),
     pending: Math.max(
       0,
-      trainingScenarios.length - new Set(history.map((h) => h.scenarioId)).size,
+      scenarios.length - new Set(history.map((h) => h.scenarioId)).size,
     ),
   }
 }
@@ -86,6 +90,7 @@ export function TrainingAiProvider({ children }) {
   )
 
   const [personas, setPersonas] = useState(() => structuredClone(seedPersonas))
+  const [scenarios, setScenarios] = useState(() => structuredClone(seedScenarios))
   const [session, setSession] = useState(null)
   const [messages, setMessages] = useState([])
   const [turnIndex, setTurnIndex] = useState(0)
@@ -101,10 +106,28 @@ export function TrainingAiProvider({ children }) {
     [personas],
   )
 
+  const findScenario = useCallback(
+    (scenarioId) => scenarios.find((item) => item.id === scenarioId) || null,
+    [scenarios],
+  )
+
+  const resolveBundle = useCallback(
+    (scenarioId, personaIdOverride) => {
+      const bundle = resolveScenarioBundle(scenarioId, findPersona, findScenario)
+      if (!bundle?.scenario) return null
+      if (personaIdOverride) {
+        const persona = findPersona(personaIdOverride)
+        return persona ? { ...bundle, persona } : bundle
+      }
+      return bundle
+    },
+    [findPersona, findScenario],
+  )
+
   const selectedScenario = useMemo(() => {
     if (!session?.scenarioId) return null
-    return trainingScenarios.find((item) => item.id === session.scenarioId) ?? null
-  }, [session])
+    return findScenario(session.scenarioId)
+  }, [findScenario, session])
 
   const selectedPersona = useMemo(() => {
     if (!session?.personaId) return null
@@ -112,8 +135,8 @@ export function TrainingAiProvider({ children }) {
   }, [findPersona, session])
 
   const getScenariosForPersona = useCallback(
-    (personaId) => scenariosForPersona(personaId, trainingScenarios),
-    [],
+    (personaId) => scenariosForPersona(personaId, scenarios),
+    [scenarios],
   )
 
   const createPersona = useCallback(
@@ -165,10 +188,65 @@ export function TrainingAiProvider({ children }) {
     [findPersona, permissions],
   )
 
+  const createScenario = useCallback(
+    (input) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) {
+        return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
+      }
+      const normalized = normalizeScenarioInput(input)
+      if (!normalized.ok) {
+        return { ok: false, errors: normalized.errors }
+      }
+      if (!findPersona(normalized.scenario.personaId)) {
+        return { ok: false, errors: ['Persona vinculada não encontrada.'] }
+      }
+      const scenario = {
+        id: `scn_${Date.now()}`,
+        ...normalized.scenario,
+      }
+      setScenarios((prev) => [scenario, ...prev])
+      return { ok: true, scenario }
+    },
+    [findPersona, permissions],
+  )
+
+  const updateScenario = useCallback(
+    (scenarioId, input) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) {
+        return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
+      }
+      const existing = findScenario(scenarioId)
+      if (!existing) return { ok: false, error: 'Cenário não encontrado.' }
+
+      const normalized = normalizeScenarioInput({
+        ...existing,
+        ...input,
+        scriptHintsText:
+          input.scriptHintsText != null
+            ? input.scriptHintsText
+            : (existing.scriptHints || []).join('\n'),
+        focusText:
+          input.focusText != null
+            ? input.focusText
+            : (existing.focus || []).join('\n'),
+      })
+      if (!normalized.ok) {
+        return { ok: false, errors: normalized.errors }
+      }
+      if (!findPersona(normalized.scenario.personaId)) {
+        return { ok: false, errors: ['Persona vinculada não encontrada.'] }
+      }
+      const scenario = { ...existing, ...normalized.scenario, id: scenarioId }
+      setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
+      return { ok: true, scenario }
+    },
+    [findPersona, findScenario, permissions],
+  )
+
   const startSimulation = useCallback(
     (scenarioId, options = {}) => {
       if (!hasTrainingPermission(permissions, 'training.simulate')) return null
-      const bundle = resolveScenarioBundle(scenarioId, findPersona)
+      const bundle = resolveBundle(scenarioId)
       if (!bundle?.scenario) return null
 
       const personaOverride = options.personaId
@@ -209,7 +287,7 @@ export function TrainingAiProvider({ children }) {
       ])
       return bundle.scenario
     },
-    [findPersona, permissions, personas],
+    [findPersona, permissions, personas, resolveBundle],
   )
 
   const selectPersonaForSession = useCallback(
@@ -218,7 +296,7 @@ export function TrainingAiProvider({ children }) {
       const persona = findPersona(personaId)
       if (!persona) return false
 
-      const bundle = resolveScenarioBundle(session.scenarioId, findPersona)
+      const bundle = resolveBundle(session.scenarioId)
       const opening =
         persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
 
@@ -240,7 +318,7 @@ export function TrainingAiProvider({ children }) {
       ])
       return true
     },
-    [findPersona, phase, session],
+    [findPersona, phase, resolveBundle, session],
   )
 
   const confirmPersonaSetup = useCallback(() => {
@@ -249,7 +327,7 @@ export function TrainingAiProvider({ children }) {
     const persona = findPersona(personaId)
     if (!persona) return false
 
-    const bundle = resolveScenarioBundle(session.scenarioId, findPersona)
+    const bundle = resolveBundle(session.scenarioId)
     const opening =
       persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
 
@@ -270,7 +348,7 @@ export function TrainingAiProvider({ children }) {
     ])
     setPhase('briefing')
     return true
-  }, [draftPersonaId, findPersona, phase, session])
+  }, [draftPersonaId, findPersona, phase, resolveBundle, session])
 
   const beginConversation = useCallback(() => {
     if (phase !== 'briefing' || !session) return
@@ -283,7 +361,7 @@ export function TrainingAiProvider({ children }) {
       const text = String(rawText || '').trim()
       if (!text) return false
 
-      const bundle = resolveScenarioBundle(selectedScenario.id, findPersona)
+      const bundle = resolveBundle(selectedScenario.id)
       const userCount = messages.filter((m) => m.role === 'user').length
       const userMessage = createConversationMessage({
         role: 'user',
@@ -312,9 +390,9 @@ export function TrainingAiProvider({ children }) {
       return true
     },
     [
-      findPersona,
       messages,
       phase,
+      resolveBundle,
       selectedPersona,
       selectedScenario,
       session,
@@ -347,7 +425,7 @@ export function TrainingAiProvider({ children }) {
   const chooseOption = useCallback(
     (option) => {
       if (phase !== 'running' || !session || !selectedScenario) return
-      const bundle = resolveScenarioBundle(selectedScenario.id, findPersona)
+      const bundle = resolveBundle(selectedScenario.id)
       const turns = bundle?.turns || []
       const currentTurn = turns[turnIndex]
       if (!currentTurn) return
@@ -393,9 +471,9 @@ export function TrainingAiProvider({ children }) {
     },
     [
       answers,
-      findPersona,
       messages,
       phase,
+      resolveBundle,
       selectedPersona,
       selectedScenario,
       session,
@@ -416,14 +494,18 @@ export function TrainingAiProvider({ children }) {
 
   const value = {
     permissions,
-    metrics: computeMetrics(history),
-    scenarios: trainingScenarios,
+    metrics: computeMetrics(history, scenarios),
+    scenarios,
     personas,
     getPersona: findPersona,
+    getScenario: findScenario,
     getScenariosForPersona,
     createEmptyPersonaDraft,
+    createEmptyScenarioDraft,
     createPersona,
     updatePersona,
+    createScenario,
+    updateScenario,
     session,
     selectedScenario,
     selectedPersona,
@@ -433,9 +515,7 @@ export function TrainingAiProvider({ children }) {
     userMessageCount: messages.filter((m) => m.role === 'user').length,
     currentTurn:
       selectedScenario && phase === 'running' && session?.mode === 'mcq'
-        ? (resolveScenarioBundle(selectedScenario.id, findPersona)?.turns || [])[
-            turnIndex
-          ]
+        ? (resolveBundle(selectedScenario.id)?.turns || [])[turnIndex]
         : null,
     phase,
     evaluation,

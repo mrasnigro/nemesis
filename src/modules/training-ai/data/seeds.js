@@ -1,8 +1,20 @@
 import { getPersona } from './personas.js'
 import { getEvaluationTemplate } from './evaluationTemplates.js'
+import { getScenario as getScenarioFromList, seedScenarios } from './scenarios.js'
 
 export { seedPersonas, personas, getPersona } from './personas.js'
 export { evaluationTemplates, getEvaluationTemplate } from './evaluationTemplates.js'
+export {
+  seedScenarios,
+  trainingScenarios,
+  getScenario,
+  scenariosForPersona,
+  createEmptyScenarioDraft,
+  normalizeScenarioInput,
+  FUNNEL_STAGE_OPTIONS,
+  SCENARIO_DIFFICULTIES,
+  TEMPLATE_OPTIONS,
+} from './scenarios.js'
 
 export const trainingMetricsSeed = {
   completed: 0,
@@ -10,73 +22,6 @@ export const trainingMetricsSeed = {
   streakDays: 0,
   pending: 3,
 }
-
-/**
- * Training scenarios — each binds persona + evaluation template.
- * Legacy MCQ turns remain as mock reply scaffolding for free conversation.
- */
-export const trainingScenarios = [
-  {
-    id: 'scn_001',
-    title: 'Abertura consultiva B2B',
-    segment: 'SaaS B2B',
-    difficulty: 'beginner',
-    durationMin: 8,
-    funnelStage: 'Primeiro Contato Frio',
-    focus: ['Rapport', 'Qualificação inicial', 'Agenda'],
-    description:
-      'Simule a abertura de uma ligação fria com um diretor comercial cético.',
-    personaId: 'per_marina',
-    evaluationTemplateId: 'tpl_cold_call',
-    sellerInstructions:
-      'Você está ligando para um lead que baixou um material no site da IMP. Objetivo: ganhar 12 minutos de discovery na próxima semana.',
-    scriptHints: [
-      'Confirme se é um bom momento',
-      'Cite um insight do segmento logístico',
-      'Peça 12 minutos com agenda clara',
-    ],
-  },
-  {
-    id: 'scn_002',
-    title: 'Tratamento de objeção de preço',
-    segment: 'Serviços',
-    difficulty: 'intermediate',
-    durationMin: 10,
-    funnelStage: 'Descoberta/Qualificação',
-    focus: ['Objeções', 'Valor', 'Fechamento de próximo passo'],
-    description:
-      'O lead compara você com um concorrente mais barato. Reposicione valor sem desconto imediato.',
-    personaId: 'per_rafael',
-    evaluationTemplateId: 'tpl_objection',
-    sellerInstructions:
-      'O prospect já usa um fornecedor mais barato. Não ofereça desconto na primeira reação — quantifique custo oculto e proponha um piloto.',
-    scriptHints: [
-      'Separe preço de custo de oportunidade',
-      'Quantifique impacto operacional',
-      'Proponha prova controlada',
-    ],
-  },
-  {
-    id: 'scn_003',
-    title: 'Diagnóstico de dor e termômetro',
-    segment: 'Indústria',
-    difficulty: 'advanced',
-    durationMin: 12,
-    funnelStage: 'Descoberta/Qualificação',
-    focus: ['Diagnóstico', 'Perguntas abertas', 'Priorização'],
-    description:
-      'Conduza um discovery profundo e classifique o termômetro de interesse ao final.',
-    personaId: 'per_helena',
-    evaluationTemplateId: 'tpl_discovery',
-    sellerInstructions:
-      'Antes de qualquer pitch, entenda o processo atual e onde o pipeline trava. Feche com um marco leve (playbook / termômetro).',
-    scriptHints: [
-      'Explore processo atual antes da solução',
-      'Valide stakeholders',
-      'Feche com resumo e próximo marco',
-    ],
-  },
-]
 
 export const simulationTurnsByScenario = {
   scn_001: [
@@ -491,20 +436,24 @@ export const simulationTurnsByScenario = {
   ],
 }
 
-export function getScenario(scenarioId) {
-  return trainingScenarios.find((item) => item.id === scenarioId) || null
-}
-
-export function scenariosForPersona(personaId, scenarios = trainingScenarios) {
-  return scenarios.filter((item) => item.personaId === personaId)
-}
-
 /**
  * @param {string} scenarioId
  * @param {(id: string) => object | null} [personaLookup]
+ * @param {(id: string) => object | null | object[]} [scenarioLookup]
  */
-export function resolveScenarioBundle(scenarioId, personaLookup = getPersona) {
-  const scenario = getScenario(scenarioId)
+export function resolveScenarioBundle(
+  scenarioId,
+  personaLookup = getPersona,
+  scenarioLookup = getScenarioFromList,
+) {
+  let scenario = null
+  if (typeof scenarioLookup === 'function') {
+    scenario = scenarioLookup(scenarioId)
+  } else if (Array.isArray(scenarioLookup)) {
+    scenario = scenarioLookup.find((item) => item.id === scenarioId) || null
+  } else {
+    scenario = getScenarioFromList(scenarioId, seedScenarios)
+  }
   if (!scenario) return null
   const persona = personaLookup(scenario.personaId)
   const template = getEvaluationTemplate(scenario.evaluationTemplateId)

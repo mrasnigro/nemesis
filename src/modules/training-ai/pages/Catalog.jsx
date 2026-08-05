@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
+import { getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
 
@@ -43,21 +44,26 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Selecionar treinamento</h2>
-              <p>Cenários com conversa livre e personas configuráveis.</p>
+              <p>Cenário + persona + rubrica → sessão de conversa livre.</p>
             </div>
-            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
-              Personas
+            <Link to="/modules/training-ai/cenarios" className="imp-btn imp-btn--ghost">
+              Gerenciar cenários
             </Link>
           </div>
           <div className="imp-list">
             {scenarios.map((scenario) => {
               const persona = getPersona(scenario.personaId)
+              const template = getEvaluationTemplate(scenario.evaluationTemplateId)
               return (
                 <div key={scenario.id} className="imp-list-item">
                   <div>
-                    <h3>{scenario.title}</h3>
+                    <h3>
+                      <Link to={`/modules/training-ai/cenarios/${scenario.id}`}>
+                        {scenario.title}
+                      </Link>
+                    </h3>
                     <p>
-                      {scenario.funnelStage} · {scenario.segment} ·{' '}
+                      {scenario.funnelStage} · {scenario.industry || scenario.segment} ·{' '}
                       {DIFFICULTY_LABELS[scenario.difficulty]} · {scenario.durationMin} min
                     </p>
                     <p>
@@ -69,9 +75,9 @@ export default function TrainingCatalogPage() {
                       ) : (
                         '—'
                       )}
-                      {persona?.industry ? ` · ${persona.industry}` : ''}
+                      {template ? ` · ${template.title}` : ''}
                     </p>
-                    <p>{scenario.description}</p>
+                    <p>{scenario.objective || scenario.description}</p>
                   </div>
                   <button
                     type="button"
