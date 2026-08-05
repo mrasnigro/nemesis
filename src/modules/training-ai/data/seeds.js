@@ -1,7 +1,7 @@
-import { personas, getPersona } from './personas.js'
+import { getPersona } from './personas.js'
 import { getEvaluationTemplate } from './evaluationTemplates.js'
 
-export { personas, getPersona }
+export { seedPersonas, personas, getPersona } from './personas.js'
 export { evaluationTemplates, getEvaluationTemplate } from './evaluationTemplates.js'
 
 export const trainingMetricsSeed = {
@@ -495,10 +495,18 @@ export function getScenario(scenarioId) {
   return trainingScenarios.find((item) => item.id === scenarioId) || null
 }
 
-export function resolveScenarioBundle(scenarioId) {
+export function scenariosForPersona(personaId, scenarios = trainingScenarios) {
+  return scenarios.filter((item) => item.personaId === personaId)
+}
+
+/**
+ * @param {string} scenarioId
+ * @param {(id: string) => object | null} [personaLookup]
+ */
+export function resolveScenarioBundle(scenarioId, personaLookup = getPersona) {
   const scenario = getScenario(scenarioId)
   if (!scenario) return null
-  const persona = getPersona(scenario.personaId)
+  const persona = personaLookup(scenario.personaId)
   const template = getEvaluationTemplate(scenario.evaluationTemplateId)
   const turns = simulationTurnsByScenario[scenarioId] || []
   return { scenario, persona, template, turns }
@@ -519,7 +527,7 @@ export function createTrainingSession({ scenario, persona }) {
   }
 }
 
-/** @deprecated use scoring.buildSessionEvaluation — kept for any leftover imports */
+/** @deprecated use scoring.buildSessionEvaluation */
 export function buildEvaluation() {
   throw new Error('Use buildSessionEvaluation from services/scoring.js')
 }

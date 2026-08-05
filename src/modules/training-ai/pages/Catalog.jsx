@@ -1,12 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
-import { getPersona } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import '../styles/training-ai.css'
 
 export default function TrainingCatalogPage() {
   const navigate = useNavigate()
-  const { metrics, scenarios, history, canSimulate, startSimulation } = useTrainingAi()
+  const { metrics, scenarios, history, canSimulate, startSimulation, getPersona } =
+    useTrainingAi()
 
   function handleStart(scenarioId) {
     const started = startSimulation(scenarioId)
@@ -43,8 +43,11 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Selecionar treinamento</h2>
-              <p>Escolha um cenário, revise a persona e pratique com rubrica IMP.</p>
+              <p>Cenários ligados a personas configuráveis.</p>
             </div>
+            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
+              Personas
+            </Link>
           </div>
           <div className="imp-list">
             {scenarios.map((scenario) => {
@@ -58,7 +61,15 @@ export default function TrainingCatalogPage() {
                       {DIFFICULTY_LABELS[scenario.difficulty]} · {scenario.durationMin} min
                     </p>
                     <p>
-                      Persona: {persona?.name || '—'} · {persona?.negotiatorType || ''}
+                      Persona:{' '}
+                      {persona ? (
+                        <Link to={`/modules/training-ai/personas/${persona.id}`}>
+                          {persona.name}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                      {persona?.industry ? ` · ${persona.industry}` : ''}
                     </p>
                     <p>{scenario.description}</p>
                   </div>
@@ -93,9 +104,8 @@ export default function TrainingCatalogPage() {
               {history.slice(0, 5).map((item) => (
                 <Link
                   key={`${item.id}-${item.completedAt}`}
-                  to={`/modules/training-ai/relatorio/${item.scenarioId}?session=${item.sessionId || ''}`}
+                  to={`/modules/training-ai/relatorio/${item.scenarioId}`}
                   className="imp-list-item"
-                  style={{ textDecoration: 'none' }}
                 >
                   <div>
                     <h3>{item.scenarioTitle}</h3>

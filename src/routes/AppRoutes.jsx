@@ -24,6 +24,9 @@ import {
   TrainingAiLayout,
   TrainingCatalogPage,
   TrainingHistoryPage,
+  TrainingPersonaDetailPage,
+  TrainingPersonaFormPage,
+  TrainingPersonasPage,
   TrainingReportPage,
   TrainingSimulationPage,
 } from '../modules/training-ai'
@@ -93,6 +96,16 @@ export default function AppRoutes() {
         }
       >
         <Route path="/modules/training-ai" element={<TrainingCatalogPage />} />
+        <Route path="/modules/training-ai/personas" element={<TrainingPersonasPage />} />
+        <Route path="/modules/training-ai/personas/nova" element={<TrainingPersonaFormPage />} />
+        <Route
+          path="/modules/training-ai/personas/:personaId/editar"
+          element={<TrainingPersonaFormPage />}
+        />
+        <Route
+          path="/modules/training-ai/personas/:personaId"
+          element={<TrainingPersonaDetailPage />}
+        />
         <Route path="/modules/training-ai/historico" element={<TrainingHistoryPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />
         <Route path="/modules/training-ai/relatorio/:scenarioId" element={<TrainingReportPage />} />

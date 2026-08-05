@@ -2,6 +2,7 @@ export const TRAINING_PERMISSION_KEYS = [
   'training.view',
   'training.simulate',
   'training.report',
+  'training.manage',
 ]
 
 export function getTrainingPermissionsForUser(_user, hasModuleAccess = true) {
@@ -33,6 +34,13 @@ export const TRAINING_PERMISSION_CATALOG = [
     key: 'training.report',
     label: 'Ver relatório de avaliação',
     description: 'Consultar score e feedback pós-simulação.',
+    scope: 'module',
+  },
+  {
+    id: 'perm_training_004',
+    key: 'training.manage',
+    label: 'Gerenciar personas',
+    description: 'Criar e editar personas de treinamento (protótipo mock).',
     scope: 'module',
   },
 ]

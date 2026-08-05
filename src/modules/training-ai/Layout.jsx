@@ -4,6 +4,7 @@ import './styles/training-ai.css'
 
 const NAV = [
   { id: 'catalog', label: 'Catálogo', to: '/modules/training-ai', end: true },
+  { id: 'personas', label: 'Personas', to: '/modules/training-ai/personas' },
   { id: 'history', label: 'Histórico', to: '/modules/training-ai/historico' },
 ]
 

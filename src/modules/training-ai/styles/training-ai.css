@@ -193,3 +193,93 @@
 .training-ai__conversation {
   margin-top: 1rem;
 }
+
+.training-ai__persona-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.training-ai__persona-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.training-ai__persona-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.training-ai__persona-card-head h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
+.training-ai__persona-card-head p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.training-ai__persona-card-behavior {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.training-ai__persona-detail-grid {
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.training-ai__persona-detail-grid dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.training-ai__persona-detail-grid dd {
+  margin: 0.35rem 0 0;
+  color: var(--text-h);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.training-ai__persona-form .training-ai__form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.training-ai__form-span-2 {
+  grid-column: 1 / -1;
+}
+
+.training-ai__form-errors {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .training-ai__persona-form .training-ai__form-grid {
+    grid-template-columns: 1fr;
+  }
+}

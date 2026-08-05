@@ -154,6 +154,10 @@ export default function TrainingSimulationPage() {
                 <dd>{persona.role}</dd>
               </div>
               <div>
+                <dt>Indústria</dt>
+                <dd>{persona.industry}</dd>
+              </div>
+              <div>
                 <dt>Empresa</dt>
                 <dd>{persona.company}</dd>
               </div>
@@ -162,8 +166,12 @@ export default function TrainingSimulationPage() {
                 <dd>{persona.negotiatorType}</dd>
               </div>
               <div>
-                <dt>Humor</dt>
-                <dd>{persona.mood}</dd>
+                <dt>Comportamento</dt>
+                <dd>{persona.behavior || persona.mood}</dd>
+              </div>
+              <div>
+                <dt>Objetivo</dt>
+                <dd>{persona.trainingObjective}</dd>
               </div>
             </dl>
           ) : null}
