@@ -13,6 +13,10 @@ import {
   trainingMetricsSeed,
   trainingScenarios,
 } from '../data/seeds.js'
+import {
+  createConversationMessage,
+  generateMockReply,
+} from '../services/conversation.js'
 import { buildSessionEvaluation } from '../services/scoring.js'
 import {
   getTrainingPermissionsForUser,
@@ -42,6 +46,37 @@ function computeMetrics(history) {
   }
 }
 
+function completeSessionState({
+  session,
+  scenario,
+  persona,
+  messages,
+  answers = [],
+  mode = 'free',
+}) {
+  const report = buildSessionEvaluation({
+    session,
+    scenario,
+    persona,
+    templateId: scenario.evaluationTemplateId,
+    answers,
+    messages,
+    mode,
+  })
+  return {
+    report,
+    completedSession: {
+      ...session,
+      messages,
+      answers: report.answers,
+      evaluation: report,
+      completedAt: report.completedAt,
+      status: 'completed',
+      mode,
+    },
+  }
+}
+
 export function TrainingAiProvider({ children }) {
   const { user } = useAuth()
   const { hasModuleAccess } = useWorkspace()
@@ -55,10 +90,11 @@ export function TrainingAiProvider({ children }) {
   const [messages, setMessages] = useState([])
   const [turnIndex, setTurnIndex] = useState(0)
   const [answers, setAnswers] = useState([])
-  const [phase, setPhase] = useState('idle') // idle | briefing | running | finished
+  const [phase, setPhase] = useState('idle') // idle | setup | briefing | running | finished
   const [evaluation, setEvaluation] = useState(null)
   const [history, setHistory] = useState([])
   const [showConversation, setShowConversation] = useState(false)
+  const [draftPersonaId, setDraftPersonaId] = useState(null)
 
   const findPersona = useCallback(
     (personaId) => personas.find((item) => item.id === personaId) || null,
@@ -133,43 +169,181 @@ export function TrainingAiProvider({ children }) {
     (scenarioId, options = {}) => {
       if (!hasTrainingPermission(permissions, 'training.simulate')) return null
       const bundle = resolveScenarioBundle(scenarioId, findPersona)
-      if (!bundle?.scenario || !bundle.persona) return null
+      if (!bundle?.scenario) return null
 
       const personaOverride = options.personaId
         ? findPersona(options.personaId)
-        : bundle.persona
-      if (!personaOverride) return null
+        : null
+      const skipSetup = Boolean(personaOverride)
+
+      const personaForSession = personaOverride || bundle.persona
+      if (!personaForSession && skipSetup) return null
 
       const nextSession = createTrainingSession({
         scenario: bundle.scenario,
-        persona: personaOverride,
+        persona: personaForSession || { id: bundle.scenario.personaId },
+        mode: 'free',
       })
+
+      const openingSource = personaForSession || bundle.persona
       const opening =
-        personaOverride.openingLine || bundle.turns[0]?.ai || 'Iniciando simulação…'
+        openingSource?.openingLine ||
+        bundle.turns[0]?.ai ||
+        'Iniciando simulação…'
 
       setSession(nextSession)
       setAnswers([])
       setTurnIndex(0)
       setEvaluation(null)
       setShowConversation(false)
-      setPhase('briefing')
+      setDraftPersonaId(
+        personaOverride?.id || bundle.scenario.personaId || personas[0]?.id || null,
+      )
+      setPhase(skipSetup ? 'briefing' : 'setup')
       setMessages([
-        {
-          id: 'm0',
+        createConversationMessage({
           role: 'ai',
+          speaker: openingSource?.name || 'Persona',
           text: opening,
-        },
+        }),
       ])
       return bundle.scenario
     },
-    [findPersona, permissions],
+    [findPersona, permissions, personas],
   )
+
+  const selectPersonaForSession = useCallback(
+    (personaId) => {
+      if (phase !== 'setup' || !session) return false
+      const persona = findPersona(personaId)
+      if (!persona) return false
+
+      const bundle = resolveScenarioBundle(session.scenarioId, findPersona)
+      const opening =
+        persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
+
+      setDraftPersonaId(personaId)
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              personaId: persona.id,
+            }
+          : prev,
+      )
+      setMessages([
+        createConversationMessage({
+          role: 'ai',
+          speaker: persona.name,
+          text: opening,
+        }),
+      ])
+      return true
+    },
+    [findPersona, phase, session],
+  )
+
+  const confirmPersonaSetup = useCallback(() => {
+    if (phase !== 'setup' || !session) return false
+    const personaId = draftPersonaId || session.personaId
+    const persona = findPersona(personaId)
+    if (!persona) return false
+
+    const bundle = resolveScenarioBundle(session.scenarioId, findPersona)
+    const opening =
+      persona.openingLine || bundle?.turns?.[0]?.ai || 'Iniciando simulação…'
+
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            personaId: persona.id,
+          }
+        : prev,
+    )
+    setMessages([
+      createConversationMessage({
+        role: 'ai',
+        speaker: persona.name,
+        text: opening,
+      }),
+    ])
+    setPhase('briefing')
+    return true
+  }, [draftPersonaId, findPersona, phase, session])
 
   const beginConversation = useCallback(() => {
     if (phase !== 'briefing' || !session) return
     setPhase('running')
   }, [phase, session])
 
+  const sendMessage = useCallback(
+    (rawText) => {
+      if (phase !== 'running' || !session || !selectedScenario) return false
+      const text = String(rawText || '').trim()
+      if (!text) return false
+
+      const bundle = resolveScenarioBundle(selectedScenario.id, findPersona)
+      const userCount = messages.filter((m) => m.role === 'user').length
+      const userMessage = createConversationMessage({
+        role: 'user',
+        speaker: 'Você',
+        text,
+      })
+
+      const replyText = generateMockReply({
+        persona: selectedPersona,
+        scenario: selectedScenario,
+        scriptTurns: bundle?.turns || [],
+        exchangeIndex: userCount,
+        userText: text,
+      })
+
+      const aiMessage = createConversationMessage({
+        role: 'ai',
+        speaker: selectedPersona?.name || 'Persona',
+        text: replyText,
+      })
+
+      const nextMessages = [...messages, userMessage, aiMessage]
+      setMessages(nextMessages)
+      setTurnIndex(userCount + 1)
+      setSession((prev) => (prev ? { ...prev, messages: nextMessages } : prev))
+      return true
+    },
+    [
+      findPersona,
+      messages,
+      phase,
+      selectedPersona,
+      selectedScenario,
+      session,
+    ],
+  )
+
+  const finishSession = useCallback(() => {
+    if (phase !== 'running' || !session || !selectedScenario) return false
+    const userMessages = messages.filter((m) => m.role === 'user')
+    if (!userMessages.length) return false
+
+    const { report, completedSession } = completeSessionState({
+      session,
+      scenario: selectedScenario,
+      persona: selectedPersona,
+      messages,
+      answers: [],
+      mode: 'free',
+    })
+
+    setSession(completedSession)
+    setAnswers(report.answers)
+    setEvaluation(report)
+    setHistory((prev) => [report, ...prev])
+    setPhase('finished')
+    return true
+  }, [messages, phase, selectedPersona, selectedScenario, session])
+
+  /** Legacy MCQ path kept for smoke / optional demos. */
   const chooseOption = useCallback(
     (option) => {
       if (phase !== 'running' || !session || !selectedScenario) return
@@ -179,29 +353,23 @@ export function TrainingAiProvider({ children }) {
       if (!currentTurn) return
 
       const nextAnswers = [...answers, { ...option, turnId: currentTurn.id }]
-      const nextMessages = [
-        ...messages,
-        { id: `u-${currentTurn.id}`, role: 'user', text: option.label },
-      ]
+      const userMessage = createConversationMessage({
+        role: 'user',
+        speaker: 'Você',
+        text: option.label,
+      })
+      const nextMessages = [...messages, userMessage]
 
       const nextIndex = turnIndex + 1
       if (nextIndex >= turns.length) {
-        const report = buildSessionEvaluation({
+        const { report, completedSession } = completeSessionState({
           session,
           scenario: selectedScenario,
           persona: selectedPersona,
-          templateId: selectedScenario.evaluationTemplateId,
-          answers: nextAnswers,
           messages: nextMessages,
+          answers: nextAnswers,
+          mode: 'mcq',
         })
-        const completedSession = {
-          ...session,
-          messages: nextMessages,
-          answers: nextAnswers,
-          evaluation: report,
-          completedAt: report.completedAt,
-          status: 'completed',
-        }
         setSession(completedSession)
         setAnswers(nextAnswers)
         setMessages(nextMessages)
@@ -216,11 +384,11 @@ export function TrainingAiProvider({ children }) {
       setTurnIndex(nextIndex)
       setMessages([
         ...nextMessages,
-        {
-          id: `a-${turns[nextIndex].id}`,
+        createConversationMessage({
           role: 'ai',
+          speaker: selectedPersona?.name || 'Persona',
           text: turns[nextIndex].ai,
-        },
+        }),
       ])
     },
     [
@@ -243,6 +411,7 @@ export function TrainingAiProvider({ children }) {
     setPhase('idle')
     setEvaluation(null)
     setShowConversation(false)
+    setDraftPersonaId(null)
   }, [])
 
   const value = {
@@ -258,11 +427,15 @@ export function TrainingAiProvider({ children }) {
     session,
     selectedScenario,
     selectedPersona,
+    draftPersonaId,
     messages,
     turnIndex,
+    userMessageCount: messages.filter((m) => m.role === 'user').length,
     currentTurn:
-      selectedScenario && phase === 'running'
-        ? (resolveScenarioBundle(selectedScenario.id, findPersona)?.turns || [])[turnIndex]
+      selectedScenario && phase === 'running' && session?.mode === 'mcq'
+        ? (resolveScenarioBundle(selectedScenario.id, findPersona)?.turns || [])[
+            turnIndex
+          ]
         : null,
     phase,
     evaluation,
@@ -270,7 +443,11 @@ export function TrainingAiProvider({ children }) {
     showConversation,
     setShowConversation,
     startSimulation,
+    selectPersonaForSession,
+    confirmPersonaSetup,
     beginConversation,
+    sendMessage,
+    finishSession,
     chooseOption,
     resetSimulation,
     canView: hasTrainingPermission(permissions, 'training.view'),

@@ -1,10 +1,11 @@
 /**
- * Scoring engine — maps MCQ answers → rubric pass/fail → weighted score.
+ * Scoring engine — maps answers (MCQ or free-text) → rubric pass/fail → score.
  * Mock only: no LLM.
  */
 
 import { flattenCriteria, getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { scoreBand } from '../data/catalogs.js'
+import { buildFreeTextAnswers } from './conversation.js'
 
 /**
  * Merge criterion outcomes from selected options.
@@ -117,14 +118,23 @@ export function buildSessionEvaluation({
   templateId,
   answers,
   messages,
+  mode = 'free',
 }) {
   const template = getEvaluationTemplate(templateId || scenario.evaluationTemplateId)
   if (!template) {
     throw new Error('Evaluation template not found')
   }
 
-  const rubric = evaluateRubric(template, answers)
-  const narrative = buildStrengthsAndImprovements(rubric.criteria, answers)
+  const resolvedMode = mode || session?.mode || 'free'
+  let resolvedAnswers = answers || []
+
+  if (resolvedMode === 'free') {
+    const userMessages = (messages || []).filter((m) => m.role === 'user')
+    resolvedAnswers = buildFreeTextAnswers({ template, userMessages })
+  }
+
+  const rubric = evaluateRubric(template, resolvedAnswers)
+  const narrative = buildStrengthsAndImprovements(rubric.criteria, resolvedAnswers)
 
   return {
     id: `eval_${session?.id || Date.now()}`,
@@ -135,6 +145,7 @@ export function buildSessionEvaluation({
     personaName: persona?.name || 'Persona',
     templateId: template.id,
     templateTitle: template.title,
+    mode: resolvedMode,
     score: rubric.score,
     band: rubric.band,
     sections: rubric.sections,
@@ -144,7 +155,7 @@ export function buildSessionEvaluation({
     avoidedApproaches: narrative.avoidedApproaches,
     coachNotes: buildCoachNotes(rubric.score),
     messages: messages || [],
-    answers: answers || [],
+    answers: resolvedAnswers,
     completedAt: new Date().toISOString(),
   }
 }

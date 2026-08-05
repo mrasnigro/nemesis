@@ -37,6 +37,67 @@
   font-size: 0.82rem;
 }
 
+.training-ai__persona-picker {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.training-ai__persona-pick {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(55, 65, 81, 0.85);
+  background: rgba(17, 24, 39, 0.55);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.training-ai__persona-pick span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.training-ai__persona-pick.is-selected,
+.training-ai__persona-pick:hover {
+  border-color: var(--accent);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.training-ai__chat-scroll {
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.training-ai__composer {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(55, 65, 81, 0.7);
+}
+
+.training-ai__composer-field textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.training-ai__composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.training-ai__composer-hint {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+
 .training-ai__persona-grid {
   margin: 0;
   display: grid;

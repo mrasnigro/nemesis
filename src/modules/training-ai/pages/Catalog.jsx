@@ -43,7 +43,7 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Selecionar treinamento</h2>
-              <p>Cenários ligados a personas configuráveis.</p>
+              <p>Cenários com conversa livre e personas configuráveis.</p>
             </div>
             <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
               Personas

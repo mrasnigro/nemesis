@@ -12,8 +12,8 @@ export const trainingMetricsSeed = {
 }
 
 /**
- * Training scenarios — each binds persona + evaluation template + MCQ turns.
- * Options carry rubricImpact { criterionId: boolean }.
+ * Training scenarios — each binds persona + evaluation template.
+ * Legacy MCQ turns remain as mock reply scaffolding for free conversation.
  */
 export const trainingScenarios = [
   {
@@ -512,12 +512,13 @@ export function resolveScenarioBundle(scenarioId, personaLookup = getPersona) {
   return { scenario, persona, template, turns }
 }
 
-export function createTrainingSession({ scenario, persona }) {
+export function createTrainingSession({ scenario, persona, mode = 'free' }) {
   return {
     id: `sess_${Date.now()}`,
     scenarioId: scenario.id,
     personaId: persona?.id || scenario.personaId,
     evaluationTemplateId: scenario.evaluationTemplateId,
+    mode,
     messages: [],
     answers: [],
     evaluation: null,

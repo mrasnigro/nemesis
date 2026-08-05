@@ -69,7 +69,8 @@ export default function TrainingReportPage() {
           <div>
             <h2>Relatório de simulação</h2>
             <p className="training-ai__meta">
-              {report.scenarioTitle} · {report.personaName} · {report.templateTitle} ·{' '}
+              {report.scenarioTitle} · {report.personaName} · {report.templateTitle}
+              {report.mode === 'free' ? ' · Conversa livre' : ''} ·{' '}
               {new Date(report.completedAt).toLocaleString('pt-BR')}
             </p>
           </div>
@@ -121,7 +122,15 @@ export default function TrainingReportPage() {
                 }`}
               >
                 <span className="imp-chat__meta">
-                  {message.role === 'ai' ? report.personaName : 'Você'}
+                  {message.speaker ||
+                    (message.role === 'ai' ? report.personaName : 'Você')}
+                  {message.timestamp
+                    ? ` · ${new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}`
+                    : ''}
                 </span>
                 {message.text}
               </div>
