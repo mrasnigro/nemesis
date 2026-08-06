@@ -75,6 +75,7 @@ export const seedPersonas = [
     status: 'active',
     traits: ['Analítico', 'Cético', 'Objetivo'],
     interactionMode: 'text',
+    voiceRef: 'voice_neutral_f',
     scenarioContext: 'Lead baixou material no site da IMP; contato frio B2B logística.',
   },
   {
@@ -104,6 +105,7 @@ export const seedPersonas = [
     status: 'active',
     traits: ['Dominante', 'Competitivo', 'Direto'],
     interactionMode: 'text',
+    voiceRef: 'voice_firm_m',
     scenarioContext: 'Tratamento de objeção de preço em discovery varejo.',
   },
   {
@@ -133,6 +135,7 @@ export const seedPersonas = [
     status: 'active',
     traits: ['Analítico', 'Detalhista', 'Curioso'],
     interactionMode: 'text',
+    voiceRef: 'voice_warm_f',
     scenarioContext: 'Discovery profundo + classificação de termômetro.',
   },
 ]
@@ -170,6 +173,7 @@ export function createEmptyPersonaDraft() {
     status: 'draft',
     traits: [],
     interactionMode: 'text',
+    voiceRef: 'voice_neutral_f',
     scenarioContext: '',
   }
 }
@@ -237,6 +241,7 @@ export function normalizePersonaInput(input = {}) {
     interactionMode: ['text', 'voice', 'both'].includes(input.interactionMode)
       ? input.interactionMode
       : 'text',
+    voiceRef: String(input.voiceRef || 'voice_neutral_f').trim() || 'voice_neutral_f',
     scenarioContext: String(input.scenarioContext || '').trim(),
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -50,6 +51,8 @@ export default function TrainingSimulationPage() {
     selectPersonaForSession,
     confirmPersonaSetup,
     beginConversation,
+    setPracticeMediaMode,
+    practiceMediaMode,
     sendMessage,
     finishSession,
     evaluation,
@@ -57,6 +60,7 @@ export default function TrainingSimulationPage() {
 
   const [draft, setDraft] = useState('')
   const [finishHint, setFinishHint] = useState('')
+  const [listening, setListening] = useState(false)
 
   useEffect(() => {
     if (!canSimulate) return
@@ -116,7 +120,9 @@ export default function TrainingSimulationPage() {
       ? 'Escolher agente'
       : phase === 'briefing'
         ? 'Briefing'
-        : 'Conversa por texto'
+        : practiceMediaMode === 'voice'
+          ? 'Conversa · Voz (stub)'
+          : 'Conversa por texto'
 
   return (
     <section className="imp-module">
@@ -241,16 +247,23 @@ export default function TrainingSimulationPage() {
                 </dl>
               ) : null}
               <dl className="training-ai__briefing-block">
-                <dt>Modo</dt>
+                <dt>Modo de mídia</dt>
                 <dd>
-                  Conversa por texto. Ao final, o playbook gera score e insights na Central de
-                  Insights.
+                  Escolha Texto ou Voz (chrome stub). O motor permanece texto até STT/TTS; ao
+                  final o playbook gera score na Central de Insights.
                 </dd>
               </dl>
+              <VoicePracticeChrome
+                mediaMode={practiceMediaMode}
+                onMediaModeChange={setPracticeMediaMode}
+                listening={false}
+                onListeningChange={() => {}}
+              />
               <button
                 type="button"
                 className="imp-btn imp-btn--primary"
                 onClick={beginConversation}
+                style={{ marginTop: '1rem' }}
               >
                 Iniciar conversa
               </button>
@@ -259,6 +272,12 @@ export default function TrainingSimulationPage() {
 
           {phase === 'running' ? (
             <>
+              <VoicePracticeChrome
+                mediaMode={practiceMediaMode}
+                onMediaModeChange={setPracticeMediaMode}
+                listening={listening}
+                onListeningChange={setListening}
+              />
               <div className="imp-chat training-ai__chat-scroll">
                 {messages.map((message) => (
                   <div
@@ -279,12 +298,20 @@ export default function TrainingSimulationPage() {
 
               <form className="training-ai__composer" onSubmit={handleSend}>
                 <label className="imp-field training-ai__composer-field">
-                  <span>Sua resposta</span>
+                  <span>
+                    {practiceMediaMode === 'voice'
+                      ? 'O que você falaria (texto até STT)'
+                      : 'Sua resposta'}
+                  </span>
                   <textarea
                     rows={3}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
-                    placeholder="Escreva como falaria com o cliente…"
+                    placeholder={
+                      practiceMediaMode === 'voice'
+                        ? 'Digite a fala que gravaria — áudio real ainda não conectado…'
+                        : 'Escreva como falaria com o cliente…'
+                    }
                   />
                 </label>
                 <div className="training-ai__composer-actions">

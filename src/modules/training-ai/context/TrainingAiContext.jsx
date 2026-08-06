@@ -398,6 +398,10 @@ export function TrainingAiProvider({ children }) {
         ? {
             ...prev,
             personaId: persona.id,
+            mediaMode:
+              persona.interactionMode === 'voice' || persona.interactionMode === 'both'
+                ? 'voice'
+                : 'text',
           }
         : prev,
     )
@@ -411,8 +415,24 @@ export function TrainingAiProvider({ children }) {
     return true
   }, [draftPersonaId, findPersona, phase, resolveBundle, session])
 
+  const setPracticeMediaMode = useCallback(
+    (mediaMode) => {
+      const next = mediaMode === 'voice' ? 'voice' : 'text'
+      setSession((prev) => (prev ? { ...prev, mediaMode: next } : prev))
+    },
+    [],
+  )
+
   const beginConversation = useCallback(() => {
     if (phase !== 'briefing' || !session) return
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            mediaMode: prev.mediaMode === 'voice' ? 'voice' : 'text',
+          }
+        : prev,
+    )
     setPhase('running')
   }, [phase, session])
 
@@ -472,6 +492,7 @@ export function TrainingAiProvider({ children }) {
     setAnswers(report.answers)
     setEvaluation(report)
     setHistory((prev) => [report, ...prev])
+    setShowConversation(true)
     setPhase('finished')
     return true
   }, [findTemplate, messages, phase, selectedPersona, selectedScenario, session])
@@ -586,6 +607,8 @@ export function TrainingAiProvider({ children }) {
     selectPersonaForSession,
     confirmPersonaSetup,
     beginConversation,
+    setPracticeMediaMode,
+    practiceMediaMode: session?.mediaMode === 'voice' ? 'voice' : 'text',
     sendMessage,
     finishSession,
     chooseOption,

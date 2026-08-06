@@ -9,12 +9,13 @@ import {
   SALES_MODELS,
 } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { VOICE_OPTIONS } from '../utils/voiceSession.js'
 
 /** Report mockup wizard + video field checklist (awareness, B2B, lists). */
 const WIZARD_STEPS = [
   { id: 'basics', label: 'Informações básicas', hint: 'Nome, papel e objetivo' },
   { id: 'scenario', label: 'Construção do cenário', hint: 'Instruções e contexto' },
-  { id: 'modes', label: 'Modos de interação', hint: 'Texto disponível agora' },
+  { id: 'modes', label: 'Modos de interação', hint: 'Texto ativo · voz stub' },
   { id: 'behavior', label: 'Características comportamentais', hint: 'Objeções e DNA' },
   { id: 'advanced', label: 'Configurações avançadas', hint: 'Consciência e B2B' },
   { id: 'review', label: 'Revisão e publicação', hint: 'Confirme e publique' },
@@ -65,6 +66,7 @@ export default function TrainingPersonaFormPage() {
         status: existing.status || 'active',
         traitsText: listToText(existing.traits),
         interactionMode: existing.interactionMode || 'text',
+        voiceRef: existing.voiceRef || 'voice_neutral_f',
         scenarioContext: existing.scenarioContext || '',
       }
     }
@@ -317,19 +319,54 @@ export default function TrainingPersonaFormPage() {
                   onClick={() => patch('interactionMode', 'text')}
                 >
                   <strong>Texto</strong>
-                  <small>Conversa por chat — disponível neste protótipo.</small>
+                  <small>Conversa por chat — caminho real do protótipo.</small>
                 </button>
-                <button type="button" className="training-ai__mode-card" disabled>
+                <button
+                  type="button"
+                  className={`training-ai__mode-card ${
+                    form.interactionMode === 'voice' ? 'is-selected' : ''
+                  }`}
+                  onClick={() => patch('interactionMode', 'voice')}
+                >
                   <strong>Voz</strong>
-                  <small>Stub — fora do protótipo (report R4).</small>
+                  <small>Preferência salva + UI stub na simulação (sem STT/TTS).</small>
                 </button>
-                <button type="button" className="training-ai__mode-card" disabled>
+                <button
+                  type="button"
+                  className={`training-ai__mode-card ${
+                    form.interactionMode === 'both' ? 'is-selected' : ''
+                  }`}
+                  onClick={() => patch('interactionMode', 'both')}
+                >
                   <strong>Ambos</strong>
-                  <small>Stub — fora do protótipo (report R4).</small>
+                  <small>Preferência salva; prática continua em texto até o áudio.</small>
+                </button>
+              </div>
+              <div className="training-ai__voice-picker">
+                <label className="imp-field">
+                  <span>Voz do agente (stub)</span>
+                  <select
+                    value={form.voiceRef || 'voice_neutral_f'}
+                    onChange={(e) => patch('voiceRef', e.target.value)}
+                  >
+                    {VOICE_OPTIONS.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="imp-btn imp-btn--ghost"
+                  disabled
+                  title="Prévia de áudio indisponível neste protótipo"
+                >
+                  ▶ Prévia indisponível
                 </button>
               </div>
               <p className="training-ai__meta" style={{ marginTop: '0.85rem' }}>
-                Modo de voz permanece só como UI; simulação atual é texto-first.
+                Report R4: chrome de voz apenas; motor de conversa permanece texto.
               </p>
             </>
           ) : null}

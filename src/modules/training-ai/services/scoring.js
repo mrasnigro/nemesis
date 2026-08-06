@@ -148,6 +148,7 @@ export function buildSessionEvaluation({
     messages: messages || [],
   })
   const nextSteps = buildNextSteps(narrative.improvements)
+  const mediaMode = session?.mediaMode || 'text'
 
   return {
     id: `eval_${session?.id || Date.now()}`,
@@ -159,6 +160,7 @@ export function buildSessionEvaluation({
     templateId: template.id,
     templateTitle: template.title,
     mode: resolvedMode,
+    mediaMode,
     score: rubric.score,
     band: rubric.band,
     sections: rubric.sections,

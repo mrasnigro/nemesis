@@ -1086,6 +1086,305 @@
   color: var(--text-h);
 }
 
+.training-ai__voice-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.training-ai__voice-picker .imp-field {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+
+.training-ai__voice-chrome {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  background: rgba(17, 24, 39, 0.5);
+}
+
+.training-ai__media-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(75, 85, 99, 0.85);
+  background: rgba(10, 12, 18, 0.55);
+  width: fit-content;
+}
+
+.training-ai__media-toggle-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.training-ai__media-toggle-btn.is-selected {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--text-h);
+}
+
+.training-ai__voice-stage {
+  display: grid;
+  gap: 0.65rem;
+  justify-items: center;
+}
+
+.training-ai__live-waveform {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+  height: 3rem;
+  padding: 0.35rem 0.2rem;
+}
+
+.training-ai__live-waveform span {
+  flex: 1;
+  min-width: 3px;
+  border-radius: 2px;
+  background: rgba(245, 158, 11, 0.55);
+  transition: height 0.12s ease;
+}
+
+.training-ai__mic-btn {
+  min-width: 11rem;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--text-h);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.training-ai__mic-btn.is-listening {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.65);
+  animation: training-ai-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes training-ai-mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+.training-ai__voice-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  max-width: 36rem;
+}
+
+.training-ai__session-player-panel {
+  margin-bottom: 1rem;
+}
+
+.training-ai__session-player {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.training-ai__session-player-toolbar {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.training-ai__session-player-play {
+  min-width: 2.75rem;
+  font-size: 0.95rem;
+}
+
+.training-ai__session-player-meta {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.training-ai__session-player-meta strong {
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.training-ai__waveform {
+  position: relative;
+  height: 4.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.85), rgba(10, 12, 18, 0.95));
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.training-ai__waveform-bars {
+  position: absolute;
+  inset: 0.45rem 0.55rem 1.1rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.training-ai__waveform-bars span {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 1px;
+  background: rgba(148, 163, 184, 0.35);
+}
+
+.training-ai__waveform-bars span.is-played {
+  background: rgba(245, 158, 11, 0.72);
+}
+
+.training-ai__waveform-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(245, 158, 11, 0.08);
+  pointer-events: none;
+}
+
+.training-ai__waveform-markers {
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  bottom: 0.35rem;
+  height: 0.65rem;
+}
+
+.training-ai__waveform-marker {
+  position: absolute;
+  top: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-left: -0.275rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  transform: translateY(0);
+}
+
+.training-ai__waveform-marker.is-active {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
+}
+
+.training-ai__waveform-marker--green {
+  background: #34d399;
+}
+
+.training-ai__waveform-marker--blue {
+  background: #60a5fa;
+}
+
+.training-ai__waveform-marker--amber {
+  background: #fbbf24;
+}
+
+.training-ai__waveform-marker--muted {
+  background: #9ca3af;
+}
+
+.training-ai__sentiment-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.training-ai__sentiment-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.training-ai__sentiment-dot--green {
+  background: #34d399;
+}
+
+.training-ai__sentiment-dot--blue {
+  background: #60a5fa;
+}
+
+.training-ai__sentiment-dot--amber {
+  background: #fbbf24;
+}
+
+.training-ai__sentiment-dot--muted {
+  background: #9ca3af;
+}
+
+.training-ai__sentiment-chip {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.training-ai__sentiment-chip--green {
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.18);
+}
+
+.training-ai__sentiment-chip--blue {
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.training-ai__sentiment-chip--amber {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.training-ai__sentiment-chip--muted {
+  color: #d1d5db;
+  background: rgba(107, 114, 128, 0.25);
+}
+
+.imp-chat__bubble.is-player-active {
+  outline: 1px solid rgba(245, 158, 11, 0.55);
+  outline-offset: 2px;
+}
+
+.training-ai__linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent, #f59e0b);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .training-ai__scenario-practice-card {
   display: grid;
   grid-template-columns: auto 1fr auto;

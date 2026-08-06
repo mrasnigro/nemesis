@@ -1,7 +1,10 @@
+import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SectionRadar from '../components/SectionRadar.jsx'
+import SessionAudioPlayer from '../components/SessionAudioPlayer.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { estimateSessionMetrics } from '../utils/agentDisplay.js'
+import { estimateMessageSentiment } from '../utils/voiceSession.js'
 
 function formatClock(iso) {
   if (!iso) return ''
@@ -27,6 +30,8 @@ export default function TrainingReportPage() {
     setShowConversation,
   } = useTrainingAi()
 
+  const [activeMessageId, setActiveMessageId] = useState(null)
+
   const report =
     (sessionId &&
       ((evaluation?.sessionId === sessionId && evaluation) ||
@@ -35,6 +40,19 @@ export default function TrainingReportPage() {
       ((evaluation?.scenarioId === scenarioId && evaluation) ||
         history.find((item) => item.scenarioId === scenarioId))) ||
     null
+
+  const handleSeekMessage = useCallback(
+    (messageId) => {
+      if (!messageId) return
+      setActiveMessageId(messageId)
+      setShowConversation(true)
+      window.requestAnimationFrame(() => {
+        const node = document.getElementById(`msg-${messageId}`)
+        node?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    },
+    [setShowConversation],
+  )
 
   if (!canReport) {
     return (
@@ -68,6 +86,7 @@ export default function TrainingReportPage() {
   const redoScenarioId = report.scenarioId
   const feedback = report.coachFeedback || []
   const nextSteps = report.nextSteps || []
+  const mediaLabel = report.mediaMode === 'voice' ? 'Voz (stub UI)' : 'Texto'
 
   return (
     <section className="imp-module">
@@ -109,7 +128,7 @@ export default function TrainingReportPage() {
         <div className="training-ai__report-hero-main">
           <h2>{report.scenarioTitle}</h2>
           <p>
-            Agente: {report.personaName} · Playbook: {report.templateTitle} · Conversa por texto
+            Agente: {report.personaName} · Playbook: {report.templateTitle} · {mediaLabel}
             {report.sessionId ? ` · ${report.sessionId}` : ''}
           </p>
         </div>
@@ -120,37 +139,62 @@ export default function TrainingReportPage() {
         </div>
       </div>
 
+      <div className="imp-panel training-ai__session-player-panel">
+        <div className="imp-panel__header">
+          <div>
+            <h2>Player da sessão</h2>
+            <p>
+              Waveform + marcadores de sentimento (composicão do mockup Insights — sem áudio
+              real).
+            </p>
+          </div>
+        </div>
+        <SessionAudioPlayer
+          messages={report.messages || []}
+          activeMessageId={activeMessageId}
+          onSeekMessage={handleSeekMessage}
+        />
+      </div>
+
       <div className="training-ai__insights-split">
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
               <h2>Transcrição</h2>
-              <p>≥50% da tela — diálogo com timestamps (mockup Insights).</p>
+              <p>Diálogo com sentimento por turno · clique no marker do player para âncora.</p>
             </div>
           </div>
           {showConversation ? (
             <div className="imp-chat training-ai__chat-scroll">
-              {(report.messages || []).map((message) => (
-                <div
-                  key={message.id}
-                  id={`msg-${message.id}`}
-                  className={`imp-chat__bubble imp-chat__bubble--${
-                    message.role === 'ai' ? 'ai' : 'user'
-                  }`}
-                >
-                  <span className="imp-chat__meta">
-                    {message.speaker ||
-                      (message.role === 'ai' ? report.personaName : 'Vendedor')}
-                    {message.timestamp ? ` · ${formatClock(message.timestamp)}` : ''}
-                  </span>
-                  {message.text}
-                </div>
-              ))}
+              {(report.messages || []).map((message) => {
+                const sentiment = estimateMessageSentiment(message)
+                return (
+                  <div
+                    key={message.id}
+                    id={`msg-${message.id}`}
+                    className={`imp-chat__bubble imp-chat__bubble--${
+                      message.role === 'ai' ? 'ai' : 'user'
+                    } ${activeMessageId === message.id ? 'is-player-active' : ''}`}
+                  >
+                    <span className="imp-chat__meta">
+                      {message.speaker ||
+                        (message.role === 'ai' ? report.personaName : 'Vendedor')}
+                      {message.timestamp ? ` · ${formatClock(message.timestamp)}` : ''}
+                      <span
+                        className={`training-ai__sentiment-chip training-ai__sentiment-chip--${sentiment.tone}`}
+                      >
+                        {sentiment.label}
+                      </span>
+                    </span>
+                    {message.text}
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <div className="training-ai__empty">
               <h3>Transcrição oculta</h3>
-              <p>Use “Ver conversa” para revisitar o diálogo (padrão dos vídeos).</p>
+              <p>Use “Ver conversa” ou os marcadores do player para abrir o diálogo.</p>
             </div>
           )}
 
@@ -166,9 +210,13 @@ export default function TrainingReportPage() {
                     {item.messageText ? (
                       <>
                         {' '}
-                        <a href={`#msg-${item.messageId}`} className="training-ai__meta">
+                        <button
+                          type="button"
+                          className="training-ai__linkish"
+                          onClick={() => handleSeekMessage(item.messageId)}
+                        >
                           Ver fala · {formatClock(item.timestamp)}
-                        </a>
+                        </button>
                         <div className="training-ai__meta">“{item.messageText}”</div>
                       </>
                     ) : null}
@@ -227,7 +275,7 @@ export default function TrainingReportPage() {
             <div className="imp-panel__header">
               <div>
                 <h2>Principais métricas</h2>
-                <p>Derivadas do texto (sem áudio — report R4/R5)</p>
+                <p>Texto derivado · Ideal do mockup Insights</p>
               </div>
             </div>
             <ul className="training-ai__metric-checks">
@@ -243,6 +291,12 @@ export default function TrainingReportPage() {
                 <strong>
                   {metrics.talkShare}%
                   <span className="training-ai__meta"> · {metrics.ideal.talkShare}</span>
+                </strong>
+              </li>
+              <li>
+                <span>Interrupções</span>
+                <strong>
+                  —<span className="training-ai__meta"> · Ideal: &lt; 3 (requer áudio)</span>
                 </strong>
               </li>
               <li>
