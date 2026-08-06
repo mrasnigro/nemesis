@@ -1,1 +1,1 @@
-export { default } from '../../modules/webinar/pages/Events.jsx'
+export { default } from '../../modules/webinar/pages/WebinarHome.jsx'

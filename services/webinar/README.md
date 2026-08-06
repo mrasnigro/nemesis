@@ -42,13 +42,37 @@ services/webinar/
 # 1. Instalar dependências (root + frontend + backend)
 npm run install-all
 
-# 2. Configurar variáveis de ambiente
-cp backend/.env.example backend/.env
-# Editar backend/.env com suas credenciais de banco de dados
+# 2. Configurar variáveis de ambiente (see Environment setup below)
 
 # 3. Importar o banco de dados
 mysql -u seu_usuario -p seu_banco < database/webinar.sql
 ```
+
+## Environment setup
+
+Use the `.env.example` templates (variable names only). **Never commit** real `.env`, `.env.production`, or `backend/.env`.
+
+| Template | Copy to | Used by |
+|----------|---------|---------|
+| `.env.example` (service root) | `.env` and `.env.production` | `deployment/server.js` (`.env.production`); DB loader when cwd is service root (`.env`) |
+| `backend/.env.example` | `backend/.env` | Backend tools / `npm run dev` from `backend/` |
+| `frontend/.env.example` | `frontend/.env.local` (optional) | Vite build defines (`REACT_APP_API_URL`, `REACT_APP_ENV`) |
+
+```bash
+# From services/webinar/
+cp .env.example .env
+cp .env.example .env.production
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+
+# Fill in real values locally (DB_*, JWT_*, REACT_APP_API_URL, etc.)
+```
+
+Backend variables: `PORT`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_EXPIRY`, `JWT_REFRESH_EXPIRY`, `NODE_ENV`.
+
+Frontend build variables: `REACT_APP_API_URL` (e.g. `http://localhost:3001/api`), `REACT_APP_ENV`.
+
+For production `npm start`, keep service-root `.env` and `.env.production` in sync until env loaders are unified.
 
 ## Desenvolvimento
 
@@ -73,6 +97,9 @@ npm run build
 # Or via deployment script (resolves service root automatically):
 bash deployment/build.sh
 
+# Set API URL before frontend build when not using defaults:
+#   REACT_APP_API_URL=http://localhost:3001/api npm run build --prefix frontend
+
 # Individualmente:
 cd frontend && npm run build    # Gera frontend/dist/
 cd backend && npm run build     # Gera backend/dist/
@@ -89,17 +116,19 @@ node deployment/server.js
 bash deployment/start.sh
 ```
 
-O servidor inicia na porta definida em `backend/.env` (padrão: 3001).
-Carrega `.env.production` na raiz do serviço (`services/webinar/.env.production`).
+`deployment/server.js` loads `services/webinar/.env.production`.  
+When started from the service root, the DB layer also expects `services/webinar/.env`.  
+Default port is `3001` (`PORT`).
 
 ## Deploy na Hostinger
 
 1. Execute `npm run build` (ou `bash deployment/build.sh`) localmente
-2. Suba o conteúdo completo de `services/webinar/` (exceto `node_modules`) para o servidor
-3. No servidor, execute `npm install --production` em cada subprojeto
-4. Reinicie o serviço Node.js (`npm start`)
+2. Suba o conteúdo completo de `services/webinar/` (exceto `node_modules` e arquivos `.env*`) para o servidor
+3. Crie `.env` / `.env.production` / `backend/.env` no servidor a partir dos examples
+4. No servidor, execute `npm install --production` em cada subprojeto
+5. Reinicie o serviço Node.js (`npm start`)
 
-Configuração auxiliar: `deployment/hstng.yml`.
+Configuração auxiliar: `deployment/hstng.yml` (replace legacy domain/secrets before use).
 
 ## Funcionalidades
 
@@ -109,9 +138,10 @@ Configuração auxiliar: `deployment/hstng.yml`.
 - **Estúdio do Apresentador**: Câmera, compartilhamento de tela, chat integrado
 - **Replay**: Gravação automática para reprodução posterior
 
-## Credenciais de Banco (Produção)
+## Credenciais
 
-Veja `backend/.env.example` para o formato. As credenciais reais devem ser configuradas no arquivo `backend/.env`.
+Templates only: `.env.example`, `backend/.env.example`, `frontend/.env.example`.  
+Provide real values in local untracked env files — never commit secrets.
 
 ## Versão
 

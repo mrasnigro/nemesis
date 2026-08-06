@@ -60,7 +60,7 @@ environment:
   CORS_ORIGIN: "https://s1m0ne.tec.br"
   
   # Database (será configurado no MÓDULO 1)
-  DATABASE_URL: "mysql://u926851054_lead:##Lead123##@localhost:3306/u926851054_webinarpro"
+  DATABASE_URL: "mysql://DB_USER:DB_PASSWORD@localhost:3306/DB_NAME"
   
   # JWT (será configurado no MÓDULO 1)
   JWT_SECRET: "your_jwt_secret_key_here_minimum_32_characters"
@@ -164,10 +164,10 @@ database:
   port: 3306
   
   # Nome do banco
-  name: "u926851054_webinarpro"
+  name: "DB_NAME"
   
   # Usuário
-  user: "u926851054_lead"
+  user: "DB_USER"
   
   # Pool de conexões
   poolSize: 10

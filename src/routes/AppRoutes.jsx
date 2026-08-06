@@ -49,10 +49,8 @@ import {
   RadarLayout,
 } from '../modules/radar'
 import {
-  WebinarDetailPage,
-  WebinarEventsPage,
+  WebinarHomePage,
   WebinarLayout,
-  WebinarMetricsPage,
 } from '../modules/webinar'
 import {
   VslCampaignsPage,
@@ -174,9 +172,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route path="/modules/webinar" element={<WebinarEventsPage />} />
-        <Route path="/modules/webinar/:eventId" element={<WebinarDetailPage />} />
-        <Route path="/modules/webinar/:eventId/metricas" element={<WebinarMetricsPage />} />
+        <Route path="/modules/webinar" element={<WebinarHomePage />} />
       </Route>
 
       <Route

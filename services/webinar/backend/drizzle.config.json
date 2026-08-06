@@ -4,8 +4,8 @@
   "dialect": "mysql",
   "dbCredentials": {
     "host": "127.0.0.1",
-    "user": "u926851054_lead",
-    "password": "##Lead123##",
-    "database": "u926851054_webinarpro"
+    "user": "",
+    "password": "",
+    "database": ""
   }
 }
