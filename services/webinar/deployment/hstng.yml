@@ -1,0 +1,232 @@
+# Configuração de Compilação e Deploy para Hostinger
+# Este arquivo define como o projeto será compilado e executado
+
+version: 1.0
+
+# Informações do Projeto
+project:
+  name: "webinar-platform"
+  description: "Plataforma de Webinars Recorrentes com Replay Simulado ao Vivo"
+  rootDirectory: "services/webinar"
+  framework: "express"
+
+# Configurações de Compilação
+build:
+  # Versão do Node.js
+  nodeVersion: "22.x"
+  
+  # Gerenciador de pacotes
+  packageManager: "npm"
+  
+  # Comando de instalação de dependências
+  installCommand: "npm install && npm install --prefix frontend && npm install --prefix backend"
+  
+  # Comando de compilação
+  buildCommand: "npm run build"
+  
+  # Diretório de saída (arquivos estáticos)
+  outputDirectory: "frontend/dist"
+  
+  # Ambiente
+  environment: "production"
+  
+  # Timeout de compilação (em segundos)
+  buildTimeout: 600
+
+# Configurações de Execução
+runtime:
+  # Comando para iniciar o servidor
+  startCommand: "npm start"
+  
+  # Porta do servidor
+  port: 3001
+  
+  # Tipo de aplicação
+  applicationType: "nodejs"
+  
+  # Timeout de inicialização (em segundos)
+  startTimeout: 60
+
+# Variáveis de Ambiente
+environment:
+  # Frontend
+  REACT_APP_API_URL: "https://s1m0ne.tec.br/api"
+  REACT_APP_ENV: "production"
+  
+  # Backend
+  NODE_ENV: "production"
+  PORT: "3001"
+  API_URL: "https://s1m0ne.tec.br"
+  CORS_ORIGIN: "https://s1m0ne.tec.br"
+  
+  # Database (será configurado no MÓDULO 1)
+  DATABASE_URL: "mysql://u926851054_lead:##Lead123##@localhost:3306/u926851054_webinarpro"
+  
+  # JWT (será configurado no MÓDULO 1)
+  JWT_SECRET: "your_jwt_secret_key_here_minimum_32_characters"
+  JWT_REFRESH_SECRET: "your_jwt_refresh_secret_key_here_minimum_32_characters"
+  JWT_EXPIRY: "15m"
+  JWT_REFRESH_EXPIRY: "7d"
+
+# Configurações de Servidor
+server:
+  # Habilitar HTTPS
+  https: true
+  
+  # Domínio
+  domain: "s1m0ne.tec.br"
+  
+  # Redirecionamento de HTTP para HTTPS
+  redirectHttpToHttps: true
+  
+  # Gzip compressão
+  gzip: true
+  
+  # Brotli compressão
+  brotli: true
+
+# Configurações de Cache
+cache:
+  # Cache de arquivos estáticos
+  staticCache: true
+  
+  # TTL do cache (em segundos)
+  cacheTTL: 3600
+  
+  # Padrões de arquivo para cache
+  cachePatterns:
+    - "*.js"
+    - "*.css"
+    - "*.woff2"
+    - "*.png"
+    - "*.jpg"
+    - "*.jpeg"
+
+# Configurações de Log
+logging:
+  # Nível de log
+  level: "info"
+  
+  # Arquivo de log
+  file: "logs/app.log"
+  
+  # Rotação de logs
+  rotation: "daily"
+
+# Configurações de Segurança
+security:
+  # Habilitar CORS
+  cors: true
+  
+  # Origens permitidas
+  corsOrigins:
+    - "https://s1m0ne.tec.br"
+    - "https://www.s1m0ne.tec.br"
+  
+  # Habilitar rate limiting
+  rateLimit: true
+  
+  # Requisições por minuto
+  rateLimitPerMinute: 100
+  
+  # Headers de segurança
+  securityHeaders: true
+  
+  # Habilitar HSTS
+  hsts: true
+  
+  # Max age HSTS (em segundos)
+  hstsMaxAge: 31536000
+
+# Configurações de Monitoramento
+monitoring:
+  # Habilitar health check
+  healthCheck: true
+  
+  # Endpoint de health check
+  healthCheckEndpoint: "/health"
+  
+  # Intervalo de health check (em segundos)
+  healthCheckInterval: 30
+  
+  # Timeout de health check (em segundos)
+  healthCheckTimeout: 10
+
+# Configurações de Banco de Dados
+database:
+  # Tipo de banco
+  type: "mysql"
+  
+  # Host
+  host: "localhost"
+  
+  # Porta
+  port: 3306
+  
+  # Nome do banco
+  name: "u926851054_webinarpro"
+  
+  # Usuário
+  user: "u926851054_lead"
+  
+  # Pool de conexões
+  poolSize: 10
+
+# Configurações de Armazenamento
+storage:
+  # Tipo de armazenamento
+  type: "local"
+  
+  # Diretório de uploads
+  uploadsDirectory: "uploads"
+  
+  # Limite de tamanho de arquivo (em MB)
+  maxFileSize: 500
+  
+  # Tipos de arquivo permitidos
+  allowedFileTypes:
+    - "video/mp4"
+    - "video/webm"
+    - "image/jpeg"
+    - "image/png"
+    - "image/webp"
+    - "application/pdf"
+
+# Configurações de Performance
+performance:
+  # Minificação de CSS
+  minifyCSS: true
+  
+  # Minificação de JavaScript
+  minifyJS: true
+  
+  # Minificação de HTML
+  minifyHTML: true
+  
+  # Source maps em produção
+  sourceMaps: false
+  
+  # Lazy loading
+  lazyLoading: true
+
+# Configurações de Backup
+backup:
+  # Habilitar backup automático
+  enabled: true
+  
+  # Frequência de backup
+  frequency: "daily"
+  
+  # Retenção de backups (em dias)
+  retention: 30
+
+# Configurações de CI/CD
+cicd:
+  # Habilitar CI/CD
+  enabled: true
+  
+  # Trigger de deploy
+  trigger: "push"
+  
+  # Branch padrão
+  defaultBranch: "main"

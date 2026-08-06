@@ -1,0 +1,30 @@
+{
+  "name": "webinar-platform",
+  "version": "0.1.0",
+  "description": "Plataforma de Webinars Recorrentes com Replay Simulado ao Vivo",
+  "private": true,
+  "type": "module",
+  "main": "deployment/server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "start": "node deployment/server.js",
+    "install-all": "npm install && npm install --prefix frontend && npm install --prefix backend",
+    "postinstall": "npm install --prefix frontend && npm install --prefix backend",
+    "heroku-postbuild": "npm run build"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "hls.js": "^1.6.16"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": "22.x",
+    "npm": ">=10.0.0"
+  }
+}
