@@ -11,7 +11,7 @@ export default function TrainingScenariosPage() {
       <header className="training-ai__page-header">
         <div>
           <h2>Cenários</h2>
-          <p>Treinamentos que ligam persona, objetivo e rubrica de avaliação.</p>
+          <p>Treinamentos que ligam agente, objetivo e playbook de score.</p>
         </div>
         <div className="training-ai__page-header-actions">
           {canManage ? (
@@ -57,7 +57,7 @@ export default function TrainingScenariosPage() {
                   <p className="training-ai__scenario-card-desc">{scenario.description}</p>
                   <p className="training-ai__meta">Objetivo: {scenario.objective}</p>
                   <p className="training-ai__meta">
-                    Persona: {persona?.name || '—'} · Template: {template?.title || '—'}
+                    Agente: {persona?.name || '—'} · Playbook: {template?.title || '—'}
                   </p>
                   <div className="imp-actions">
                     <button

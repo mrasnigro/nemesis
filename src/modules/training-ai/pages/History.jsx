@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import AgentAvatar from '../components/AgentAvatar.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
 export default function TrainingHistoryPage() {
@@ -9,7 +10,7 @@ export default function TrainingHistoryPage() {
       <section className="imp-module">
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
-          <p>Você não tem acesso ao histórico de simulações.</p>
+          <p>Você não tem acesso à Central de Insights.</p>
         </div>
       </section>
     )
@@ -19,8 +20,8 @@ export default function TrainingHistoryPage() {
     <section className="imp-module">
       <header className="training-ai__page-header">
         <div>
-          <h2>Histórico de simulações</h2>
-          <p>Sessões concluídas nesta sessão de navegação.</p>
+          <h2>Central de Insights</h2>
+          <p>Histórico de simulações com score, agente e playbook — abra para analisar.</p>
         </div>
         <div className="training-ai__page-header-actions">
           <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
@@ -32,12 +33,12 @@ export default function TrainingHistoryPage() {
       <div className="imp-panel">
         {history.length === 0 ? (
           <div className="training-ai__empty">
-            <h3>Nenhuma simulação concluída</h3>
-            <p>Conclua um treinamento no catálogo para ver relatórios aqui.</p>
+            <h3>Nenhuma análise disponível</h3>
+            <p>Conclua um treinamento para ver o repositório de insights.</p>
             <div className="imp-actions">
               {canSimulate ? (
                 <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
-                  Iniciar no catálogo
+                  Iniciar simulação
                 </Link>
               ) : null}
             </div>
@@ -50,15 +51,18 @@ export default function TrainingHistoryPage() {
                 to={`/modules/training-ai/relatorio/${item.scenarioId}`}
                 className="imp-list-item"
               >
-                <div>
-                  <h3>{item.scenarioTitle}</h3>
-                  <p>
-                    {item.personaName} · {item.templateTitle} ·{' '}
-                    {new Date(item.completedAt).toLocaleString('pt-BR')}
-                  </p>
+                <div className="training-ai__chip-row">
+                  <AgentAvatar id={item.id} name={item.personaName} size="sm" />
+                  <div>
+                    <h3>Simulação · {item.scenarioTitle}</h3>
+                    <p>
+                      {item.personaName} · {item.templateTitle} ·{' '}
+                      {new Date(item.completedAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
                 </div>
                 <span className={`imp-pill imp-pill--${item.band?.tone || 'amber'}`}>
-                  {item.score} pts · {item.band?.label || '—'}
+                  {item.score}/100 · {item.band?.label || '—'}
                 </span>
               </Link>
             ))}

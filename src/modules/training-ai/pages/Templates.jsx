@@ -18,13 +18,13 @@ export default function TrainingTemplatesPage() {
     <section className="imp-module">
       <header className="training-ai__page-header">
         <div>
-          <h2>Templates de avaliação</h2>
-          <p>Rubricas com seções, critérios e pesos usados nos relatórios.</p>
+          <h2>Playbooks de Score</h2>
+          <p>Defina etapas, critérios e pesos — a régua que audita cada simulação.</p>
         </div>
         <div className="training-ai__page-header-actions">
           {canManage ? (
             <Link to="/modules/training-ai/templates/novo" className="imp-btn imp-btn--primary">
-              + Novo template
+              + Novo playbook
             </Link>
           ) : null}
         </div>
@@ -33,15 +33,15 @@ export default function TrainingTemplatesPage() {
       <div className="imp-panel">
         {evaluationTemplates.length === 0 ? (
           <div className="training-ai__empty">
-            <h3>Nenhum template cadastrado</h3>
-            <p>Defina uma rubrica para medir desempenho nas simulações.</p>
+            <h3>Nenhum playbook cadastrado</h3>
+            <p>Crie uma rubrica com etapas e pesos para gerar notas 0–100.</p>
             <div className="imp-actions">
               {canManage ? (
                 <Link
                   to="/modules/training-ai/templates/novo"
                   className="imp-btn imp-btn--primary"
                 >
-                  + Novo template
+                  + Novo playbook
                 </Link>
               ) : null}
             </div>
@@ -51,21 +51,22 @@ export default function TrainingTemplatesPage() {
             {evaluationTemplates.map((template) => {
               const criteria = flattenCriteria(template)
               const linked = getScenariosForTemplate(template.id)
+              const stages = template.sections?.length || 0
               return (
                 <article key={template.id} className="training-ai__scenario-card">
                   <header className="training-ai__scenario-card-head">
                     <div>
                       <h3>{template.title}</h3>
                       <p>
-                        {contactLabel(template.contactType)} · {criteria.length} critério
-                        {criteria.length === 1 ? '' : 's'} · peso {totalTemplateWeight(template)}
+                        {contactLabel(template.contactType)} · {stages} etapa
+                        {stages === 1 ? '' : 's'} · {criteria.length} critérios
                       </p>
                     </div>
-                    <span className="imp-pill imp-pill--blue">Rubrica</span>
+                    <span className="imp-pill imp-pill--green">Ativo</span>
                   </header>
                   <p className="training-ai__scenario-card-desc">{template.description}</p>
                   <p className="training-ai__meta">
-                    {linked.length} cenário{linked.length === 1 ? '' : 's'} vinculado
+                    Score máximo {totalTemplateWeight(template)} · {linked.length} cenário
                     {linked.length === 1 ? '' : 's'}
                   </p>
                   <div className="imp-actions">
@@ -74,7 +75,7 @@ export default function TrainingTemplatesPage() {
                       className="imp-btn imp-btn--ghost"
                       onClick={() => navigate(`/modules/training-ai/templates/${template.id}`)}
                     >
-                      Abrir
+                      Abrir timeline
                     </button>
                     {canManage ? (
                       <button

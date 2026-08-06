@@ -44,6 +44,8 @@ export const seedPersonas = [
     priorities: ['Previsibilidade de agenda', 'Reuniões com decisores'],
     trainingObjective:
       'Praticar abertura consultiva e pedido de agenda com decisora cética em logística.',
+    status: 'active',
+    traits: ['Analítico', 'Cético', 'Objetivo'],
   },
   {
     id: 'per_rafael',
@@ -61,6 +63,8 @@ export const seedPersonas = [
     priorities: ['Reduzir custo oculto', 'Piloto sem lock-in'],
     trainingObjective:
       'Tratar objeção de preço sem desconto precoce e propor prova controlada.',
+    status: 'active',
+    traits: ['Dominante', 'Competitivo', 'Direto'],
   },
   {
     id: 'per_helena',
@@ -78,6 +82,8 @@ export const seedPersonas = [
     priorities: ['Diagnóstico antes de pitch', 'Gates leves de qualificação'],
     trainingObjective:
       'Conduzir discovery profundo, validar stakeholders e fechar com marco/termômetro.',
+    status: 'active',
+    traits: ['Analítico', 'Detalhista', 'Curioso'],
   },
 ]
 
@@ -103,6 +109,10 @@ export function createEmptyPersonaDraft() {
     objections: [],
     priorities: [],
     trainingObjective: '',
+    status: 'active',
+    traits: [],
+    interactionMode: 'text',
+    scenarioContext: '',
   }
 }
 
@@ -144,6 +154,17 @@ export function normalizePersonaInput(input = {}) {
   if (!trainingObjective) errors.push('Objetivo de treinamento é obrigatório.')
   if (!objections.length) errors.push('Informe ao menos uma objeção.')
 
+  const traits =
+    input.traitsText != null
+      ? String(input.traitsText)
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 3)
+      : Array.isArray(input.traits)
+        ? input.traits.map((item) => String(item).trim()).filter(Boolean).slice(0, 3)
+        : []
+
   const persona = {
     name,
     role,
@@ -160,6 +181,12 @@ export function normalizePersonaInput(input = {}) {
     objections,
     priorities,
     trainingObjective,
+    status: ['active', 'paused', 'inactive'].includes(input.status) ? input.status : 'active',
+    traits,
+    interactionMode: ['text', 'voice', 'both'].includes(input.interactionMode)
+      ? input.interactionMode
+      : 'text',
+    scenarioContext: String(input.scenarioContext || '').trim(),
   }
 
   return { ok: errors.length === 0, errors, persona }

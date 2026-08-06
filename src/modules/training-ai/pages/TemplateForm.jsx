@@ -6,7 +6,9 @@ import {
   createEmptyCriterionDraft,
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
+import WeightRing from '../components/WeightRing.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { sectionWeightsFromTemplate } from '../utils/agentDisplay.js'
 
 function newSection(index) {
   return {
@@ -41,6 +43,7 @@ export default function TrainingTemplateFormPage() {
   const [saving, setSaving] = useState(false)
 
   const weightTotal = totalTemplateWeight(form)
+  const sectionWeights = sectionWeightsFromTemplate(form)
 
   if (!canManage) {
     return (
@@ -154,24 +157,31 @@ export default function TrainingTemplateFormPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link
-          to={
-            isEdit
-              ? `/modules/training-ai/templates/${templateId}`
-              : '/modules/training-ai/templates'
-          }
-          className="imp-btn imp-btn--ghost"
-        >
-          ← Cancelar
-        </Link>
-      </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>{isEdit ? 'Editar playbook' : 'Novo playbook de score'}</h2>
+          <p>Organize etapas, critérios auditáveis e pesos (soma 100).</p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <Link
+            to={
+              isEdit
+                ? `/modules/training-ai/templates/${templateId}`
+                : '/modules/training-ai/templates'
+            }
+            className="imp-btn imp-btn--ghost"
+          >
+            ← Cancelar
+          </Link>
+        </div>
+      </header>
 
+      <div className="training-ai__playbook-layout">
       <form className="imp-panel training-ai__form" onSubmit={handleSubmit}>
         <div className="imp-panel__header">
           <div>
-            <h2>{isEdit ? 'Editar template' : 'Novo template'}</h2>
-            <p>Critérios com pesos (soma 100) e regras pass/fail por palavras-chave.</p>
+            <h2>Editor de etapas</h2>
+            <p>Critérios com perguntas sim/não e regras por palavras-chave.</p>
           </div>
           <span
             className={`imp-pill ${weightTotal === 100 ? 'imp-pill--green' : 'imp-pill--rose'}`}
@@ -358,13 +368,32 @@ export default function TrainingTemplateFormPage() {
 
         <div className="imp-actions">
           <button type="button" className="imp-btn imp-btn--ghost" onClick={addSection}>
-            + Seção
+            + Nova etapa
           </button>
           <button type="submit" className="imp-btn imp-btn--primary" disabled={saving}>
-            {saving ? 'Salvando…' : isEdit ? 'Salvar alterações' : 'Criar template'}
+            {saving ? 'Salvando…' : isEdit ? 'Publicar alterações' : 'Criar playbook'}
           </button>
         </div>
       </form>
+
+      <aside className="training-ai__playbook-rail">
+        <h3>Distribuição ao vivo</h3>
+        <WeightRing sections={sectionWeights} />
+        <ul className="training-ai__dist-list">
+          {sectionWeights.map((item) => (
+            <li key={item.id}>
+              <span>{item.name || 'Etapa'}</span>
+              <strong>{item.weight}%</strong>
+            </li>
+          ))}
+        </ul>
+        <p className="training-ai__meta" style={{ textAlign: 'center' }}>
+          {weightTotal === 100
+            ? 'Pesos prontos para publicar.'
+            : `Ajuste os pesos até 100 (atual: ${weightTotal}).`}
+        </p>
+      </aside>
+      </div>
     </section>
   )
 }

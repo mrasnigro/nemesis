@@ -1,10 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
+import WeightRing from '../components/WeightRing.jsx'
 import {
   CONTACT_TYPE_OPTIONS,
   flattenCriteria,
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { sectionWeightsFromTemplate } from '../utils/agentDisplay.js'
 
 function contactLabel(contactType) {
   return CONTACT_TYPE_OPTIONS.find((item) => item.id === contactType)?.label || contactType
@@ -25,16 +27,16 @@ export default function TrainingTemplateDetailPage() {
   const template = getEvaluationTemplate(templateId)
   const linkedScenarios = template ? getScenariosForTemplate(template.id) : []
   const criteria = template ? flattenCriteria(template) : []
+  const sectionWeights = template ? sectionWeightsFromTemplate(template) : []
 
   if (!template) {
     return (
       <section className="imp-module">
         <div className="training-ai__empty">
-          <h3>Template não encontrado</h3>
-          <p>Volte à lista e selecione um template válido.</p>
+          <h3>Playbook não encontrado</h3>
           <div className="imp-actions">
             <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--primary">
-              Voltar aos templates
+              Voltar aos playbooks
             </Link>
           </div>
         </div>
@@ -48,86 +50,126 @@ export default function TrainingTemplateDetailPage() {
         <div>
           <h2>{template.title}</h2>
           <p>
-            {contactLabel(template.contactType)} · {criteria.length} critérios · pesos ={' '}
+            Modelo ativo · {contactLabel(template.contactType)} ·{' '}
+            {template.sections?.length || 0} etapas · {criteria.length} critérios · score{' '}
             {totalTemplateWeight(template)}
           </p>
         </div>
         <div className="training-ai__page-header-actions">
           <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--ghost">
-            ← Templates
+            ← Playbooks
           </Link>
           {canManage ? (
             <Link
               to={`/modules/training-ai/templates/${template.id}/editar`}
               className="imp-btn imp-btn--primary"
             >
-              Editar template
+              Editar playbook
             </Link>
           ) : null}
         </div>
       </header>
 
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Rubrica</h2>
-            <p>Seções e critérios usados no relatório</p>
-          </div>
-          <span className="imp-pill imp-pill--blue">Avaliação</span>
-        </div>
+      <div className="imp-module__metrics">
+        <article className="imp-metric">
+          <p>Modelo ativo</p>
+          <strong className="accent">Ativo</strong>
+          <span>{template.title}</span>
+        </article>
+        <article className="imp-metric">
+          <p>Total de etapas</p>
+          <strong>{template.sections?.length || 0}</strong>
+          <span>Timeline de vendas</span>
+        </article>
+        <article className="imp-metric">
+          <p>Score máximo</p>
+          <strong>{totalTemplateWeight(template)}%</strong>
+          <span>Soma dos pesos</span>
+        </article>
+        <article className="imp-metric">
+          <p>Critérios ativos</p>
+          <strong>{criteria.length}</strong>
+          <span>Perguntas sim/não</span>
+        </article>
+      </div>
 
-        <dl className="training-ai__persona-detail-grid">
-          <div>
-            <dt>Descrição</dt>
-            <dd>{template.description}</dd>
-          </div>
-          <div>
-            <dt>Tipo de contato</dt>
-            <dd>{contactLabel(template.contactType)}</dd>
-          </div>
-        </dl>
-
-        <div className="training-ai__rubric training-ai__rubric--spaced">
-          {(template.sections || []).map((section) => (
-            <div key={section.id} className="training-ai__rubric-section">
-              <div className="training-ai__rubric-section-head">
-                <h3>{section.name}</h3>
-                <span>
-                  {section.criteria.reduce((sum, c) => sum + c.weight, 0)} pts
-                </span>
-              </div>
-              {section.criteria.map((criterion) => (
-                <div key={criterion.id} className="training-ai__criterion">
-                  <span
-                    className="training-ai__criterion-mark is-weight"
-                    aria-hidden="true"
-                  >
-                    {criterion.weight}
-                  </span>
-                  <div className="training-ai__criterion-body">
-                    <strong>{criterion.name}</strong>
-                    <p>{criterion.yesNoQuestion}</p>
-                    <p className="training-ai__meta">{ruleLabel(criterion.passRule)}</p>
-                  </div>
-                  <span className="training-ai__criterion-weight">{criterion.weight}%</span>
-                </div>
-              ))}
+      <div className="training-ai__playbook-layout">
+        <div className="imp-panel">
+          <div className="imp-panel__header">
+            <div>
+              <h2>Timeline de etapas</h2>
+              <p>{template.description}</p>
             </div>
-          ))}
+            <span className="imp-pill imp-pill--blue">Lista</span>
+          </div>
+
+          <div className="training-ai__timeline">
+            {(template.sections || []).map((section, index) => {
+              const sectionWeight = (section.criteria || []).reduce(
+                (sum, c) => sum + (Number(c.weight) || 0),
+                0,
+              )
+              return (
+                <div
+                  key={section.id}
+                  className="training-ai__timeline-stage"
+                  data-index={index + 1}
+                >
+                  <div className="training-ai__rubric-section">
+                    <div className="training-ai__rubric-section-head">
+                      <h3>{section.name}</h3>
+                      <span>{sectionWeight}%</span>
+                    </div>
+                    {(section.criteria || []).map((criterion) => (
+                      <div key={criterion.id} className="training-ai__criterion">
+                        <span className="training-ai__criterion-mark is-weight">
+                          {criterion.weight}
+                        </span>
+                        <div className="training-ai__criterion-body">
+                          <strong>{criterion.name}</strong>
+                          <p>{criterion.yesNoQuestion}</p>
+                          <p className="training-ai__meta">{ruleLabel(criterion.passRule)}</p>
+                        </div>
+                        <span className="training-ai__criterion-weight">
+                          {criterion.weight}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
+
+        <aside className="training-ai__playbook-rail">
+          <h3>Distribuição por etapa</h3>
+          <WeightRing sections={sectionWeights} />
+          <ul className="training-ai__dist-list">
+            {sectionWeights.map((item) => (
+              <li key={item.id}>
+                <span>{item.name}</span>
+                <strong>{item.weight}%</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="training-ai__meta" style={{ textAlign: 'center' }}>
+            Playbook publicado para uso em cenários.
+          </p>
+        </aside>
       </div>
 
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
             <h2>Cenários vinculados</h2>
-            <p>Sessões usam esta rubrica ao gerar o relatório.</p>
+            <p>Sessões usam este playbook ao gerar o relatório.</p>
           </div>
         </div>
         {linkedScenarios.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhum cenário vinculado</h3>
-            <p>Associe este template a um cenário para usá-lo nas simulações.</p>
+            <p>Associe este playbook a um cenário de treino.</p>
           </div>
         ) : (
           <div className="imp-list">

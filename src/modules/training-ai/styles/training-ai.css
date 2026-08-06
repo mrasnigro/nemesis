@@ -615,3 +615,523 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ——— Similarity v2: Agentes / Playbooks / Insights ——— */
+
+.training-ai__avatar {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.training-ai__avatar--sm {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.7rem;
+}
+
+.training-ai__avatar--md {
+  width: 4.25rem;
+  height: 4.25rem;
+  font-size: 1.15rem;
+}
+
+.training-ai__avatar--lg {
+  width: 5.5rem;
+  height: 5.5rem;
+  font-size: 1.45rem;
+}
+
+.training-ai__trait-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.training-ai__trait {
+  display: inline-flex;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.training-ai__trait--0 {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+
+.training-ai__trait--1 {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.training-ai__trait--2 {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.training-ai__status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.training-ai__status-dot::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.training-ai__status-dot--green {
+  color: #86efac;
+}
+
+.training-ai__status-dot--amber {
+  color: #fbbf24;
+}
+
+.training-ai__status-dot--muted {
+  color: #94a3b8;
+}
+
+.training-ai__agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 1rem;
+}
+
+.training-ai__agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.55), rgba(17, 24, 39, 0.75));
+  min-height: 17rem;
+}
+
+.training-ai__agent-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.training-ai__agent-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.training-ai__agent-card-body h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
+.training-ai__agent-card-body p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.training-ai__agent-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(55, 65, 81, 0.65);
+}
+
+.training-ai__wizard {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) 16rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.training-ai__wizard-steps {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.training-ai__wizard-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.training-ai__wizard-step strong {
+  display: block;
+  color: inherit;
+  font-size: 0.82rem;
+}
+
+.training-ai__wizard-step span {
+  display: block;
+  font-size: 0.7rem;
+  opacity: 0.85;
+}
+
+.training-ai__wizard-step.is-active {
+  border-color: var(--brand-border);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text-h);
+}
+
+.training-ai__wizard-step.is-done {
+  color: #86efac;
+}
+
+.training-ai__wizard-step-index {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.training-ai__wizard-step.is-active .training-ai__wizard-step-index {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.training-ai__wizard-main {
+  min-width: 0;
+}
+
+.training-ai__wizard-resumo {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.7);
+}
+
+.training-ai__wizard-resumo h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 0.95rem;
+}
+
+.training-ai__wizard-resumo dl {
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.training-ai__wizard-resumo dt {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.training-ai__wizard-resumo dd {
+  margin: 0.2rem 0 0;
+  color: var(--text-h);
+  font-size: 0.86rem;
+}
+
+.training-ai__mode-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.training-ai__mode-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  border-radius: var(--radius-md);
+  background: rgba(17, 24, 39, 0.55);
+  text-align: left;
+  color: var(--text-h);
+  cursor: pointer;
+  font: inherit;
+}
+
+.training-ai__mode-card.is-selected {
+  border-color: var(--brand-border);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.training-ai__mode-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.training-ai__mode-card small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.training-ai__playbook-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.training-ai__timeline {
+  display: grid;
+  gap: 1rem;
+}
+
+.training-ai__timeline-stage {
+  position: relative;
+  padding-left: 2.1rem;
+}
+
+.training-ai__timeline-stage::before {
+  content: attr(data-index);
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.training-ai__timeline-stage::after {
+  content: '';
+  position: absolute;
+  left: 0.7rem;
+  top: 1.85rem;
+  bottom: -0.85rem;
+  width: 2px;
+  background: rgba(55, 65, 81, 0.85);
+}
+
+.training-ai__timeline-stage:last-child::after {
+  display: none;
+}
+
+.training-ai__playbook-rail {
+  position: sticky;
+  top: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  justify-items: center;
+  padding: 1.1rem;
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.7);
+}
+
+.training-ai__playbook-rail h3 {
+  margin: 0;
+  width: 100%;
+  color: var(--text-h);
+  font-size: 0.95rem;
+}
+
+.training-ai__dist-list {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.training-ai__dist-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.training-ai__dist-list strong {
+  color: var(--text-h);
+}
+
+.training-ai__weight-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.training-ai__weight-ring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.training-ai__weight-ring-label strong {
+  color: var(--text-h);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.training-ai__weight-ring-label span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.training-ai__insights-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.training-ai__insights-side {
+  display: grid;
+  gap: 1rem;
+}
+
+.training-ai__radar {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+}
+
+.training-ai__radar-legend {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.training-ai__radar-legend li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.training-ai__radar-legend strong {
+  color: var(--text-h);
+}
+
+.training-ai__radar-empty {
+  padding: 1rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.training-ai__metric-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.training-ai__metric-checks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(55, 65, 81, 0.65);
+  background: rgba(17, 24, 39, 0.45);
+  font-size: 0.82rem;
+}
+
+.training-ai__metric-checks span {
+  color: var(--text-muted);
+}
+
+.training-ai__metric-checks strong {
+  color: var(--text-h);
+}
+
+.training-ai__scenario-practice-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  border-radius: var(--radius-lg);
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.training-ai__sim-workspace .imp-panel {
+  min-height: 24rem;
+}
+
+.training-ai__chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+@media (max-width: 1100px) {
+  .training-ai__wizard {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__wizard-resumo {
+    position: static;
+  }
+
+  .training-ai__playbook-layout,
+  .training-ai__insights-split {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__playbook-rail {
+    position: static;
+  }
+
+  .training-ai__mode-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__scenario-practice-card {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -17,7 +17,7 @@ function formatTime(iso) {
 }
 
 const STEPS = [
-  { id: 'setup', label: 'Persona' },
+  { id: 'setup', label: 'Agente' },
   { id: 'briefing', label: 'Briefing' },
   { id: 'running', label: 'Conversa' },
 ]
@@ -110,7 +110,7 @@ export default function TrainingSimulationPage() {
 
   const phaseLabel =
     phase === 'setup'
-      ? 'Escolher persona'
+      ? 'Escolher agente'
       : phase === 'briefing'
         ? 'Briefing'
         : 'Conversa por texto'
@@ -119,7 +119,7 @@ export default function TrainingSimulationPage() {
     <section className="imp-module">
       <header className="training-ai__page-header">
         <div>
-          <h2>Simulação</h2>
+          <h2>Simulação IA</h2>
           <p>
             {scenario.title} · {scenario.funnelStage}
           </p>
@@ -144,13 +144,13 @@ export default function TrainingSimulationPage() {
         ))}
       </nav>
 
-      <div className="imp-grid-2">
+      <div className="imp-grid-2 training-ai__sim-workspace">
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
               <h2>
                 {phase === 'setup'
-                  ? 'Escolher persona'
+                  ? 'Escolher agente'
                   : phase === 'briefing'
                     ? 'Briefing'
                     : 'Conversa'}
@@ -158,7 +158,7 @@ export default function TrainingSimulationPage() {
               <p>
                 {phase === 'running'
                   ? 'Responda como falaria com o cliente e encerre quando concluir.'
-                  : 'Siga as etapas para iniciar o treino.'}
+                  : 'Siga as etapas para iniciar o treino com o agente.'}
               </p>
             </div>
           </div>
@@ -170,7 +170,7 @@ export default function TrainingSimulationPage() {
                 <dd>{scenario.description}</dd>
               </dl>
               <p className="training-ai__options-hint">
-                Escolha a persona com quem você vai praticar a conversa.
+                Escolha o agente com quem você vai praticar a conversa.
               </p>
               <div className="training-ai__persona-picker">
                 {personas.map((item) => {
@@ -219,7 +219,7 @@ export default function TrainingSimulationPage() {
                 </dl>
               ) : null}
               <dl className="training-ai__briefing-block">
-                <dt>Persona</dt>
+                <dt>Agente</dt>
                 <dd>
                   {persona?.name} — {persona?.role} em {persona?.company} (
                   {persona?.negotiatorType})
@@ -300,7 +300,7 @@ export default function TrainingSimulationPage() {
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
-              <h2>Persona</h2>
+              <h2>Agente</h2>
               <p>Contexto da simulação</p>
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function TrainingSimulationPage() {
             </dl>
           ) : (
             <div className="training-ai__empty">
-              <h3>Selecione uma persona</h3>
+              <h3>Selecione um agente</h3>
               <p>O contexto aparece aqui após a escolha.</p>
             </div>
           )}

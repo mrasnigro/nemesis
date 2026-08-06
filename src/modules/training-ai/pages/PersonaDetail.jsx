@@ -1,6 +1,8 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import AgentAvatar from '../components/AgentAvatar.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { derivePersonaTraits, personaStatus } from '../utils/agentDisplay.js'
 
 export default function TrainingPersonaDetailPage() {
   const { personaId } = useParams()
@@ -20,17 +22,20 @@ export default function TrainingPersonaDetailPage() {
     return (
       <section className="imp-module">
         <div className="training-ai__empty">
-          <h3>Persona não encontrada</h3>
-          <p>Volte à lista e selecione uma persona válida.</p>
+          <h3>Agente não encontrado</h3>
+          <p>Volte à lista e selecione um agente válido.</p>
           <div className="imp-actions">
             <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
-              Voltar às personas
+              Voltar aos agentes
             </Link>
           </div>
         </div>
       </section>
     )
   }
+
+  const status = personaStatus(persona)
+  const traits = derivePersonaTraits(persona)
 
   function handleStart(scenarioId) {
     const started = startSimulation(scenarioId, { personaId: persona.id })
@@ -40,23 +45,42 @@ export default function TrainingPersonaDetailPage() {
   return (
     <section className="imp-module">
       <header className="training-ai__page-header">
-        <div>
-          <h2>{persona.name}</h2>
-          <p>
-            {persona.role} · {persona.industry}
-            {persona.location ? ` · ${persona.location}` : ''}
-          </p>
+        <div className="training-ai__chip-row">
+          <AgentAvatar id={persona.id} name={persona.name} size="lg" />
+          <div>
+            <h2>{persona.name}</h2>
+            <p>
+              {persona.role} · {persona.industry}
+              {persona.location ? ` · ${persona.location}` : ''}
+            </p>
+            <div className="training-ai__chip-row" style={{ marginTop: '0.55rem' }}>
+              <span className={`training-ai__status-dot training-ai__status-dot--${status.tone}`}>
+                {status.label}
+              </span>
+              <span className="imp-pill imp-pill--amber">
+                {DIFFICULTY_LABELS[persona.difficulty] || persona.difficulty}
+              </span>
+              {traits.map((trait, index) => (
+                <span
+                  key={trait}
+                  className={`training-ai__trait training-ai__trait--${index % 3}`}
+                >
+                  {trait}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="training-ai__page-header-actions">
           <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
-            ← Personas
+            ← Agentes
           </Link>
           {canManage ? (
             <Link
               to={`/modules/training-ai/personas/${persona.id}/editar`}
               className="imp-btn imp-btn--primary"
             >
-              Editar persona
+              Editar agente
             </Link>
           ) : null}
         </div>
@@ -65,12 +89,9 @@ export default function TrainingPersonaDetailPage() {
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>Perfil</h2>
-            <p>DNA comportamental usado nas simulações</p>
+            <h2>DNA comportamental</h2>
+            <p>Perfil usado nas simulações de treino</p>
           </div>
-          <span className="imp-pill imp-pill--amber">
-            {DIFFICULTY_LABELS[persona.difficulty] || persona.difficulty}
-          </span>
         </div>
 
         <dl className="training-ai__persona-detail-grid">
@@ -123,22 +144,13 @@ export default function TrainingPersonaDetailPage() {
         <div className="imp-panel__header">
           <div>
             <h2>Cenários vinculados</h2>
-            <p>Simulações conectadas a esta persona.</p>
+            <p>Simulações conectadas a este agente.</p>
           </div>
         </div>
         {linkedScenarios.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhum cenário vinculado</h3>
-            <p>
-              Você ainda pode usar esta persona como referência ao criar ou iniciar cenários.
-            </p>
-            <div className="imp-actions">
-              {canManage ? (
-                <Link to="/modules/training-ai/cenarios/novo" className="imp-btn imp-btn--primary">
-                  + Novo cenário
-                </Link>
-              ) : null}
-            </div>
+            <p>Associe este agente a um cenário ou inicie treinos pelo catálogo.</p>
           </div>
         ) : (
           <div className="imp-list">
@@ -154,7 +166,6 @@ export default function TrainingPersonaDetailPage() {
                     {scenario.funnelStage} · {scenario.industry || scenario.segment} ·{' '}
                     {scenario.durationMin} min
                   </p>
-                  <p>{scenario.objective || scenario.description}</p>
                 </div>
                 <button
                   type="button"

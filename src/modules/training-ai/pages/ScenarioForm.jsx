@@ -113,7 +113,7 @@ export default function TrainingScenarioFormPage() {
         <div className="imp-panel__header">
           <div>
             <h2>{isEdit ? 'Editar cenário' : 'Novo cenário'}</h2>
-            <p>Ligue persona, rubrica e instruções do treino.</p>
+            <p>Ligue agente, playbook e instruções do treino.</p>
           </div>
         </div>
 
