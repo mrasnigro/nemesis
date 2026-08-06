@@ -1,7 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { CONTACT_TYPE_OPTIONS, flattenCriteria, totalTemplateWeight } from '../data/evaluationTemplates.js'
+import {
+  CONTACT_TYPE_OPTIONS,
+  flattenCriteria,
+  totalTemplateWeight,
+} from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 function contactLabel(contactType) {
   return CONTACT_TYPE_OPTIONS.find((item) => item.id === contactType)?.label || contactType
@@ -13,21 +16,36 @@ export default function TrainingTemplatesPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Templates de avaliação</h2>
-            <p>Rubricas configuráveis ligadas a cenários e relatórios (mock).</p>
-          </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>Templates de avaliação</h2>
+          <p>Rubricas com seções, critérios e pesos usados nos relatórios.</p>
+        </div>
+        <div className="training-ai__page-header-actions">
           {canManage ? (
             <Link to="/modules/training-ai/templates/novo" className="imp-btn imp-btn--primary">
               + Novo template
             </Link>
           ) : null}
         </div>
+      </header>
 
+      <div className="imp-panel">
         {evaluationTemplates.length === 0 ? (
-          <div className="imp-empty">Nenhum template cadastrado.</div>
+          <div className="training-ai__empty">
+            <h3>Nenhum template cadastrado</h3>
+            <p>Defina uma rubrica para medir desempenho nas simulações.</p>
+            <div className="imp-actions">
+              {canManage ? (
+                <Link
+                  to="/modules/training-ai/templates/novo"
+                  className="imp-btn imp-btn--primary"
+                >
+                  + Novo template
+                </Link>
+              ) : null}
+            </div>
+          </div>
         ) : (
           <div className="training-ai__scenario-catalog">
             {evaluationTemplates.map((template) => {

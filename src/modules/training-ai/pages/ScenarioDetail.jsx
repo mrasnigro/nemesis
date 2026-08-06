@@ -1,7 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingScenarioDetailPage() {
   const { scenarioId } = useParams()
@@ -24,8 +23,14 @@ export default function TrainingScenarioDetailPage() {
   if (!scenario) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">
-          Cenário não encontrado. <Link to="/modules/training-ai/cenarios">Voltar</Link>
+        <div className="training-ai__empty">
+          <h3>Cenário não encontrado</h3>
+          <p>Volte à lista e selecione um cenário válido.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai/cenarios" className="imp-btn imp-btn--primary">
+              Voltar aos cenários
+            </Link>
+          </div>
         </div>
       </section>
     )
@@ -38,36 +43,42 @@ export default function TrainingScenarioDetailPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link to="/modules/training-ai/cenarios" className="imp-btn imp-btn--ghost">
-          ← Cenários
-        </Link>
-        {canManage ? (
-          <Link
-            to={`/modules/training-ai/cenarios/${scenario.id}/editar`}
-            className="imp-btn imp-btn--ghost"
-          >
-            Editar cenário
+      <header className="training-ai__page-header">
+        <div>
+          <h2>{scenario.title}</h2>
+          <p>
+            {scenario.funnelStage} · {scenario.industry || scenario.segment}
+            {scenario.durationMin ? ` · ${scenario.durationMin} min` : ''}
+          </p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <Link to="/modules/training-ai/cenarios" className="imp-btn imp-btn--ghost">
+            ← Cenários
           </Link>
-        ) : null}
-        <button
-          type="button"
-          className="imp-btn imp-btn--primary"
-          disabled={!canSimulate}
-          onClick={handleStart}
-        >
-          Treinar
-        </button>
-      </div>
+          {canManage ? (
+            <Link
+              to={`/modules/training-ai/cenarios/${scenario.id}/editar`}
+              className="imp-btn imp-btn--ghost"
+            >
+              Editar cenário
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            className="imp-btn imp-btn--primary"
+            disabled={!canSimulate}
+            onClick={handleStart}
+          >
+            Treinar
+          </button>
+        </div>
+      </header>
 
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>{scenario.title}</h2>
-            <p>
-              {scenario.funnelStage} · {scenario.industry || scenario.segment}
-              {scenario.durationMin ? ` · ${scenario.durationMin} min` : ''}
-            </p>
+            <h2>Detalhes do cenário</h2>
+            <p>Objetivo, vínculos e briefing do treino</p>
           </div>
           <span className="imp-pill imp-pill--amber">
             {DIFFICULTY_LABELS[scenario.difficulty] || scenario.difficulty}

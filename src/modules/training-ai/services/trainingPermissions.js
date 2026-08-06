@@ -40,7 +40,7 @@ export const TRAINING_PERMISSION_CATALOG = [
     id: 'perm_training_004',
     key: 'training.manage',
     label: 'Gerenciar personas',
-    description: 'Criar e editar personas de treinamento (protótipo mock).',
+    description: 'Criar e editar personas, cenários e templates de treinamento.',
     scope: 'module',
   },
 ]

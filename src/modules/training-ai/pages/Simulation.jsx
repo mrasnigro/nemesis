@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 function formatTime(iso) {
   if (!iso) return ''
@@ -15,6 +14,23 @@ function formatTime(iso) {
   } catch {
     return ''
   }
+}
+
+const STEPS = [
+  { id: 'setup', label: 'Persona' },
+  { id: 'briefing', label: 'Briefing' },
+  { id: 'running', label: 'Conversa' },
+]
+
+function stepState(phase, stepId) {
+  const order = STEPS.map((item) => item.id)
+  const current = phase === 'finished' ? 'running' : phase
+  const currentIndex = order.indexOf(current)
+  const stepIndex = order.indexOf(stepId)
+  if (stepIndex < 0) return ''
+  if (stepIndex < currentIndex) return 'is-done'
+  if (stepIndex === currentIndex) return 'is-active'
+  return ''
 }
 
 export default function TrainingSimulationPage() {
@@ -79,7 +95,15 @@ export default function TrainingSimulationPage() {
   if (!scenario) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">Cenário não encontrado.</div>
+        <div className="training-ai__empty">
+          <h3>Cenário não encontrado</h3>
+          <p>Volte ao catálogo e selecione um treinamento válido.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
+              Ir ao catálogo
+            </Link>
+          </div>
+        </div>
       </section>
     )
   }
@@ -89,26 +113,54 @@ export default function TrainingSimulationPage() {
       ? 'Escolher persona'
       : phase === 'briefing'
         ? 'Briefing'
-        : 'Conversa livre (mock)'
+        : 'Conversa por texto'
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link to="/modules/training-ai" className="imp-btn imp-btn--ghost">
-          ← Voltar ao catálogo
-        </Link>
-      </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>Simulação</h2>
+          <p>
+            {scenario.title} · {scenario.funnelStage}
+          </p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <span className="imp-pill imp-pill--blue">{phaseLabel}</span>
+          <Link to="/modules/training-ai" className="imp-btn imp-btn--ghost">
+            ← Catálogo
+          </Link>
+        </div>
+      </header>
+
+      <nav className="training-ai__stepper" aria-label="Etapas da simulação">
+        {STEPS.map((step, index) => (
+          <div
+            key={step.id}
+            className={`training-ai__step ${stepState(phase, step.id)}`}
+          >
+            <span className="training-ai__step-index">{index + 1}</span>
+            {step.label}
+          </div>
+        ))}
+      </nav>
 
       <div className="imp-grid-2">
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
-              <h2>Simulação IA</h2>
+              <h2>
+                {phase === 'setup'
+                  ? 'Escolher persona'
+                  : phase === 'briefing'
+                    ? 'Briefing'
+                    : 'Conversa'}
+              </h2>
               <p>
-                {scenario.title} · {scenario.funnelStage}
+                {phase === 'running'
+                  ? 'Responda como falaria com o cliente e encerre quando concluir.'
+                  : 'Siga as etapas para iniciar o treino.'}
               </p>
             </div>
-            <span className="imp-pill imp-pill--blue">{phaseLabel}</span>
           </div>
 
           {phase === 'setup' ? (
@@ -118,7 +170,7 @@ export default function TrainingSimulationPage() {
                 <dd>{scenario.description}</dd>
               </dl>
               <p className="training-ai__options-hint">
-                Escolha a persona com quem você vai praticar a conversa livre.
+                Escolha a persona com quem você vai praticar a conversa.
               </p>
               <div className="training-ai__persona-picker">
                 {personas.map((item) => {
@@ -176,8 +228,7 @@ export default function TrainingSimulationPage() {
               <dl className="training-ai__briefing-block">
                 <dt>Modo</dt>
                 <dd>
-                  Conversa livre por texto. Respostas da persona são mock (sem LLM, voz ou
-                  avatar). Ao final, a rubrica avalia as suas falas por palavras-chave.
+                  Conversa por texto. Ao final, a rubrica avalia suas falas e gera o relatório.
                 </dd>
               </dl>
               <button
@@ -285,7 +336,10 @@ export default function TrainingSimulationPage() {
               </div>
             </dl>
           ) : (
-            <div className="imp-empty">Selecione uma persona para ver o contexto.</div>
+            <div className="training-ai__empty">
+              <h3>Selecione uma persona</h3>
+              <p>O contexto aparece aqui após a escolha.</p>
+            </div>
           )}
 
           {persona?.objections?.length ? (
@@ -299,14 +353,16 @@ export default function TrainingSimulationPage() {
             </div>
           ) : null}
 
-          <div className="training-ai__hints">
-            <h3>Dicas do coach</h3>
-            <ul>
-              {scenario.scriptHints.map((hint) => (
-                <li key={hint}>{hint}</li>
-              ))}
-            </ul>
-          </div>
+          {scenario.scriptHints?.length ? (
+            <div className="training-ai__hints">
+              <h3>Dicas do coach</h3>
+              <ul>
+                {scenario.scriptHints.map((hint) => (
+                  <li key={hint}>{hint}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

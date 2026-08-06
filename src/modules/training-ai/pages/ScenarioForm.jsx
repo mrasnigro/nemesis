@@ -7,7 +7,6 @@ import {
   SCENARIO_DIFFICULTIES,
 } from '../data/scenarios.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingScenarioFormPage() {
   const { scenarioId } = useParams()
@@ -106,15 +105,15 @@ export default function TrainingScenarioFormPage() {
           }
           className="imp-btn imp-btn--ghost"
         >
-          ← Voltar
+          ← Cancelar
         </Link>
       </div>
 
-      <form className="imp-panel training-ai__persona-form" onSubmit={handleSubmit}>
+      <form className="imp-panel training-ai__form" onSubmit={handleSubmit}>
         <div className="imp-panel__header">
           <div>
             <h2>{isEdit ? 'Editar cenário' : 'Novo cenário'}</h2>
-            <p>Protótipo de configuração — liga persona, rubrica e sessão de treino.</p>
+            <p>Ligue persona, rubrica e instruções do treino.</p>
           </div>
         </div>
 

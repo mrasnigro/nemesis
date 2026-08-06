@@ -7,7 +7,6 @@ import {
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 function newSection(index) {
   return {
@@ -164,11 +163,11 @@ export default function TrainingTemplateFormPage() {
           }
           className="imp-btn imp-btn--ghost"
         >
-          ← Voltar
+          ← Cancelar
         </Link>
       </div>
 
-      <form className="imp-panel training-ai__persona-form" onSubmit={handleSubmit}>
+      <form className="imp-panel training-ai__form" onSubmit={handleSubmit}>
         <div className="imp-panel__header">
           <div>
             <h2>{isEdit ? 'Editar template' : 'Novo template'}</h2>

@@ -366,7 +366,9 @@
   gap: 0.35rem;
 }
 
-.imp-field label {
+.imp-field label,
+label.imp-field,
+.imp-field > span:first-of-type {
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 600;
@@ -476,7 +478,13 @@
   width: 100%;
   color: inherit;
   font: inherit;
+  text-decoration: none;
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+a.imp-list-item {
+  text-decoration: none;
+  color: inherit;
 }
 
 .imp-list-item:hover,
@@ -544,6 +552,10 @@
   border-radius: 999px;
   background: #111827;
   overflow: hidden;
+}
+
+.imp-progress--spaced {
+  margin-top: 0.55rem;
 }
 
 .imp-progress > span {

@@ -1,7 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingScenariosPage() {
   const navigate = useNavigate()
@@ -9,21 +8,33 @@ export default function TrainingScenariosPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Cenários</h2>
-            <p>Catálogo de treinamentos ligados a persona e rubrica (mock).</p>
-          </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>Cenários</h2>
+          <p>Treinamentos que ligam persona, objetivo e rubrica de avaliação.</p>
+        </div>
+        <div className="training-ai__page-header-actions">
           {canManage ? (
             <Link to="/modules/training-ai/cenarios/novo" className="imp-btn imp-btn--primary">
               + Novo cenário
             </Link>
           ) : null}
         </div>
+      </header>
 
+      <div className="imp-panel">
         {scenarios.length === 0 ? (
-          <div className="imp-empty">Nenhum cenário cadastrado.</div>
+          <div className="training-ai__empty">
+            <h3>Nenhum cenário cadastrado</h3>
+            <p>Crie um cenário para disponibilizar treinos no catálogo.</p>
+            <div className="imp-actions">
+              {canManage ? (
+                <Link to="/modules/training-ai/cenarios/novo" className="imp-btn imp-btn--primary">
+                  + Novo cenário
+                </Link>
+              ) : null}
+            </div>
+          </div>
         ) : (
           <div className="training-ai__scenario-catalog">
             {scenarios.map((scenario) => {

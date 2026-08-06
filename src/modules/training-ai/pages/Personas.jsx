@@ -1,7 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingPersonasPage() {
   const navigate = useNavigate()
@@ -9,21 +8,33 @@ export default function TrainingPersonasPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Personas</h2>
-            <p>Catálogo de clientes simulados para treinamento (mock).</p>
-          </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>Personas</h2>
+          <p>Clientes simulados com comportamento, objeções e contexto comercial.</p>
+        </div>
+        <div className="training-ai__page-header-actions">
           {canManage ? (
             <Link to="/modules/training-ai/personas/nova" className="imp-btn imp-btn--primary">
               + Nova persona
             </Link>
           ) : null}
         </div>
+      </header>
 
+      <div className="imp-panel">
         {personas.length === 0 ? (
-          <div className="imp-empty">Nenhuma persona cadastrada.</div>
+          <div className="training-ai__empty">
+            <h3>Nenhuma persona cadastrada</h3>
+            <p>Crie a primeira persona para usar em cenários de treinamento.</p>
+            <div className="imp-actions">
+              {canManage ? (
+                <Link to="/modules/training-ai/personas/nova" className="imp-btn imp-btn--primary">
+                  + Nova persona
+                </Link>
+              ) : null}
+            </div>
+          </div>
         ) : (
           <div className="training-ai__persona-catalog">
             {personas.map((persona) => {
@@ -43,9 +54,7 @@ export default function TrainingPersonasPage() {
                     </span>
                   </header>
                   <p className="training-ai__persona-card-behavior">{persona.behavior}</p>
-                  <p className="training-ai__meta">
-                    Objetivo: {persona.trainingObjective}
-                  </p>
+                  <p className="training-ai__meta">Objetivo: {persona.trainingObjective}</p>
                   <p className="training-ai__meta">
                     {linked.length} cenário{linked.length === 1 ? '' : 's'} vinculado
                     {linked.length === 1 ? '' : 's'}

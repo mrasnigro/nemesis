@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingReportPage() {
   const { scenarioId } = useParams()
@@ -21,7 +20,10 @@ export default function TrainingReportPage() {
   if (!canReport) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">Sem permissão para ver relatórios.</div>
+        <div className="training-ai__empty">
+          <h3>Sem permissão</h3>
+          <p>Você não tem acesso aos relatórios de treinamento.</p>
+        </div>
       </section>
     )
   }
@@ -29,8 +31,14 @@ export default function TrainingReportPage() {
   if (!report) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">
-          Relatório indisponível. <Link to="/modules/training-ai">Voltar ao catálogo</Link>
+        <div className="training-ai__empty">
+          <h3>Relatório indisponível</h3>
+          <p>Não há avaliação para este cenário na sessão atual.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
+              Voltar ao catálogo
+            </Link>
+          </div>
         </div>
       </section>
     )
@@ -40,41 +48,49 @@ export default function TrainingReportPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link
-          to="/modules/training-ai"
-          className="imp-btn imp-btn--ghost"
-          onClick={resetSimulation}
-        >
-          ← Novo treinamento
-        </Link>
-        <button
-          type="button"
-          className="imp-btn imp-btn--ghost"
-          onClick={() => setShowConversation((value) => !value)}
-        >
-          {showConversation ? 'Ocultar conversa' : 'Ver conversa'}
-        </button>
-        <Link
-          to={`/modules/training-ai/simulacao/${scenarioId}`}
-          className="imp-btn imp-btn--primary"
-          onClick={resetSimulation}
-        >
-          Refazer simulação
-        </Link>
-      </div>
+      <header className="training-ai__page-header">
+        <div>
+          <h2>Relatório de simulação</h2>
+          <p>Revise score, critérios e conversa — depois refaça o treino se precisar.</p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <Link
+            to="/modules/training-ai"
+            className="imp-btn imp-btn--ghost"
+            onClick={resetSimulation}
+          >
+            ← Novo treinamento
+          </Link>
+          <button
+            type="button"
+            className="imp-btn imp-btn--ghost"
+            onClick={() => setShowConversation((value) => !value)}
+          >
+            {showConversation ? 'Ocultar conversa' : 'Ver conversa'}
+          </button>
+          <Link
+            to={`/modules/training-ai/simulacao/${scenarioId}`}
+            className="imp-btn imp-btn--primary"
+            onClick={resetSimulation}
+          >
+            Refazer simulação
+          </Link>
+        </div>
+      </header>
 
-      <div className="imp-panel">
-        <div className="imp-panel__header">
-          <div>
-            <h2>Relatório de simulação</h2>
-            <p className="training-ai__meta">
-              {report.scenarioTitle} · {report.personaName} · {report.templateTitle}
-              {report.mode === 'free' ? ' · Conversa livre' : ''} ·{' '}
-              {new Date(report.completedAt).toLocaleString('pt-BR')}
-            </p>
-          </div>
+      <div className="training-ai__report-hero">
+        <div className="training-ai__report-hero-main">
+          <h2>{report.scenarioTitle}</h2>
+          <p>
+            {report.personaName} · {report.templateTitle}
+            {report.mode === 'free' ? ' · Conversa por texto' : ''} ·{' '}
+            {new Date(report.completedAt).toLocaleString('pt-BR')}
+          </p>
+        </div>
+        <div className="training-ai__report-score">
+          <strong>{report.score}</strong>
           <span className={`imp-pill imp-pill--${band.tone}`}>{band.label}</span>
+          <span className="training-ai__meta">Score final</span>
         </div>
       </div>
 
@@ -82,7 +98,7 @@ export default function TrainingReportPage() {
         <article className="imp-metric">
           <p>Score final</p>
           <strong className="accent">{report.score}</strong>
-          <span>Soma dos pesos dos critérios aprovados</span>
+          <span>Soma dos pesos aprovados</span>
         </article>
         {(report.sections || []).slice(0, 3).map((section) => (
           <article key={section.id} className="imp-metric">
@@ -90,7 +106,7 @@ export default function TrainingReportPage() {
             <strong>
               {section.passedCount}/{section.totalCount}
             </strong>
-            <div className="imp-progress" style={{ marginTop: '0.55rem' }}>
+            <div className="imp-progress imp-progress--spaced">
               <span
                 style={{
                   width: `${
@@ -110,7 +126,7 @@ export default function TrainingReportPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Conversa</h2>
-              <p>Transcript da sessão (mock).</p>
+              <p>Transcript da sessão.</p>
             </div>
           </div>
           <div className="imp-chat">
@@ -179,11 +195,11 @@ export default function TrainingReportPage() {
       </div>
 
       <div className="imp-grid-2">
-        <div className="imp-panel">
+        <div className="imp-panel training-ai__insight-panel training-ai__insight-panel--strong">
           <div className="imp-panel__header">
             <div>
               <h2>Pontos fortes</h2>
-              <p>Critérios aprovados</p>
+              <p>Critérios aprovados nesta sessão</p>
             </div>
           </div>
           <ul className="training-ai__list">
@@ -192,11 +208,11 @@ export default function TrainingReportPage() {
             ))}
           </ul>
         </div>
-        <div className="imp-panel">
+        <div className="imp-panel training-ai__insight-panel training-ai__insight-panel--improve">
           <div className="imp-panel__header">
             <div>
               <h2>Áreas de melhoria</h2>
-              <p>Coach (mock)</p>
+              <p>Próximos focos de prática</p>
             </div>
           </div>
           <ul className="training-ai__list training-ai__list--muted">

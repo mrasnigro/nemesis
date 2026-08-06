@@ -5,7 +5,6 @@ import {
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 function contactLabel(contactType) {
   return CONTACT_TYPE_OPTIONS.find((item) => item.id === contactType)?.label || contactType
@@ -30,8 +29,14 @@ export default function TrainingTemplateDetailPage() {
   if (!template) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">
-          Template não encontrado. <Link to="/modules/training-ai/templates">Voltar</Link>
+        <div className="training-ai__empty">
+          <h3>Template não encontrado</h3>
+          <p>Volte à lista e selecione um template válido.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--primary">
+              Voltar aos templates
+            </Link>
+          </div>
         </div>
       </section>
     )
@@ -39,28 +44,34 @@ export default function TrainingTemplateDetailPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--ghost">
-          ← Templates
-        </Link>
-        {canManage ? (
-          <Link
-            to={`/modules/training-ai/templates/${template.id}/editar`}
-            className="imp-btn imp-btn--primary"
-          >
-            Editar template
+      <header className="training-ai__page-header">
+        <div>
+          <h2>{template.title}</h2>
+          <p>
+            {contactLabel(template.contactType)} · {criteria.length} critérios · pesos ={' '}
+            {totalTemplateWeight(template)}
+          </p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--ghost">
+            ← Templates
           </Link>
-        ) : null}
-      </div>
+          {canManage ? (
+            <Link
+              to={`/modules/training-ai/templates/${template.id}/editar`}
+              className="imp-btn imp-btn--primary"
+            >
+              Editar template
+            </Link>
+          ) : null}
+        </div>
+      </header>
 
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>{template.title}</h2>
-            <p>
-              {contactLabel(template.contactType)} · {criteria.length} critérios · soma dos pesos{' '}
-              {totalTemplateWeight(template)}
-            </p>
+            <h2>Rubrica</h2>
+            <p>Seções e critérios usados no relatório</p>
           </div>
           <span className="imp-pill imp-pill--blue">Avaliação</span>
         </div>
@@ -76,7 +87,7 @@ export default function TrainingTemplateDetailPage() {
           </div>
         </dl>
 
-        <div className="training-ai__rubric" style={{ marginTop: '1.25rem' }}>
+        <div className="training-ai__rubric training-ai__rubric--spaced">
           {(template.sections || []).map((section) => (
             <div key={section.id} className="training-ai__rubric-section">
               <div className="training-ai__rubric-section-head">
@@ -87,7 +98,12 @@ export default function TrainingTemplateDetailPage() {
               </div>
               {section.criteria.map((criterion) => (
                 <div key={criterion.id} className="training-ai__criterion">
-                  <span className="training-ai__criterion-mark">%</span>
+                  <span
+                    className="training-ai__criterion-mark is-weight"
+                    aria-hidden="true"
+                  >
+                    {criterion.weight}
+                  </span>
                   <div className="training-ai__criterion-body">
                     <strong>{criterion.name}</strong>
                     <p>{criterion.yesNoQuestion}</p>
@@ -109,7 +125,10 @@ export default function TrainingTemplateDetailPage() {
           </div>
         </div>
         {linkedScenarios.length === 0 ? (
-          <div className="imp-empty">Nenhum cenário aponta para este template.</div>
+          <div className="training-ai__empty">
+            <h3>Nenhum cenário vinculado</h3>
+            <p>Associe este template a um cenário para usá-lo nas simulações.</p>
+          </div>
         ) : (
           <div className="imp-list">
             {linkedScenarios.map((scenario) => (

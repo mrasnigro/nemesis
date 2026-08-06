@@ -7,7 +7,6 @@ import {
   PERSONA_DIFFICULTIES,
 } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingPersonaFormPage() {
   const { personaId } = useParams()
@@ -102,11 +101,11 @@ export default function TrainingPersonaFormPage() {
         </Link>
       </div>
 
-      <form className="imp-panel training-ai__persona-form" onSubmit={handleSubmit}>
+      <form className="imp-panel training-ai__form" onSubmit={handleSubmit}>
         <div className="imp-panel__header">
           <div>
             <h2>{isEdit ? 'Editar persona' : 'Nova persona'}</h2>
-            <p>Protótipo mock — sem avatar, voz ou LLM.</p>
+            <p>Defina identidade, comportamento e objetivo de treino.</p>
           </div>
         </div>
 

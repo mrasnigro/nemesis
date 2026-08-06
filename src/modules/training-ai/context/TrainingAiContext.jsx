@@ -108,7 +108,7 @@ export function TrainingAiProvider({ children }) {
   const [phase, setPhase] = useState('idle') // idle | setup | briefing | running | finished
   const [evaluation, setEvaluation] = useState(null)
   const [history, setHistory] = useState([])
-  const [showConversation, setShowConversation] = useState(false)
+  const [showConversation, setShowConversation] = useState(true)
   const [draftPersonaId, setDraftPersonaId] = useState(null)
 
   const findPersona = useCallback(

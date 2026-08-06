@@ -1,7 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import '../styles/training-ai.css'
 
 export default function TrainingPersonaDetailPage() {
   const { personaId } = useParams()
@@ -20,8 +19,14 @@ export default function TrainingPersonaDetailPage() {
   if (!persona) {
     return (
       <section className="imp-module">
-        <div className="imp-empty">
-          Persona não encontrada. <Link to="/modules/training-ai/personas">Voltar</Link>
+        <div className="training-ai__empty">
+          <h3>Persona não encontrada</h3>
+          <p>Volte à lista e selecione uma persona válida.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
+              Voltar às personas
+            </Link>
+          </div>
         </div>
       </section>
     )
@@ -34,28 +39,34 @@ export default function TrainingPersonaDetailPage() {
 
   return (
     <section className="imp-module">
-      <div className="imp-actions">
-        <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
-          ← Personas
-        </Link>
-        {canManage ? (
-          <Link
-            to={`/modules/training-ai/personas/${persona.id}/editar`}
-            className="imp-btn imp-btn--primary"
-          >
-            Editar persona
+      <header className="training-ai__page-header">
+        <div>
+          <h2>{persona.name}</h2>
+          <p>
+            {persona.role} · {persona.industry}
+            {persona.location ? ` · ${persona.location}` : ''}
+          </p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
+            ← Personas
           </Link>
-        ) : null}
-      </div>
+          {canManage ? (
+            <Link
+              to={`/modules/training-ai/personas/${persona.id}/editar`}
+              className="imp-btn imp-btn--primary"
+            >
+              Editar persona
+            </Link>
+          ) : null}
+        </div>
+      </header>
 
       <div className="imp-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>{persona.name}</h2>
-            <p>
-              {persona.role} · {persona.industry}
-              {persona.location ? ` · ${persona.location}` : ''}
-            </p>
+            <h2>Perfil</h2>
+            <p>DNA comportamental usado nas simulações</p>
           </div>
           <span className="imp-pill imp-pill--amber">
             {DIFFICULTY_LABELS[persona.difficulty] || persona.difficulty}
@@ -79,7 +90,7 @@ export default function TrainingPersonaDetailPage() {
             <dt>Objetivo de treinamento</dt>
             <dd>{persona.trainingObjective}</dd>
           </div>
-          <div>
+          <div className="training-ai__form-span-2">
             <dt>Frase de abertura</dt>
             <dd>{persona.openingLine}</dd>
           </div>
@@ -116,9 +127,18 @@ export default function TrainingPersonaDetailPage() {
           </div>
         </div>
         {linkedScenarios.length === 0 ? (
-          <div className="imp-empty">
-            Nenhum cenário seed aponta para esta persona ainda. Você ainda pode usá-la como
-            referência de configuração.
+          <div className="training-ai__empty">
+            <h3>Nenhum cenário vinculado</h3>
+            <p>
+              Você ainda pode usar esta persona como referência ao criar ou iniciar cenários.
+            </p>
+            <div className="imp-actions">
+              {canManage ? (
+                <Link to="/modules/training-ai/cenarios/novo" className="imp-btn imp-btn--primary">
+                  + Novo cenário
+                </Link>
+              ) : null}
+            </div>
           </div>
         ) : (
           <div className="imp-list">
