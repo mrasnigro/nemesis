@@ -1,11 +1,11 @@
 /**
- * Scoring engine — maps answers (MCQ or free-text) → rubric pass/fail → score.
- * Mock only: no LLM.
+ * Scoring engine — maps answers (MCQ or free-text / LLM judge) → rubric → score.
  */
 
 import { flattenCriteria, getEvaluationTemplate } from '../data/evaluationTemplates.js'
 import { scoreBand } from '../data/catalogs.js'
 import { buildFreeTextAnswers } from './conversation.js'
+import { judgeSessionRubric } from './ai/judge.js'
 
 /**
  * Merge criterion outcomes from selected options.
@@ -108,9 +108,73 @@ export function buildCoachNotes(score) {
   return 'Precisa de reforço. Revise a conversa e pratique a abertura e a agenda.'
 }
 
+function attachRationales(criteria, answers = []) {
+  const map = new Map()
+  for (const answer of answers) {
+    for (const item of answer.rationales || []) {
+      map.set(item.criterionId, item.rationale)
+    }
+  }
+  if (!map.size) return criteria
+  return criteria.map((criterion) => ({
+    ...criterion,
+    rationale: map.get(criterion.id) || null,
+  }))
+}
+
+function finalizeEvaluationPayload({
+  session,
+  scenario,
+  persona,
+  template,
+  resolvedMode,
+  resolvedAnswers,
+  messages,
+  judgeSource = null,
+}) {
+  const rubric = evaluateRubric(template, resolvedAnswers)
+  const criteria = attachRationales(rubric.criteria, resolvedAnswers)
+  const narrative = buildStrengthsAndImprovements(criteria, resolvedAnswers)
+  const coachFeedback = buildMessageLinkedFeedback({
+    criteria,
+    messages: messages || [],
+  })
+  const nextSteps = buildNextSteps(narrative.improvements)
+  const mediaMode = session?.mediaMode || 'text'
+
+  return {
+    id: `eval_${session?.id || Date.now()}`,
+    sessionId: session?.id || null,
+    scenarioId: scenario.id,
+    scenarioTitle: scenario.title,
+    personaId: persona?.id || scenario.personaId,
+    personaName: persona?.name || 'Agente',
+    templateId: template.id,
+    templateTitle: template.title,
+    mode: resolvedMode,
+    mediaMode,
+    judgeSource,
+    score: rubric.score,
+    band: rubric.band,
+    sections: rubric.sections.map((section) => ({
+      ...section,
+      criteria: attachRationales(section.criteria, resolvedAnswers),
+    })),
+    criteria,
+    strengths: narrative.strengths,
+    improvements: narrative.improvements,
+    avoidedApproaches: narrative.avoidedApproaches,
+    coachNotes: buildCoachNotes(rubric.score),
+    coachFeedback,
+    nextSteps,
+    messages: messages || [],
+    answers: resolvedAnswers,
+    completedAt: new Date().toISOString(),
+  }
+}
+
 /**
- * Full evaluation payload for a completed training session.
- * Accepts live template object or templateLookup for context-managed rubrics.
+ * Sync evaluation (keyword answers). Prefer buildSessionEvaluationAsync when judge is available.
  */
 export function buildSessionEvaluation({
   session,
@@ -135,46 +199,75 @@ export function buildSessionEvaluation({
 
   const resolvedMode = mode || session?.mode || 'free'
   let resolvedAnswers = answers || []
+  let judgeSource = null
 
-  if (resolvedMode === 'free') {
+  if (resolvedMode === 'free' && !resolvedAnswers.length) {
     const userMessages = (messages || []).filter((m) => m.role === 'user')
     resolvedAnswers = buildFreeTextAnswers({ template, userMessages })
+    judgeSource = 'keyword'
   }
 
-  const rubric = evaluateRubric(template, resolvedAnswers)
-  const narrative = buildStrengthsAndImprovements(rubric.criteria, resolvedAnswers)
-  const coachFeedback = buildMessageLinkedFeedback({
-    criteria: rubric.criteria,
-    messages: messages || [],
+  return finalizeEvaluationPayload({
+    session,
+    scenario,
+    persona,
+    template,
+    resolvedMode,
+    resolvedAnswers,
+    messages,
+    judgeSource,
   })
-  const nextSteps = buildNextSteps(narrative.improvements)
-  const mediaMode = session?.mediaMode || 'text'
+}
 
-  return {
-    id: `eval_${session?.id || Date.now()}`,
-    sessionId: session?.id || null,
-    scenarioId: scenario.id,
-    scenarioTitle: scenario.title,
-    personaId: persona?.id || scenario.personaId,
-    personaName: persona?.name || 'Agente',
-    templateId: template.id,
-    templateTitle: template.title,
-    mode: resolvedMode,
-    mediaMode,
-    score: rubric.score,
-    band: rubric.band,
-    sections: rubric.sections,
-    criteria: rubric.criteria,
-    strengths: narrative.strengths,
-    improvements: narrative.improvements,
-    avoidedApproaches: narrative.avoidedApproaches,
-    coachNotes: buildCoachNotes(rubric.score),
-    coachFeedback,
-    nextSteps,
-    messages: messages || [],
-    answers: resolvedAnswers,
-    completedAt: new Date().toISOString(),
+/**
+ * Async evaluation — uses provider.judgeRubric when present, else keyword fallback.
+ */
+export async function buildSessionEvaluationAsync({
+  session,
+  scenario,
+  persona,
+  templateId,
+  template: templateInput,
+  templateLookup,
+  answers,
+  messages,
+  mode = 'free',
+}) {
+  const resolvedId = templateId || scenario.evaluationTemplateId
+  const template =
+    templateInput ||
+    (typeof templateLookup === 'function' ? templateLookup(resolvedId) : null) ||
+    getEvaluationTemplate(resolvedId)
+
+  if (!template) {
+    throw new Error('Evaluation template not found')
   }
+
+  const resolvedMode = mode || session?.mode || 'free'
+  let resolvedAnswers = answers || []
+  let judgeSource = null
+
+  if (resolvedMode === 'free' && !resolvedAnswers.length) {
+    const judged = await judgeSessionRubric({
+      template,
+      messages: messages || [],
+      persona,
+      scenario,
+    })
+    resolvedAnswers = judged.answers
+    judgeSource = judged.source
+  }
+
+  return finalizeEvaluationPayload({
+    session,
+    scenario,
+    persona,
+    template,
+    resolvedMode,
+    resolvedAnswers,
+    messages,
+    judgeSource,
+  })
 }
 
 /** Video-style coaching: link failed criteria to nearest trainee message. */
@@ -187,7 +280,7 @@ export function buildMessageLinkedFeedback({ criteria = [], messages = [] }) {
       id: `fb_${criterion.id}`,
       criterionId: criterion.id,
       title: criterion.name,
-      detail: criterion.yesNoQuestion,
+      detail: criterion.rationale || criterion.yesNoQuestion,
       messageId: msg?.id || null,
       messageText: msg?.text || null,
       timestamp: msg?.timestamp || null,

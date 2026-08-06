@@ -1,21 +1,24 @@
 /**
- * Smoke: AI provider abstraction (mock only — no external API).
+ * Smoke: AI provider abstraction (llm-mock + classic mock — no external API).
  * Run: node src/modules/training-ai/services/ai/ai.smoke.mjs
  */
 import assert from 'node:assert/strict'
 import { getPersona } from '../../data/personas.js'
 import { resolveScenarioBundle } from '../../data/seeds.js'
+import { getEvaluationTemplate } from '../../data/evaluationTemplates.js'
 import {
   assertAiProvider,
   configureConversationProvider,
   createConversationEngine,
+  createLlmMockAiProvider,
   createMockAiProvider,
   generateMockReply,
   getConversationEngine,
+  judgeSessionRubric,
   resetConversationEngine,
 } from './index.js'
 
-resetConversationEngine()
+resetConversationEngine({ provider: createMockAiProvider() })
 
 const provider = createMockAiProvider()
 assertAiProvider(provider)
@@ -76,6 +79,43 @@ const asyncReply = await engine.generateReplyMessageAsync({
 })
 assert.equal(asyncReply.role, 'ai')
 
+const llm = createLlmMockAiProvider({ latencyMs: 5 })
+assertAiProvider(llm)
+assert.equal(llm.id, 'llm-mock')
+configureConversationProvider(llm)
+
+const llmReply = await getConversationEngine().generateReplyMessageAsync({
+  persona,
+  scenario: bundle.scenario,
+  scriptTurns: bundle.turns,
+  exchangeIndex: 0,
+  userText: 'Bom dia, posso ter 30 segundos do seu tempo?',
+  messages: [opening],
+})
+assert.equal(llmReply.provider, 'llm-mock')
+assert.ok(llmReply.text.length > 5)
+
+const template = getEvaluationTemplate(bundle.scenario.evaluationTemplateId)
+const judged = await judgeSessionRubric({
+  template,
+  messages: [
+    opening,
+    user,
+    llmReply,
+    {
+      id: 'u2',
+      role: 'user',
+      text: 'Sou da IMP, posso ter um minuto? Quero marcar discovery de 15 minutos com insight de pipeline.',
+    },
+  ],
+  persona,
+  scenario: bundle.scenario,
+  provider: llm,
+})
+assert.equal(judged.source, 'llm-mock')
+assert.ok(judged.answers[0].rationales?.length > 0)
+assert.ok(Object.keys(judged.answers[0].rubricImpact).length > 0)
+
 // Swappable stub provider — same engine API, no context change.
 const stub = {
   id: 'stub',
@@ -93,7 +133,7 @@ const swapped = getConversationEngine().generateReplyMessage({
 assert.equal(swapped.text, 'Resposta stub do provider.')
 assert.equal(swapped.provider, 'stub')
 
-resetConversationEngine()
+resetConversationEngine({ provider: createMockAiProvider() })
 assert.equal(getConversationEngine().getProvider().id, 'mock')
 
 let threw = false

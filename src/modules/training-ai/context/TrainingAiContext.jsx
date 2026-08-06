@@ -26,7 +26,7 @@ import {
   trainingMetricsSeed,
 } from '../data/seeds.js'
 import { getConversationEngine } from '../services/ai/index.js'
-import { buildSessionEvaluation } from '../services/scoring.js'
+import { buildSessionEvaluationAsync } from '../services/scoring.js'
 import {
   getTrainingPermissionsForUser,
   hasTrainingPermission,
@@ -55,7 +55,7 @@ function computeMetrics(history, scenarios) {
   }
 }
 
-function completeSessionState({
+async function completeSessionState({
   session,
   scenario,
   persona,
@@ -64,7 +64,7 @@ function completeSessionState({
   mode = 'free',
   templateLookup,
 }) {
-  const report = buildSessionEvaluation({
+  const report = await buildSessionEvaluationAsync({
     session,
     scenario,
     persona,
@@ -107,6 +107,8 @@ export function TrainingAiProvider({ children }) {
   const [answers, setAnswers] = useState([])
   const [phase, setPhase] = useState('idle') // idle | setup | briefing | running | finished
   const [evaluation, setEvaluation] = useState(null)
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false)
+  const [isJudging, setIsJudging] = useState(false)
   const [history, setHistory] = useState([])
   const [showConversation, setShowConversation] = useState(true)
   const [draftPersonaId, setDraftPersonaId] = useState(null)
@@ -437,8 +439,10 @@ export function TrainingAiProvider({ children }) {
   }, [phase, session])
 
   const sendMessage = useCallback(
-    (rawText) => {
-      if (phase !== 'running' || !session || !selectedScenario) return false
+    async (rawText) => {
+      if (phase !== 'running' || !session || !selectedScenario || isGeneratingReply) {
+        return false
+      }
       const text = String(rawText || '').trim()
       if (!text) return false
 
@@ -446,24 +450,36 @@ export function TrainingAiProvider({ children }) {
       const userCount = messages.filter((m) => m.role === 'user').length
       const engine = getConversationEngine()
       const userMessage = engine.createUserMessage(text)
-      const aiMessage = engine.generateReplyMessage({
-        persona: selectedPersona,
-        scenario: selectedScenario,
-        template: bundle?.template || null,
-        scriptTurns: bundle?.turns || [],
-        messages,
-        exchangeIndex: userCount,
-        userText: text,
-        session,
-      })
+      const pendingMessages = [...messages, userMessage]
+      setMessages(pendingMessages)
+      setIsGeneratingReply(true)
 
-      const nextMessages = [...messages, userMessage, aiMessage]
-      setMessages(nextMessages)
-      setTurnIndex(userCount + 1)
-      setSession((prev) => (prev ? { ...prev, messages: nextMessages } : prev))
-      return true
+      try {
+        const aiMessage = await engine.generateReplyMessageAsync({
+          persona: selectedPersona,
+          scenario: selectedScenario,
+          template: bundle?.template || null,
+          scriptTurns: bundle?.turns || [],
+          messages: pendingMessages,
+          exchangeIndex: userCount,
+          userText: text,
+          session,
+        })
+
+        const nextMessages = [...pendingMessages, aiMessage]
+        setMessages(nextMessages)
+        setTurnIndex(userCount + 1)
+        setSession((prev) => (prev ? { ...prev, messages: nextMessages } : prev))
+        return true
+      } catch {
+        setMessages(messages)
+        return false
+      } finally {
+        setIsGeneratingReply(false)
+      }
     },
     [
+      isGeneratingReply,
       messages,
       phase,
       resolveBundle,
@@ -473,33 +489,48 @@ export function TrainingAiProvider({ children }) {
     ],
   )
 
-  const finishSession = useCallback(() => {
-    if (phase !== 'running' || !session || !selectedScenario) return false
+  const finishSession = useCallback(async () => {
+    if (phase !== 'running' || !session || !selectedScenario || isJudging) return false
     const userMessages = messages.filter((m) => m.role === 'user')
     if (!userMessages.length) return false
 
-    const { report, completedSession } = completeSessionState({
-      session,
-      scenario: selectedScenario,
-      persona: selectedPersona,
-      messages,
-      answers: [],
-      mode: 'free',
-      templateLookup: findTemplate,
-    })
+    setIsJudging(true)
+    try {
+      const { report, completedSession } = await completeSessionState({
+        session,
+        scenario: selectedScenario,
+        persona: selectedPersona,
+        messages,
+        answers: [],
+        mode: 'free',
+        templateLookup: findTemplate,
+      })
 
-    setSession(completedSession)
-    setAnswers(report.answers)
-    setEvaluation(report)
-    setHistory((prev) => [report, ...prev])
-    setShowConversation(true)
-    setPhase('finished')
-    return true
-  }, [findTemplate, messages, phase, selectedPersona, selectedScenario, session])
+      setSession(completedSession)
+      setAnswers(report.answers)
+      setEvaluation(report)
+      setHistory((prev) => [report, ...prev])
+      setShowConversation(true)
+      setPhase('finished')
+      return true
+    } catch {
+      return false
+    } finally {
+      setIsJudging(false)
+    }
+  }, [
+    findTemplate,
+    isJudging,
+    messages,
+    phase,
+    selectedPersona,
+    selectedScenario,
+    session,
+  ])
 
   /** Legacy MCQ path kept for smoke / optional demos. */
   const chooseOption = useCallback(
-    (option) => {
+    async (option) => {
       if (phase !== 'running' || !session || !selectedScenario) return
       const bundle = resolveBundle(selectedScenario.id)
       const turns = bundle?.turns || []
@@ -513,7 +544,7 @@ export function TrainingAiProvider({ children }) {
 
       const nextIndex = turnIndex + 1
       if (nextIndex >= turns.length) {
-        const { report, completedSession } = completeSessionState({
+        const { report, completedSession } = await completeSessionState({
           session,
           scenario: selectedScenario,
           persona: selectedPersona,
@@ -563,6 +594,8 @@ export function TrainingAiProvider({ children }) {
     setEvaluation(null)
     setShowConversation(false)
     setDraftPersonaId(null)
+    setIsGeneratingReply(false)
+    setIsJudging(false)
   }, [])
 
   const value = {
@@ -601,6 +634,8 @@ export function TrainingAiProvider({ children }) {
     phase,
     evaluation,
     history,
+    isGeneratingReply,
+    isJudging,
     showConversation,
     setShowConversation,
     startSimulation,

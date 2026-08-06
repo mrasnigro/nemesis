@@ -4,7 +4,8 @@
  * Implementations must be swappable without changing
  * TrainingAiContext, session model, reports, or scoring.
  *
- * Current: mock only. Future: LLM / voice adapters that return the same shape.
+ * Current: llm-mock (async DNA + judge) or classic mock.
+ * Future: OpenAI-compatible HTTP adapter with the same shape.
  */
 
 /**
@@ -37,10 +38,33 @@
  */
 
 /**
+ * @typedef {Object} AiRubricJudgeRequest
+ * @property {object} template
+ * @property {AiMessageSnapshot[]} [messages]
+ * @property {object|null} [persona]
+ * @property {object|null} [scenario]
+ */
+
+/**
+ * @typedef {Object} AiRubricJudgeCriterion
+ * @property {string} criterionId
+ * @property {boolean} passed
+ * @property {string} [rationale]
+ */
+
+/**
+ * @typedef {Object} AiRubricJudgeResponse
+ * @property {string} provider
+ * @property {AiRubricJudgeCriterion[]} criteria
+ * @property {object} [meta]
+ */
+
+/**
  * @typedef {Object} AiProvider
  * @property {string} id
  * @property {string} [label]
  * @property {(request: AiPersonaReplyRequest) => AiProviderResponse|Promise<AiProviderResponse>} generatePersonaReply
+ * @property {(request: AiRubricJudgeRequest) => AiRubricJudgeResponse|Promise<AiRubricJudgeResponse>} [judgeRubric]
  */
 
 /**
@@ -61,18 +85,18 @@ export function assertAiProvider(provider) {
 
 /**
  * Resolve sync or async provider results.
- * Mock providers return sync values; future LLM providers return Promises.
+ * Mock providers return sync values; LLM-shaped providers return Promises.
  *
- * @param {AiProviderResponse|Promise<AiProviderResponse>} value
- * @returns {Promise<AiProviderResponse>}
+ * @param {AiProviderResponse|AiRubricJudgeResponse|Promise<any>} value
+ * @returns {Promise<any>}
  */
 export async function resolveProviderResponse(value) {
   return await value
 }
 
 /**
- * Sync helper for the current mock-first UI (sendMessage stays synchronous).
- * Throws if the provider returned a Promise (future LLM must use async path).
+ * Sync helper for classic mock UI paths.
+ * Throws if the provider returned a Promise (use engine async API).
  *
  * @param {AiProviderResponse|Promise<AiProviderResponse>} value
  * @returns {AiProviderResponse}

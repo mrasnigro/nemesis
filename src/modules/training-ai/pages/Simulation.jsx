@@ -55,12 +55,15 @@ export default function TrainingSimulationPage() {
     practiceMediaMode,
     sendMessage,
     finishSession,
+    isGeneratingReply,
+    isJudging,
     evaluation,
   } = useTrainingAi()
 
   const [draft, setDraft] = useState('')
   const [finishHint, setFinishHint] = useState('')
   const [listening, setListening] = useState(false)
+  const [busyHint, setBusyHint] = useState('')
 
   useEffect(() => {
     if (!canSimulate) return
@@ -83,17 +86,23 @@ export default function TrainingSimulationPage() {
   const persona = selectedPersona
   const linkedDefaultId = scenario?.personaId
 
-  function handleSend(event) {
+  async function handleSend(event) {
     event.preventDefault()
-    const ok = sendMessage(draft)
+    if (isGeneratingReply || isJudging) return
+    setBusyHint('')
+    const ok = await sendMessage(draft)
     if (ok) {
       setDraft('')
       setFinishHint('')
+    } else {
+      setBusyHint('Não foi possível gerar a resposta do agente. Tente de novo.')
     }
   }
 
-  function handleFinish() {
-    const ok = finishSession()
+  async function handleFinish() {
+    if (isGeneratingReply || isJudging) return
+    setBusyHint('')
+    const ok = await finishSession()
     if (!ok) {
       setFinishHint('Envie ao menos uma resposta antes de encerrar o treino.')
     }
@@ -294,6 +303,12 @@ export default function TrainingSimulationPage() {
                     {message.text}
                   </div>
                 ))}
+                {isGeneratingReply ? (
+                  <div className="imp-chat__bubble imp-chat__bubble--ai training-ai__typing">
+                    <span className="imp-chat__meta">{persona?.name || 'Agente'} · gerando…</span>
+                    Resposta em andamento (provider async)
+                  </div>
+                ) : null}
               </div>
 
               <form className="training-ai__composer" onSubmit={handleSend}>
@@ -307,6 +322,7 @@ export default function TrainingSimulationPage() {
                     rows={3}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
+                    disabled={isGeneratingReply || isJudging}
                     placeholder={
                       practiceMediaMode === 'voice'
                         ? 'Digite a fala que gravaria — áudio real ainda não conectado…'
@@ -318,16 +334,17 @@ export default function TrainingSimulationPage() {
                   <button
                     type="submit"
                     className="imp-btn imp-btn--primary"
-                    disabled={!draft.trim()}
+                    disabled={!draft.trim() || isGeneratingReply || isJudging}
                   >
-                    Enviar
+                    {isGeneratingReply ? 'Aguardando…' : 'Enviar'}
                   </button>
                   <button
                     type="button"
                     className="imp-btn imp-btn--ghost"
                     onClick={handleFinish}
+                    disabled={isGeneratingReply || isJudging}
                   >
-                    Encerrar treinamento
+                    {isJudging ? 'Avaliando rubrica…' : 'Encerrar treinamento'}
                   </button>
                   <span className="training-ai__meta">
                     {userMessageCount} mensagem{userMessageCount === 1 ? '' : 'ens'} sua
@@ -335,6 +352,7 @@ export default function TrainingSimulationPage() {
                   </span>
                 </div>
                 {finishHint ? <p className="training-ai__composer-hint">{finishHint}</p> : null}
+                {busyHint ? <p className="training-ai__composer-hint">{busyHint}</p> : null}
               </form>
             </>
           ) : null}

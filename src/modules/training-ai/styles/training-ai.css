@@ -1385,6 +1385,11 @@
   text-decoration: underline;
 }
 
+.training-ai__typing {
+  opacity: 0.72;
+  font-style: italic;
+}
+
 .training-ai__scenario-practice-card {
   display: grid;
   grid-template-columns: auto 1fr auto;

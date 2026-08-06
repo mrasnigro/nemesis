@@ -4,7 +4,7 @@
  */
 
 import { assertAiProvider, resolveProviderResponse, resolveProviderResponseSync } from './provider.js'
-import { createMockAiProvider } from './mockProvider.js'
+import { resolveTrainingAiProvider } from './resolveTrainingAiProvider.js'
 import {
   adaptAiTextToMessage,
   adaptOpeningToMessage,
@@ -16,7 +16,7 @@ import {
  * @param {{ provider?: import('./provider.js').AiProvider }} [options]
  */
 export function createConversationEngine(options = {}) {
-  let provider = options.provider || createMockAiProvider()
+  let provider = options.provider || resolveTrainingAiProvider()
   assertAiProvider(provider)
 
   return {
@@ -25,7 +25,7 @@ export function createConversationEngine(options = {}) {
     },
 
     /**
-     * Swap provider at runtime (future LLM). Context need not change.
+     * Swap provider at runtime. Context need not change.
      * @param {import('./provider.js').AiProvider} nextProvider
      */
     setProvider(nextProvider) {
@@ -47,7 +47,7 @@ export function createConversationEngine(options = {}) {
     },
 
     /**
-     * Sync persona reply (mock provider). Used by TrainingAiContext today.
+     * Sync persona reply — only for sync providers (classic mock).
      */
     generateReplyMessage(request = {}) {
       const raw = provider.generatePersonaReply({
@@ -67,7 +67,7 @@ export function createConversationEngine(options = {}) {
     },
 
     /**
-     * Async persona reply — ready for future Promise-based providers.
+     * Async persona reply — preferred path (llm-mock / future HTTP).
      */
     async generateReplyMessageAsync(request = {}) {
       const raw = provider.generatePersonaReply({
@@ -99,7 +99,7 @@ export function getConversationEngine() {
 }
 
 /**
- * Replace the default provider (tests / future feature flags).
+ * Replace the default provider (tests / feature flags).
  * @param {import('./provider.js').AiProvider} provider
  */
 export function configureConversationProvider(provider) {
@@ -107,8 +107,10 @@ export function configureConversationProvider(provider) {
   return engine.setProvider(provider)
 }
 
-/** Reset to a fresh mock engine (smoke / tests). */
-export function resetConversationEngine() {
-  defaultEngine = createConversationEngine({ provider: createMockAiProvider() })
+/** Reset to a fresh engine from env resolver (smoke / tests). */
+export function resetConversationEngine(options = {}) {
+  defaultEngine = createConversationEngine({
+    provider: options.provider || resolveTrainingAiProvider(),
+  })
   return defaultEngine
 }

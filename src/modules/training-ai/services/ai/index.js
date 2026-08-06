@@ -12,6 +12,13 @@ export {
 } from './provider.js'
 
 export { createMockAiProvider, generateMockReply } from './mockProvider.js'
+export {
+  createLlmMockAiProvider,
+  generateLlmMockReply,
+  judgeRubricHeuristic,
+} from './llmMockProvider.js'
+export { resolveTrainingAiProvider, readTrainingAiProviderId } from './resolveTrainingAiProvider.js'
+export { judgeSessionRubric, judgmentToAnswers } from './judge.js'
 
 export {
   adaptAiTextToMessage,

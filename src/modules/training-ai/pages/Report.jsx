@@ -129,6 +129,7 @@ export default function TrainingReportPage() {
           <h2>{report.scenarioTitle}</h2>
           <p>
             Agente: {report.personaName} · Playbook: {report.templateTitle} · {mediaLabel}
+            {report.judgeSource ? ` · Judge: ${report.judgeSource}` : ''}
             {report.sessionId ? ` · ${report.sessionId}` : ''}
           </p>
         </div>
@@ -251,6 +252,9 @@ export default function TrainingReportPage() {
                     <div className="training-ai__criterion-body">
                       <strong>{criterion.name}</strong>
                       <p>{criterion.yesNoQuestion}</p>
+                      {criterion.rationale ? (
+                        <p className="training-ai__meta">{criterion.rationale}</p>
+                      ) : null}
                     </div>
                     <span className="training-ai__criterion-weight">{criterion.weight}%</span>
                   </div>
