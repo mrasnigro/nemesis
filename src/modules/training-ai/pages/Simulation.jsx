@@ -52,6 +52,7 @@ export default function TrainingSimulationPage() {
     beginConversation,
     sendMessage,
     finishSession,
+    evaluation,
   } = useTrainingAi()
 
   const [draft, setDraft] = useState('')
@@ -66,10 +67,12 @@ export default function TrainingSimulationPage() {
   }, [canSimulate, navigate, scenarioId, selectedScenario, startSimulation])
 
   useEffect(() => {
-    if (phase === 'finished') {
+    if (phase === 'finished' && evaluation?.sessionId) {
+      navigate(`/modules/training-ai/relatorio/sessao/${evaluation.sessionId}`, { replace: true })
+    } else if (phase === 'finished') {
       navigate(`/modules/training-ai/relatorio/${scenarioId}`, { replace: true })
     }
-  }, [navigate, phase, scenarioId])
+  }, [evaluation, navigate, phase, scenarioId])
 
   const scenario =
     selectedScenario || scenarios.find((item) => item.id === scenarioId) || null
@@ -225,10 +228,23 @@ export default function TrainingSimulationPage() {
                   {persona?.negotiatorType})
                 </dd>
               </dl>
+              {persona?.objections?.length ? (
+                <dl className="training-ai__briefing-block">
+                  <dt>Objeções esperadas</dt>
+                  <dd>{persona.objections.join(' · ')}</dd>
+                </dl>
+              ) : null}
+              {persona?.openingLine ? (
+                <dl className="training-ai__briefing-block">
+                  <dt>Abertura do agente</dt>
+                  <dd>{persona.openingLine}</dd>
+                </dl>
+              ) : null}
               <dl className="training-ai__briefing-block">
                 <dt>Modo</dt>
                 <dd>
-                  Conversa por texto. Ao final, a rubrica avalia suas falas e gera o relatório.
+                  Conversa por texto. Ao final, o playbook gera score e insights na Central de
+                  Insights.
                 </dd>
               </dl>
               <button

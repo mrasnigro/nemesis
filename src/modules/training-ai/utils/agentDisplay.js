@@ -1,3 +1,10 @@
+import { sectionWeightsFromTemplate as sectionWeightsFromPlaybook } from '../data/evaluationTemplates.js'
+
+/** Re-export for UI (report §5 — stage weight = sum of children). */
+export function sectionWeightsFromTemplate(template) {
+  return sectionWeightsFromPlaybook(template)
+}
+
 /** Derive short trait pills from persona fields. */
 
 const TRAIT_FROM_NEGOTIATOR = {
@@ -30,17 +37,10 @@ export function derivePersonaTraits(persona = {}) {
 
 export function personaStatus(persona = {}) {
   const status = persona.status || 'active'
+  if (status === 'draft') return { id: 'draft', label: 'Rascunho', tone: 'muted' }
   if (status === 'paused') return { id: 'paused', label: 'Pausado', tone: 'amber' }
   if (status === 'inactive') return { id: 'inactive', label: 'Inativo', tone: 'muted' }
   return { id: 'active', label: 'Ativo', tone: 'green' }
-}
-
-export function sectionWeightsFromTemplate(template) {
-  return (template?.sections || []).map((section) => ({
-    id: section.id,
-    name: section.name,
-    weight: (section.criteria || []).reduce((sum, c) => sum + (Number(c.weight) || 0), 0),
-  }))
 }
 
 export function estimateSessionMetrics(report) {
@@ -65,10 +65,16 @@ export function estimateSessionMetrics(report) {
 
   return {
     durationLabel: `${mm}:${ss}`,
+    durationSec,
     messageCount: messages.length,
     userMessageCount: userMsgs.length,
     talkShare,
     questionHints: userMsgs.filter((m) => /\?|por que|como|quando|quem/i.test(m.text || ''))
       .length,
+    ideal: {
+      duration: 'Ideal: 5–15 min (texto)',
+      talkShare: 'Ideal: 40–60%',
+      questions: 'Ideal: 5–10 perguntas',
+    },
   }
 }

@@ -22,6 +22,10 @@ export default function TrainingScenarioFormPage() {
     canManage,
   } = useTrainingAi()
 
+  const playbookOptions = (evaluationTemplates || []).filter(
+    (item) => (item.status || 'published') === 'published',
+  )
+
   const existing = isEdit ? getScenario(scenarioId) : null
 
   const initial = useMemo(() => {
@@ -35,7 +39,7 @@ export default function TrainingScenarioFormPage() {
         durationMin: existing.durationMin || 10,
         funnelStage: existing.funnelStage || FUNNEL_STAGE_OPTIONS[0],
         personaId: existing.personaId || '',
-        evaluationTemplateId: existing.evaluationTemplateId || evaluationTemplates[0]?.id || '',
+        evaluationTemplateId: existing.evaluationTemplateId || playbookOptions[0]?.id || '',
         sellerInstructions: existing.sellerInstructions || '',
         scriptHintsText: (existing.scriptHints || []).join('\n'),
         focusText: (existing.focus || []).join('\n'),
@@ -43,7 +47,7 @@ export default function TrainingScenarioFormPage() {
     }
     const draft = createEmptyScenarioDraft({
       personaId: personas[0]?.id || '',
-      evaluationTemplateId: evaluationTemplates[0]?.id || '',
+      evaluationTemplateId: playbookOptions[0]?.id || '',
     })
     return {
       ...draft,
@@ -225,13 +229,13 @@ export default function TrainingScenarioFormPage() {
           </label>
 
           <label className="imp-field">
-            <span>Template de avaliação</span>
+            <span>Playbook de score (publicado)</span>
             <select
               value={form.evaluationTemplateId}
               onChange={(event) => patch('evaluationTemplateId', event.target.value)}
               required
             >
-              {evaluationTemplates.map((item) => (
+              {playbookOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title}
                 </option>

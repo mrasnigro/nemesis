@@ -14,6 +14,7 @@ function newSection(index) {
   return {
     id: `sec_${Date.now()}_${index}`,
     name: '',
+    description: '',
     criteria: [createEmptyCriterionDraft(1)],
   }
 }
@@ -231,18 +232,39 @@ export default function TrainingTemplateFormPage() {
               ))}
             </select>
           </label>
+
+          <label className="imp-field">
+            <span>Publicação</span>
+            <select
+              value={form.status || 'draft'}
+              onChange={(event) => patchRoot('status', event.target.value)}
+            >
+              <option value="published">Publicado</option>
+              <option value="draft">Rascunho</option>
+            </select>
+          </label>
         </div>
 
         {(form.sections || []).map((section, sectionIndex) => (
           <div key={section.id || sectionIndex} className="training-ai__template-section">
             <div className="training-ai__template-section-head">
               <label className="imp-field">
-                <span>Seção</span>
+                <span>Etapa</span>
                 <input
                   value={section.name}
                   onChange={(event) => patchSection(sectionIndex, 'name', event.target.value)}
                   placeholder="Ex.: Abertura"
                   required
+                />
+              </label>
+              <label className="imp-field">
+                <span>Descrição da etapa</span>
+                <input
+                  value={section.description || ''}
+                  onChange={(event) =>
+                    patchSection(sectionIndex, 'description', event.target.value)
+                  }
+                  placeholder="Ex.: Estabelecer contato e gerar interesse"
                 />
               </label>
               <div className="imp-actions">

@@ -117,7 +117,12 @@ export default function TrainingTemplateDetailPage() {
                 >
                   <div className="training-ai__rubric-section">
                     <div className="training-ai__rubric-section-head">
-                      <h3>{section.name}</h3>
+                      <div>
+                        <h3>{section.name}</h3>
+                        {section.description ? (
+                          <p className="training-ai__meta">{section.description}</p>
+                        ) : null}
+                      </div>
                       <span>{sectionWeight}%</span>
                     </div>
                     {(section.criteria || []).map((criterion) => (

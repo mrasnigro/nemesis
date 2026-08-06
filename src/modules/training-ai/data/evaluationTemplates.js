@@ -1,7 +1,6 @@
 /**
- * Evaluation rubrics for Training IA (mock).
- * Weights across all criteria in a template must sum to 100.
- * Pass/fail in free-text mode uses criterion.passRule (keywords / avoid_keywords).
+ * Evaluation rubrics / Playbooks de Score — report §5.
+ * Weights across all criteria must sum to 100; stage weight = sum of children.
  */
 
 export const CONTACT_TYPE_OPTIONS = [
@@ -16,6 +15,19 @@ export const PASS_RULE_TYPES = [
   { id: 'keywords', label: 'Passa se a fala contiver palavras-chave' },
   { id: 'avoid_keywords', label: 'Passa se a fala evitar palavras-chave' },
 ]
+
+export const PLAYBOOK_STATUSES = ['published', 'draft']
+
+/** Stage description defaults for seed timeline (client playbook mockup). */
+const STAGE_DEFAULT_DESCRIPTIONS = {
+  Abertura: 'Estabelecer contato e gerar interesse inicial.',
+  'Proposta de valor': 'Trazer insight e proposta clara de valor.',
+  Qualificação: 'Entender necessidades e contexto do prospect.',
+  'Tratamento de objeção': 'Reposicionar valor sem conceder desconto precoce.',
+  Fechamento: 'Consolidar próximo passo e compromisso.',
+  Discovery: 'Mapear dor, stakeholders e termômetro.',
+  'Termômetro e fecho': 'Fechar com marco e playbook leve.',
+}
 
 export const seedEvaluationTemplates = [
   {
@@ -277,11 +289,24 @@ export const seedEvaluationTemplates = [
   },
 ]
 
+for (const template of seedEvaluationTemplates) {
+  if (!template.status) template.status = 'published'
+  for (const section of template.sections || []) {
+    if (!section.description) {
+      section.description = STAGE_DEFAULT_DESCRIPTIONS[section.name] || ''
+    }
+  }
+}
+
 /** Alias for seed / smoke imports */
 export const evaluationTemplates = seedEvaluationTemplates
 
 export function getEvaluationTemplate(templateId, list = seedEvaluationTemplates) {
   return list.find((item) => item.id === templateId) || null
+}
+
+export function publishedTemplates(list = seedEvaluationTemplates) {
+  return (list || []).filter((item) => (item.status || 'published') === 'published')
 }
 
 export function flattenCriteria(template) {
@@ -291,8 +316,18 @@ export function flattenCriteria(template) {
       ...criterion,
       sectionId: section.id,
       sectionName: section.name,
+      sectionDescription: section.description || '',
     })),
   )
+}
+
+export function sectionWeightsFromTemplate(template) {
+  return (template?.sections || []).map((section) => ({
+    id: section.id,
+    name: section.name,
+    description: section.description || '',
+    weight: (section.criteria || []).reduce((sum, c) => sum + (Number(c.weight) || 0), 0),
+  }))
 }
 
 export function assertTemplateWeights(template) {
@@ -324,10 +359,12 @@ export function createEmptyTemplateDraft() {
     title: '',
     description: '',
     contactType: 'custom',
+    status: 'draft',
     sections: [
       {
         id: 'sec_geral',
         name: 'Geral',
+        description: '',
         criteria: [
           {
             id: 'crit_1',
@@ -336,6 +373,7 @@ export function createEmptyTemplateDraft() {
             yesNoQuestion: '',
             passRule: { type: 'keywords', keywords: [] },
             keywordsText: '',
+            active: true,
           },
           {
             id: 'crit_2',
@@ -344,6 +382,7 @@ export function createEmptyTemplateDraft() {
             yesNoQuestion: '',
             passRule: { type: 'keywords', keywords: [] },
             keywordsText: '',
+            active: true,
           },
         ],
       },
@@ -367,14 +406,17 @@ export function templateToFormState(template) {
     title: template.title || '',
     description: template.description || '',
     contactType: template.contactType || 'custom',
+    status: template.status || 'published',
     sections: (template.sections || []).map((section) => ({
       id: section.id,
       name: section.name || '',
+      description: section.description || '',
       criteria: (section.criteria || []).map((criterion) => ({
         id: criterion.id,
         name: criterion.name || '',
         weight: criterion.weight ?? 0,
         yesNoQuestion: criterion.yesNoQuestion || '',
+        active: criterion.active !== false,
         passRule: {
           type: criterion.passRule?.type || 'keywords',
           keywords: criterion.passRule?.keywords || [],
@@ -393,8 +435,9 @@ export function normalizeTemplateInput(input = {}) {
   const title = String(input.title || '').trim()
   const description = String(input.description || '').trim()
   const contactType = String(input.contactType || 'custom').trim()
+  const status = PLAYBOOK_STATUSES.includes(input.status) ? input.status : 'draft'
 
-  if (!title) errors.push('Informe o nome do template.')
+  if (!title) errors.push('Informe o nome do playbook.')
   if (!description) errors.push('Informe a descrição.')
 
   const rawSections = Array.isArray(input.sections) ? input.sections : []
@@ -406,8 +449,9 @@ export function normalizeTemplateInput(input = {}) {
   for (let sIdx = 0; sIdx < rawSections.length; sIdx += 1) {
     const rawSection = rawSections[sIdx] || {}
     const sectionName = String(rawSection.name || '').trim()
+    const sectionDescription = String(rawSection.description || '').trim()
     if (!sectionName) {
-      errors.push(`Informe o nome da seção ${sIdx + 1}.`)
+      errors.push(`Informe o nome da etapa ${sIdx + 1}.`)
       continue
     }
 
@@ -456,6 +500,7 @@ export function normalizeTemplateInput(input = {}) {
         name,
         weight: Math.round(weight),
         yesNoQuestion,
+        active: raw.active !== false,
         passRule: {
           type: ruleType,
           keywords,
@@ -466,11 +511,12 @@ export function normalizeTemplateInput(input = {}) {
     sections.push({
       id: String(rawSection.id || '').trim() || `sec_${slugify(sectionName, `s${sIdx + 1}`)}`,
       name: sectionName,
+      description: sectionDescription,
       criteria,
     })
   }
 
-  const candidate = { title, description, contactType, sections }
+  const candidate = { title, description, contactType, status, sections }
   const weightTotal = totalTemplateWeight(candidate)
   if (sections.length && weightTotal !== 100) {
     errors.push(`A soma dos pesos deve ser 100 (atual: ${weightTotal}).`)

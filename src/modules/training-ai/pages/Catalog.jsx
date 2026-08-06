@@ -144,8 +144,12 @@ export default function TrainingCatalogPage() {
             <div className="imp-list">
               {history.slice(0, 5).map((item) => (
                 <Link
-                  key={`${item.id}-${item.completedAt}`}
-                  to={`/modules/training-ai/relatorio/${item.scenarioId}`}
+                  key={`${item.sessionId || item.id}-${item.completedAt}`}
+                  to={
+                    item.sessionId
+                      ? `/modules/training-ai/relatorio/sessao/${item.sessionId}`
+                      : `/modules/training-ai/relatorio/${item.scenarioId}`
+                  }
                   className="imp-list-item"
                 >
                   <div>

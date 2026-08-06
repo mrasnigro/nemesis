@@ -339,7 +339,7 @@ export function TrainingAiProvider({ children }) {
       setAnswers([])
       setTurnIndex(0)
       setEvaluation(null)
-      setShowConversation(false)
+      setShowConversation(true)
       setDraftPersonaId(
         personaOverride?.id || bundle.scenario.personaId || personas[0]?.id || null,
       )

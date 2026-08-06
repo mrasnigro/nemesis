@@ -3,8 +3,21 @@ import SectionRadar from '../components/SectionRadar.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { estimateSessionMetrics } from '../utils/agentDisplay.js'
 
+function formatClock(iso) {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  } catch {
+    return ''
+  }
+}
+
 export default function TrainingReportPage() {
-  const { scenarioId } = useParams()
+  const { scenarioId, sessionId } = useParams()
   const {
     evaluation,
     history,
@@ -15,8 +28,12 @@ export default function TrainingReportPage() {
   } = useTrainingAi()
 
   const report =
-    (evaluation?.scenarioId === scenarioId && evaluation) ||
-    history.find((item) => item.scenarioId === scenarioId) ||
+    (sessionId &&
+      ((evaluation?.sessionId === sessionId && evaluation) ||
+        history.find((item) => item.sessionId === sessionId))) ||
+    (scenarioId &&
+      ((evaluation?.scenarioId === scenarioId && evaluation) ||
+        history.find((item) => item.scenarioId === scenarioId))) ||
     null
 
   if (!canReport) {
@@ -35,7 +52,7 @@ export default function TrainingReportPage() {
       <section className="imp-module">
         <div className="training-ai__empty">
           <h3>Análise indisponível</h3>
-          <p>Não há relatório para este cenário na sessão atual.</p>
+          <p>Não há relatório para esta sessão na navegação atual.</p>
           <div className="imp-actions">
             <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--primary">
               Voltar aos insights
@@ -48,13 +65,9 @@ export default function TrainingReportPage() {
 
   const band = report.band || { label: '—', tone: 'muted' }
   const metrics = estimateSessionMetrics(report)
-  const nextSteps =
-    report.improvements?.length > 0
-      ? [
-          `Refazer o cenário focando em: ${report.improvements[0]}`,
-          'Revisar o playbook vinculado e as perguntas sim/não que falharam.',
-        ]
-      : ['Manter a prática com um agente de dificuldade maior.']
+  const redoScenarioId = report.scenarioId
+  const feedback = report.coachFeedback || []
+  const nextSteps = report.nextSteps || []
 
   return (
     <section className="imp-module">
@@ -62,7 +75,7 @@ export default function TrainingReportPage() {
         <div>
           <h2>Central de Insights · Análise</h2>
           <p>
-            {report.scenarioTitle} · {report.personaName} ·{' '}
+            {report.scenarioTitle} · Agente {report.personaName} ·{' '}
             {new Date(report.completedAt).toLocaleString('pt-BR')}
           </p>
         </div>
@@ -80,14 +93,14 @@ export default function TrainingReportPage() {
             className="imp-btn imp-btn--ghost"
             onClick={() => setShowConversation((value) => !value)}
           >
-            {showConversation ? 'Ocultar transcrição' : 'Ver transcrição'}
+            {showConversation ? 'Ocultar transcrição' : 'Ver conversa'}
           </button>
           <Link
-            to={`/modules/training-ai/simulacao/${scenarioId}`}
+            to={`/modules/training-ai/simulacao/${redoScenarioId}`}
             className="imp-btn imp-btn--primary"
             onClick={resetSimulation}
           >
-            Refazer
+            Refazer simulação
           </Link>
         </div>
       </header>
@@ -97,6 +110,7 @@ export default function TrainingReportPage() {
           <h2>{report.scenarioTitle}</h2>
           <p>
             Agente: {report.personaName} · Playbook: {report.templateTitle} · Conversa por texto
+            {report.sessionId ? ` · ${report.sessionId}` : ''}
           </p>
         </div>
         <div className="training-ai__report-score">
@@ -111,7 +125,7 @@ export default function TrainingReportPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Transcrição</h2>
-              <p>Diálogo da simulação com timestamps.</p>
+              <p>≥50% da tela — diálogo com timestamps (mockup Insights).</p>
             </div>
           </div>
           {showConversation ? (
@@ -119,6 +133,7 @@ export default function TrainingReportPage() {
               {(report.messages || []).map((message) => (
                 <div
                   key={message.id}
+                  id={`msg-${message.id}`}
                   className={`imp-chat__bubble imp-chat__bubble--${
                     message.role === 'ai' ? 'ai' : 'user'
                   }`}
@@ -126,13 +141,7 @@ export default function TrainingReportPage() {
                   <span className="imp-chat__meta">
                     {message.speaker ||
                       (message.role === 'ai' ? report.personaName : 'Vendedor')}
-                    {message.timestamp
-                      ? ` · ${new Date(message.timestamp).toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}`
-                      : ''}
+                    {message.timestamp ? ` · ${formatClock(message.timestamp)}` : ''}
                   </span>
                   {message.text}
                 </div>
@@ -141,9 +150,33 @@ export default function TrainingReportPage() {
           ) : (
             <div className="training-ai__empty">
               <h3>Transcrição oculta</h3>
-              <p>Use “Ver transcrição” para revisar o diálogo completo.</p>
+              <p>Use “Ver conversa” para revisitar o diálogo (padrão dos vídeos).</p>
             </div>
           )}
+
+          {feedback.length ? (
+            <div className="training-ai__rubric training-ai__rubric--spaced">
+              <h3 style={{ margin: '0 0 0.75rem', color: 'var(--text-h)', fontSize: '0.95rem' }}>
+                Coaching com âncora na fala (vídeo)
+              </h3>
+              <ul className="training-ai__list">
+                {feedback.map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.title}</strong> — {item.detail}
+                    {item.messageText ? (
+                      <>
+                        {' '}
+                        <a href={`#msg-${item.messageId}`} className="training-ai__meta">
+                          Ver fala · {formatClock(item.timestamp)}
+                        </a>
+                        <div className="training-ai__meta">“{item.messageText}”</div>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <div className="training-ai__rubric training-ai__rubric--spaced">
             <h3 style={{ margin: '0 0 0.75rem', color: 'var(--text-h)', fontSize: '0.95rem' }}>
@@ -194,13 +227,23 @@ export default function TrainingReportPage() {
             <div className="imp-panel__header">
               <div>
                 <h2>Principais métricas</h2>
-                <p>Derivadas da conversa por texto</p>
+                <p>Derivadas do texto (sem áudio — report R4/R5)</p>
               </div>
             </div>
             <ul className="training-ai__metric-checks">
               <li>
                 <span>Duração estimada</span>
-                <strong>{metrics.durationLabel}</strong>
+                <strong>
+                  {metrics.durationLabel}
+                  <span className="training-ai__meta"> · {metrics.ideal.duration}</span>
+                </strong>
+              </li>
+              <li>
+                <span>Share de fala (est.)</span>
+                <strong>
+                  {metrics.talkShare}%
+                  <span className="training-ai__meta"> · {metrics.ideal.talkShare}</span>
+                </strong>
               </li>
               <li>
                 <span>Mensagens (você)</span>
@@ -209,12 +252,11 @@ export default function TrainingReportPage() {
                 </strong>
               </li>
               <li>
-                <span>Share de fala (estimado)</span>
-                <strong>{metrics.talkShare}%</strong>
-              </li>
-              <li>
                 <span>Perguntas detectadas</span>
-                <strong>{metrics.questionHints}</strong>
+                <strong>
+                  {metrics.questionHints}
+                  <span className="training-ai__meta"> · {metrics.ideal.questions}</span>
+                </strong>
               </li>
             </ul>
           </div>

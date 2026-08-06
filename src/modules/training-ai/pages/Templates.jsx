@@ -62,7 +62,15 @@ export default function TrainingTemplatesPage() {
                         {stages === 1 ? '' : 's'} · {criteria.length} critérios
                       </p>
                     </div>
-                    <span className="imp-pill imp-pill--green">Ativo</span>
+                    <span
+                      className={`imp-pill ${
+                        (template.status || 'published') === 'published'
+                          ? 'imp-pill--green'
+                          : 'imp-pill--muted'
+                      }`}
+                    >
+                      {(template.status || 'published') === 'published' ? 'Publicado' : 'Rascunho'}
+                    </span>
                   </header>
                   <p className="training-ai__scenario-card-desc">{template.description}</p>
                   <p className="training-ai__meta">

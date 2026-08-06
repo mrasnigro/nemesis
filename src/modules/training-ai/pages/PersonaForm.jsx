@@ -6,16 +6,23 @@ import {
   INDUSTRY_OPTIONS,
   NEGOTIATOR_TYPES,
   PERSONA_DIFFICULTIES,
+  SALES_MODELS,
 } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
+/** Report mockup wizard + video field checklist (awareness, B2B, lists). */
 const WIZARD_STEPS = [
   { id: 'basics', label: 'Informações básicas', hint: 'Nome, papel e objetivo' },
   { id: 'scenario', label: 'Construção do cenário', hint: 'Instruções e contexto' },
   { id: 'modes', label: 'Modos de interação', hint: 'Texto disponível agora' },
-  { id: 'behavior', label: 'Características comportamentais', hint: 'Objeções e traços' },
-  { id: 'review', label: 'Revisão e publicação', hint: 'Confirme e salve' },
+  { id: 'behavior', label: 'Características comportamentais', hint: 'Objeções e DNA' },
+  { id: 'advanced', label: 'Configurações avançadas', hint: 'Consciência e B2B' },
+  { id: 'review', label: 'Revisão e publicação', hint: 'Confirme e publique' },
 ]
+
+function listToText(list) {
+  return (list || []).join('\n')
+}
 
 export default function TrainingPersonaFormPage() {
   const { personaId } = useParams()
@@ -39,16 +46,24 @@ export default function TrainingPersonaFormPage() {
         company: existing.company || '',
         industry: existing.industry || 'SaaS B2B',
         location: existing.location || '',
+        language: existing.language || 'pt-BR',
         negotiatorType: existing.negotiatorType || 'Cliente Analítico',
+        tone: existing.tone || '',
         behavior: existing.behavior || existing.mood || '',
         difficulty: existing.difficulty || 'beginner',
         mood: existing.mood || '',
         openingLine: existing.openingLine || '',
-        objectionsText: (existing.objections || []).join('\n'),
-        prioritiesText: (existing.priorities || []).join('\n'),
+        objectionsText: listToText(existing.objections),
+        prioritiesText: listToText(existing.priorities),
+        personalDetailsText: listToText(existing.personalDetails),
+        beliefsText: listToText(existing.beliefs),
+        problemAwareness: existing.problemAwareness || '',
+        solutionAwareness: existing.solutionAwareness || '',
+        salesModel: existing.salesModel || 'b2b',
+        companyInfo: existing.companyInfo || '',
         trainingObjective: existing.trainingObjective || '',
         status: existing.status || 'active',
-        traitsText: (existing.traits || []).join('\n'),
+        traitsText: listToText(existing.traits),
         interactionMode: existing.interactionMode || 'text',
         scenarioContext: existing.scenarioContext || '',
       }
@@ -58,6 +73,8 @@ export default function TrainingPersonaFormPage() {
       ...draft,
       objectionsText: '',
       prioritiesText: '',
+      personalDetailsText: '',
+      beliefsText: '',
       traitsText: '',
     }
   }, [createEmptyPersonaDraft, existing])
@@ -97,11 +114,11 @@ export default function TrainingPersonaFormPage() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  function handleSubmit(event) {
-    event.preventDefault()
+  function save(publishStatus) {
     setSaving(true)
     setErrors([])
-    const result = isEdit ? updatePersona(personaId, form) : createPersona(form)
+    const payload = { ...form, status: publishStatus || form.status }
+    const result = isEdit ? updatePersona(personaId, payload) : createPersona(payload)
     setSaving(false)
     if (!result.ok) {
       setErrors(result.errors || [result.error || 'Não foi possível salvar.'])
@@ -109,6 +126,11 @@ export default function TrainingPersonaFormPage() {
       return
     }
     navigate(`/modules/training-ai/personas/${result.persona.id}`)
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault()
+    save(form.status === 'draft' ? 'active' : form.status || 'active')
   }
 
   const step = WIZARD_STEPS[stepIndex]
@@ -119,7 +141,10 @@ export default function TrainingPersonaFormPage() {
       <header className="training-ai__page-header">
         <div>
           <h2>{isEdit ? 'Editar Agente' : 'Criar Novo Agente'}</h2>
-          <p>Configure o cérebro comportamental da simulação em etapas.</p>
+          <p>
+            Configure o cérebro comportamental — layout alinhado ao mockup IMP; campos extras dos
+            vídeos de referência.
+          </p>
         </div>
         <div className="training-ai__page-header-actions">
           <Link
@@ -178,19 +203,11 @@ export default function TrainingPersonaFormPage() {
             <div className="training-ai__form-grid">
               <label className="imp-field">
                 <span>Nome do agente*</span>
-                <input
-                  value={form.name}
-                  onChange={(e) => patch('name', e.target.value)}
-                  required
-                />
+                <input value={form.name} onChange={(e) => patch('name', e.target.value)} required />
               </label>
               <label className="imp-field">
                 <span>Função / papel*</span>
-                <input
-                  value={form.role}
-                  onChange={(e) => patch('role', e.target.value)}
-                  required
-                />
+                <input value={form.role} onChange={(e) => patch('role', e.target.value)} required />
               </label>
               <label className="imp-field training-ai__form-span-2">
                 <span>Objetivo principal*</span>
@@ -202,16 +219,29 @@ export default function TrainingPersonaFormPage() {
                 />
               </label>
               <label className="imp-field">
+                <span>Tom de voz</span>
+                <input
+                  value={form.tone}
+                  onChange={(e) => patch('tone', e.target.value)}
+                  placeholder="Ex.: Objetivo, consultivo"
+                />
+              </label>
+              <label className="imp-field">
                 <span>Departamento / indústria*</span>
-                <select
-                  value={form.industry}
-                  onChange={(e) => patch('industry', e.target.value)}
-                >
+                <select value={form.industry} onChange={(e) => patch('industry', e.target.value)}>
                   {INDUSTRY_OPTIONS.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className="imp-field">
+                <span>Idioma</span>
+                <select value={form.language} onChange={(e) => patch('language', e.target.value)}>
+                  <option value="pt-BR">Português (Brasil)</option>
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
                 </select>
               </label>
               <label className="imp-field">
@@ -247,12 +277,12 @@ export default function TrainingPersonaFormPage() {
           {step.id === 'scenario' ? (
             <div className="training-ai__form-grid">
               <label className="imp-field training-ai__form-span-2">
-                <span>Instruções ao vendedor (objetivo de treino já acima)</span>
+                <span>Instruções / DNA comportamental* (até ~2000)</span>
                 <textarea
                   rows={4}
                   value={form.behavior}
                   onChange={(e) => patch('behavior', e.target.value)}
-                  placeholder="Como o agente se comporta e o que o vendedor deve praticar"
+                  maxLength={2000}
                   required
                 />
               </label>
@@ -262,7 +292,8 @@ export default function TrainingPersonaFormPage() {
                   rows={4}
                   value={form.scenarioContext}
                   onChange={(e) => patch('scenarioContext', e.target.value)}
-                  placeholder="Mercado, produto, público e vantagens competitivas"
+                  maxLength={2000}
+                  placeholder="Mercado, público, produto — o que o vendedor precisa saber"
                 />
               </label>
               <label className="imp-field training-ai__form-span-2">
@@ -276,26 +307,31 @@ export default function TrainingPersonaFormPage() {
           ) : null}
 
           {step.id === 'modes' ? (
-            <div className="training-ai__mode-cards">
-              <button
-                type="button"
-                className={`training-ai__mode-card ${
-                  form.interactionMode === 'text' ? 'is-selected' : ''
-                }`}
-                onClick={() => patch('interactionMode', 'text')}
-              >
-                <strong>Texto</strong>
-                <small>Conversa por chat — disponível neste protótipo.</small>
-              </button>
-              <button type="button" className="training-ai__mode-card" disabled>
-                <strong>Voz</strong>
-                <small>Em breve — fora deste protótipo.</small>
-              </button>
-              <button type="button" className="training-ai__mode-card" disabled>
-                <strong>Ambos</strong>
-                <small>Em breve — fora deste protótipo.</small>
-              </button>
-            </div>
+            <>
+              <div className="training-ai__mode-cards">
+                <button
+                  type="button"
+                  className={`training-ai__mode-card ${
+                    form.interactionMode === 'text' ? 'is-selected' : ''
+                  }`}
+                  onClick={() => patch('interactionMode', 'text')}
+                >
+                  <strong>Texto</strong>
+                  <small>Conversa por chat — disponível neste protótipo.</small>
+                </button>
+                <button type="button" className="training-ai__mode-card" disabled>
+                  <strong>Voz</strong>
+                  <small>Stub — fora do protótipo (report R4).</small>
+                </button>
+                <button type="button" className="training-ai__mode-card" disabled>
+                  <strong>Ambos</strong>
+                  <small>Stub — fora do protótipo (report R4).</small>
+                </button>
+              </div>
+              <p className="training-ai__meta" style={{ marginTop: '0.85rem' }}>
+                Modo de voz permanece só como UI; simulação atual é texto-first.
+              </p>
+            </>
           ) : null}
 
           {step.id === 'behavior' ? (
@@ -319,19 +355,28 @@ export default function TrainingPersonaFormPage() {
                   <option value="active">Ativo</option>
                   <option value="paused">Pausado</option>
                   <option value="inactive">Inativo</option>
+                  <option value="draft">Rascunho</option>
                 </select>
               </label>
               <label className="imp-field training-ai__form-span-2">
-                <span>Traços (até 3, um por linha)</span>
+                <span>Traços (até 3 pills no card)</span>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={form.traitsText}
                   onChange={(e) => patch('traitsText', e.target.value)}
                   placeholder={'Analítico\nDominante\nConfiante'}
                 />
               </label>
               <label className="imp-field training-ai__form-span-2">
-                <span>Objeções* (uma por linha)</span>
+                <span>Detalhes pessoais (vídeo — um por linha)</span>
+                <textarea
+                  rows={3}
+                  value={form.personalDetailsText}
+                  onChange={(e) => patch('personalDetailsText', e.target.value)}
+                />
+              </label>
+              <label className="imp-field training-ai__form-span-2">
+                <span>Objeções* (exatamente como o agente falaria)</span>
                 <textarea
                   rows={4}
                   value={form.objectionsText}
@@ -340,13 +385,67 @@ export default function TrainingPersonaFormPage() {
                 />
               </label>
               <label className="imp-field training-ai__form-span-2">
-                <span>Prioridades (opcional)</span>
+                <span>Prioridades</span>
                 <textarea
                   rows={3}
                   value={form.prioritiesText}
                   onChange={(e) => patch('prioritiesText', e.target.value)}
                 />
               </label>
+              <label className="imp-field training-ai__form-span-2">
+                <span>Crenças e opiniões</span>
+                <textarea
+                  rows={3}
+                  value={form.beliefsText}
+                  onChange={(e) => patch('beliefsText', e.target.value)}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {step.id === 'advanced' ? (
+            <div className="training-ai__form-grid">
+              <label className="imp-field training-ai__form-span-2">
+                <span>Consciência do problema</span>
+                <textarea
+                  rows={3}
+                  value={form.problemAwareness}
+                  onChange={(e) => patch('problemAwareness', e.target.value)}
+                />
+              </label>
+              <label className="imp-field training-ai__form-span-2">
+                <span>Consciência da solução</span>
+                <textarea
+                  rows={3}
+                  value={form.solutionAwareness}
+                  onChange={(e) => patch('solutionAwareness', e.target.value)}
+                />
+              </label>
+              <div className="training-ai__form-span-2 training-ai__mode-cards">
+                {SALES_MODELS.map((model) => (
+                  <button
+                    key={model.id}
+                    type="button"
+                    className={`training-ai__mode-card ${
+                      form.salesModel === model.id ? 'is-selected' : ''
+                    }`}
+                    onClick={() => patch('salesModel', model.id)}
+                  >
+                    <strong>{model.label}</strong>
+                    <small>Contexto de vendas (vídeo).</small>
+                  </button>
+                ))}
+              </div>
+              {form.salesModel === 'b2b' ? (
+                <label className="imp-field training-ai__form-span-2">
+                  <span>Informações da empresa</span>
+                  <textarea
+                    rows={3}
+                    value={form.companyInfo}
+                    onChange={(e) => patch('companyInfo', e.target.value)}
+                  />
+                </label>
+              ) : null}
             </div>
           ) : null}
 
@@ -368,8 +467,16 @@ export default function TrainingPersonaFormPage() {
                 <dt>Modo</dt>
                 <dd>Texto</dd>
               </div>
+              <div>
+                <dt>Modelo</dt>
+                <dd>{form.salesModel?.toUpperCase()}</dd>
+              </div>
+              <div>
+                <dt>Objeções</dt>
+                <dd>{(form.objectionsText || '').split('\n').filter(Boolean).length}</dd>
+              </div>
               <div className="training-ai__form-span-2">
-                <dt>Comportamento</dt>
+                <dt>DNA</dt>
                 <dd>{form.behavior || '—'}</dd>
               </div>
             </dl>
@@ -386,16 +493,26 @@ export default function TrainingPersonaFormPage() {
               </button>
             ) : null}
             {stepIndex < WIZARD_STEPS.length - 1 ? (
-              <button
-                type="button"
-                className="imp-btn imp-btn--primary"
-                onClick={() => setStepIndex((v) => Math.min(WIZARD_STEPS.length - 1, v + 1))}
-              >
-                Salvar e continuar
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="imp-btn imp-btn--ghost"
+                  onClick={() => save('draft')}
+                  disabled={saving}
+                >
+                  Salvar rascunho
+                </button>
+                <button
+                  type="button"
+                  className="imp-btn imp-btn--primary"
+                  onClick={() => setStepIndex((v) => Math.min(WIZARD_STEPS.length - 1, v + 1))}
+                >
+                  Salvar e continuar
+                </button>
+              </>
             ) : (
               <button type="submit" className="imp-btn imp-btn--primary" disabled={saving}>
-                {saving ? 'Publicando…' : isEdit ? 'Salvar agente' : 'Publicar agente'}
+                {saving ? 'Publicando…' : 'Publicar agente'}
               </button>
             )}
           </div>
@@ -419,8 +536,12 @@ export default function TrainingPersonaFormPage() {
               <dd>{form.trainingObjective || 'Não informado'}</dd>
             </div>
             <div>
+              <dt>Tom</dt>
+              <dd>{form.tone || 'Não informado'}</dd>
+            </div>
+            <div>
               <dt>Idioma</dt>
-              <dd>Português (Brasil)</dd>
+              <dd>{form.language === 'pt-BR' ? 'Português (Brasil)' : form.language}</dd>
             </div>
             <div>
               <dt>Modo</dt>

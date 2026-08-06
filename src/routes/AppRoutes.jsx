@@ -132,6 +132,10 @@ export default function AppRoutes() {
         />
         <Route path="/modules/training-ai/historico" element={<TrainingHistoryPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />
+        <Route
+          path="/modules/training-ai/relatorio/sessao/:sessionId"
+          element={<TrainingReportPage />}
+        />
         <Route path="/modules/training-ai/relatorio/:scenarioId" element={<TrainingReportPage />} />
       </Route>
 

@@ -143,6 +143,11 @@ export function buildSessionEvaluation({
 
   const rubric = evaluateRubric(template, resolvedAnswers)
   const narrative = buildStrengthsAndImprovements(rubric.criteria, resolvedAnswers)
+  const coachFeedback = buildMessageLinkedFeedback({
+    criteria: rubric.criteria,
+    messages: messages || [],
+  })
+  const nextSteps = buildNextSteps(narrative.improvements)
 
   return {
     id: `eval_${session?.id || Date.now()}`,
@@ -150,7 +155,7 @@ export function buildSessionEvaluation({
     scenarioId: scenario.id,
     scenarioTitle: scenario.title,
     personaId: persona?.id || scenario.personaId,
-    personaName: persona?.name || 'Persona',
+    personaName: persona?.name || 'Agente',
     templateId: template.id,
     templateTitle: template.title,
     mode: resolvedMode,
@@ -162,8 +167,40 @@ export function buildSessionEvaluation({
     improvements: narrative.improvements,
     avoidedApproaches: narrative.avoidedApproaches,
     coachNotes: buildCoachNotes(rubric.score),
+    coachFeedback,
+    nextSteps,
     messages: messages || [],
     answers: resolvedAnswers,
     completedAt: new Date().toISOString(),
   }
+}
+
+/** Video-style coaching: link failed criteria to nearest trainee message. */
+export function buildMessageLinkedFeedback({ criteria = [], messages = [] }) {
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const failed = criteria.filter((c) => !c.passed)
+  return failed.slice(0, 6).map((criterion, index) => {
+    const msg = userMessages[Math.min(index, Math.max(0, userMessages.length - 1))] || null
+    return {
+      id: `fb_${criterion.id}`,
+      criterionId: criterion.id,
+      title: criterion.name,
+      detail: criterion.yesNoQuestion,
+      messageId: msg?.id || null,
+      messageText: msg?.text || null,
+      timestamp: msg?.timestamp || null,
+      passed: false,
+    }
+  })
+}
+
+export function buildNextSteps(improvements = []) {
+  if (!improvements.length) {
+    return ['Manter a prática com um agente de dificuldade maior.']
+  }
+  return [
+    `Refazer o cenário focando em: ${improvements[0]}`,
+    'Revisar o playbook e as perguntas sim/não que falharam.',
+    'Praticar abertura e próximo passo com o mesmo agente.',
+  ].slice(0, 3)
 }
