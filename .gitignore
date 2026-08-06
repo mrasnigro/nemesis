@@ -12,8 +12,20 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-*.local
 /.cursor-cmp
+
+# Environment / secrets (keep .env.example templates tracked)
+.env
+**/.env
+.env.production
+**/.env.production
+.env.development
+**/.env.development
+.env.test
+**/.env.test
+.env.staging
+**/.env.staging
+*.local
 
 # Editor directories and files
 .vscode/*
