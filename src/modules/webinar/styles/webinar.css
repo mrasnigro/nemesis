@@ -309,6 +309,20 @@
   }
 }
 
+.webinar-m5__legacy-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--text-h);
+  font-size: 0.82rem;
+}
+
+.webinar-launcher__panel--legacy {
+  max-width: 40rem;
+}
+
 .imp-btn.is-disabled {
   opacity: 0.45;
   pointer-events: none;

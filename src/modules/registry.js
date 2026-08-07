@@ -75,7 +75,7 @@ export const modules = [
   {
     id: 'webinar',
     title: 'Webinar',
-    description: 'Webinars e reuniões ao vivo integrados ao shell IMP (merge em andamento).',
+    description: 'Webinars e reuniões 1:1 no shell IMP, com salas Studio/Live no serviço de mídia.',
     path: '/modules/webinar',
     status: 'available',
     accent: 'amber',
@@ -83,14 +83,14 @@ export const modules = [
     icon: 'live',
     actionLabel: 'Abrir Webinar',
     features: [
-      'Painel in-app com lista/detalhe/criação de webinars',
-      'Auth bridge IMP → API Webinar',
+      'Painel, lista e criação de webinars in-app',
+      'Jornada BDR Agendamentos → reunião 1:1',
+      'Studio/Live via deep-link autenticado',
       'Backend/streaming em services/webinar',
-      'Próximo: studio/live + jornada BDR 1:1',
     ],
     info: {
       category: 'Eventos',
-      version: '3.1.0-m3a-list',
+      version: '3.5.0-integrated',
       access: 'Usuário IMP',
       owner: 'Time de Marketing',
     },

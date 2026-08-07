@@ -1,20 +1,21 @@
 import { Link } from 'react-router-dom'
-import { getWebinarApiUrl } from '../config/webinarConfig.js'
+import { getWebinarApiUrl, isWebinarServiceConfigured } from '../config/webinarConfig.js'
 import { useWebinarSession } from '../context/WebinarSessionContext.jsx'
 
 export default function WebinarOverviewPage() {
   const { status, error, session, ensureSession, isReady } = useWebinarSession()
   const apiUrl = getWebinarApiUrl()
+  const sidecarConfigured = isWebinarServiceConfigured()
 
   return (
     <section className="imp-module webinar-page">
       <header className="webinar-page__intro">
         <div>
-          <h2>Webinar · integrado ao IMP</h2>
+          <h2>Status da integração</h2>
           <p>
-            M1 scaffold: autenticação e painel rodam <strong>dentro</strong> do shell IMP. O
-            backend/streaming continua em <code>services/webinar</code>. A aba sidecar fica só
-            como fallback.
+            O Webinar opera <strong>dentro do IMP</strong> (lista, 1:1 BDR, bridge de auth). Studio e
+            Live usam o serviço de mídia com deep-link SSO — não é mais o produto principal em outra
+            aba.
           </p>
         </div>
       </header>
@@ -23,8 +24,8 @@ export default function WebinarOverviewPage() {
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
-              <h2>Sessão Webinar (bridge)</h2>
-              <p>IMP user → handoff register/exchange → JWT (sem nova aba)</p>
+              <h2>Sessão (bridge)</h2>
+              <p>IMP → register/exchange → JWT da API</p>
             </div>
           </div>
           <ul className="webinar-m1__status-list">
@@ -57,14 +58,14 @@ export default function WebinarOverviewPage() {
           ) : null}
           <div className="webinar-launcher__actions" style={{ marginTop: '1rem' }}>
             <Link
-              to="/modules/webinar/app"
+              to="/modules/webinar"
               className={`imp-btn imp-btn--primary${isReady ? '' : ' is-disabled'}`}
               aria-disabled={!isReady}
               onClick={(event) => {
                 if (!isReady) event.preventDefault()
               }}
             >
-              Abrir painel in-app
+              Ir ao painel
             </Link>
             <button
               type="button"
@@ -79,28 +80,31 @@ export default function WebinarOverviewPage() {
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>
-              <h2>Roadmap merge</h2>
-              <p>Próximos passos após M1</p>
+              <h2>Entrega atual</h2>
+              <p>M5 — sidecar não é caminho primário</p>
             </div>
           </div>
           <ol className="webinar-m1__roadmap">
             <li>
-              <strong>M2</strong> — Bridge estável; login Webinar desnecessário no fluxo IMP
+              <strong>Feito</strong> — Painel, lista, criação, BDR 1:1, Studio/Live deep-link
             </li>
             <li>
-              <strong>M3</strong> — Portar client / live / studio de{' '}
-              <code>services/webinar/frontend</code>
+              <strong>Serviço</strong> — API/streaming em <code>services/webinar</code>
             </li>
             <li>
-              <strong>M4</strong> — CTA BDR “Reunião 1:1” → sala no IMP
-            </li>
-            <li>
-              <strong>M5</strong> — Aposentar sidecar FE como caminho principal
+              <strong>Opcional</strong> — port completo do Studio UI (M3c-full)
             </li>
           </ol>
-          <p className="webinar-launcher__note">
-            Detalhes: <code>docs/WEBINAR_IMP_INTEGRATION_NEXT_STEPS.md</code>
-          </p>
+          {sidecarConfigured ? (
+            <p className="webinar-launcher__note" style={{ marginTop: '1rem' }}>
+              Emergência apenas:{' '}
+              <Link to="/modules/webinar/sidecar">abrir FE legado</Link> (fora do menu principal).
+            </p>
+          ) : (
+            <p className="webinar-launcher__note" style={{ marginTop: '1rem' }}>
+              Deep-links Studio/Live precisam de <code>VITE_WEBINAR_URL</code>.
+            </p>
+          )}
         </div>
       </div>
     </section>

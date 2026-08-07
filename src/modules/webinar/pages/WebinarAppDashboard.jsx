@@ -10,7 +10,7 @@ import {
 } from '../utils/webinarNormalize.js'
 
 /**
- * In-app hub (default `/modules/webinar`) — M3a.
+ * In-app hub (default `/modules/webinar`).
  */
 export default function WebinarAppDashboardPage() {
   const { ensureSession, status, session, apiGet } = useWebinarSession()
@@ -52,7 +52,7 @@ export default function WebinarAppDashboardPage() {
           <div>
             <h2>Painel Webinar</h2>
             <p>
-              Sessão bridged ·{' '}
+              Integrado ao IMP ·{' '}
               <strong>{session?.user?.email || session?.user?.name || '—'}</strong>
             </p>
           </div>
@@ -71,7 +71,7 @@ export default function WebinarAppDashboardPage() {
             <div className="imp-panel__header">
               <div>
                 <h2>Recentes</h2>
-                <p>Atalho para a lista completa</p>
+                <p>Abra o detalhe para Studio/Live ou volte ao BDR se veio de um 1:1</p>
               </div>
             </div>
             {loading ? <p className="webinar-launcher__note">Carregando…</p> : null}
@@ -99,10 +99,15 @@ export default function WebinarAppDashboardPage() {
             ) : !loading ? (
               <div className="training-ai__empty webinar-m1__empty">
                 <h3>Sem webinars ainda</h3>
-                <p>Crie um rascunho para começar o fluxo in-app.</p>
-                <Link to="/modules/webinar/webinars/novo" className="imp-btn imp-btn--primary">
-                  Novo webinar
-                </Link>
+                <p>Crie um rascunho ou inicie uma reunião 1:1 a partir do BDR.</p>
+                <div className="imp-actions">
+                  <Link to="/modules/webinar/webinars/novo" className="imp-btn imp-btn--primary">
+                    Novo webinar
+                  </Link>
+                  <Link to="/modules/bdr/agendamentos" className="imp-btn imp-btn--ghost">
+                    Agendamentos BDR
+                  </Link>
+                </div>
               </div>
             ) : null}
           </div>
@@ -110,27 +115,24 @@ export default function WebinarAppDashboardPage() {
           <div className="imp-panel">
             <div className="imp-panel__header">
               <div>
-                <h2>Próximos no merge</h2>
-                <p>Após M3a</p>
+                <h2>Como usar</h2>
+                <p>Fluxo principal no shell IMP</p>
               </div>
             </div>
             <ol className="webinar-m1__roadmap">
               <li>
-                <strong>M3b/c</strong> — Live viewer + Studio host
+                <strong>Listar / criar</strong> em Meus webinars
               </li>
               <li>
-                <strong>M4</strong> — CTA BDR reunião 1:1
+                <strong>1:1</strong> a partir de BDR → Agendamentos
               </li>
               <li>
-                <strong>M5</strong> — Aposentar sidecar FE
+                <strong>Studio / Live</strong> no detalhe (abre o serviço de mídia autenticado)
               </li>
             </ol>
             <div className="webinar-launcher__actions" style={{ marginTop: '1rem' }}>
               <Link to="/modules/webinar/overview" className="imp-btn imp-btn--ghost">
-                Status bridge
-              </Link>
-              <Link to="/modules/webinar/sidecar" className="imp-btn imp-btn--ghost">
-                Sidecar legado
+                Status da integração
               </Link>
             </div>
           </div>

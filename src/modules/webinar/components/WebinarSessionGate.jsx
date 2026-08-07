@@ -33,8 +33,8 @@ export default function WebinarSessionGate({ children }) {
             >
               Tentar de novo
             </button>
-            <Link to="/modules/webinar/sidecar" className="imp-btn imp-btn--ghost">
-              Sidecar legado
+            <Link to="/modules/webinar/overview" className="imp-btn imp-btn--ghost">
+              Status da integração
             </Link>
           </div>
         </div>

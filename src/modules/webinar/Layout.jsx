@@ -2,6 +2,7 @@ import ModuleWorkspaceLayout from '../../layouts/ModuleWorkspaceLayout.jsx'
 import { WebinarSessionProvider } from './context/WebinarSessionContext.jsx'
 import './styles/webinar.css'
 
+/** Primary IA — sidecar FE is no longer a top-nav destination (M5). */
 const NAV = [
   {
     id: 'app',
@@ -16,13 +17,8 @@ const NAV = [
   },
   {
     id: 'overview',
-    label: 'Status bridge',
+    label: 'Integração',
     to: '/modules/webinar/overview',
-  },
-  {
-    id: 'legacy',
-    label: 'Sidecar (legado)',
-    to: '/modules/webinar/sidecar',
   },
 ]
 

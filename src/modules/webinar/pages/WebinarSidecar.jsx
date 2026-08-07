@@ -18,7 +18,10 @@ const REASON_COPY = {
   network_error: 'Webinar API inacessível para mint do handoff.',
 }
 
-/** Legacy / fallback: open separate Webinar FE in a new tab (pre-merge). */
+/**
+ * Deprecated primary UX (M5). Kept for emergency access / media FE troubleshooting.
+ * Not linked from main Webinar nav.
+ */
 export default function WebinarSidecarPage() {
   const { user, isAuthenticated } = useAuth()
   const configured = isWebinarServiceConfigured()
@@ -48,7 +51,7 @@ export default function WebinarSidecarPage() {
         }
 
         if (result.handoff) {
-          setInfo('Handoff SSO registrado — sidecar deve autenticar automaticamente.')
+          setInfo('Handoff SSO registrado — FE legado deve autenticar automaticamente.')
         } else if (result.handoffError) {
           setInfo(
             `${REASON_COPY[result.handoffError] || 'Handoff indisponível.'} ${
@@ -72,15 +75,19 @@ export default function WebinarSidecarPage() {
     <section className="imp-module webinar-page webinar-launcher">
       <header className="webinar-page__intro">
         <div>
-          <h2>Fallback · sidecar</h2>
+          <h2>FE legado (emergência)</h2>
           <p>
-            Abre o frontend legado em nova aba. Preferência do produto: painel{' '}
-            <Link to="/modules/webinar/app">in-app</Link>.
+            Esta página não faz parte do fluxo principal. Use o{' '}
+            <Link to="/modules/webinar">painel IMP</Link> para listar, 1:1 e abrir Studio/Live.
           </p>
         </div>
       </header>
 
-      <div className="imp-panel webinar-launcher__panel">
+      <div className="imp-panel webinar-launcher__panel webinar-launcher__panel--legacy">
+        <p className="webinar-m5__legacy-banner" role="note">
+          Depreciado como caminho de produto (M5). Mantido só para diagnóstico do frontend
+          standalone.
+        </p>
         <p className="webinar-launcher__status">
           {configured ? (
             <>
@@ -91,26 +98,26 @@ export default function WebinarSidecarPage() {
             </>
           ) : (
             <>
-              Configure <code>VITE_WEBINAR_URL</code> para o fallback.
+              Configure <code>VITE_WEBINAR_URL</code> se precisar deste fallback.
             </>
           )}
         </p>
         <p className="webinar-launcher__note">
-          Bridge API (in-app): <code>{apiUrl}</code>
+          API in-app: <code>{apiUrl}</code>
         </p>
 
         <div className="webinar-launcher__actions">
+          <Link to="/modules/webinar" className="imp-btn imp-btn--primary">
+            Voltar ao painel IMP
+          </Link>
           <button
             type="button"
-            className="imp-btn imp-btn--primary"
+            className="imp-btn imp-btn--ghost"
             onClick={handleLaunch}
             disabled={!configured || busy}
           >
-            {busy ? 'Abrindo…' : 'Abrir sidecar (SSO)'}
+            {busy ? 'Abrindo…' : 'Abrir FE legado mesmo assim'}
           </button>
-          <Link to="/modules/webinar/app" className="imp-btn imp-btn--ghost">
-            Ir ao painel in-app
-          </Link>
         </div>
 
         {error ? (
