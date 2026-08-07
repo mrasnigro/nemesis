@@ -1194,6 +1194,163 @@
   max-width: 36rem;
 }
 
+/* ——— Persona call stage (voice mode) ——— */
+
+.training-ai__call-stage {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.5rem 1.25rem;
+  margin-bottom: 0.85rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(55, 65, 81, 0.75);
+  background: radial-gradient(
+      circle at 50% -10%,
+      rgba(245, 158, 11, 0.12),
+      transparent 55%
+    ),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(10, 12, 18, 0.98));
+}
+
+.training-ai__call-stage-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.training-ai__call-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.training-ai__call-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.training-ai__call-status--speaking .training-ai__call-status-dot {
+  background: #fbbf24;
+  animation: training-ai-mic-pulse 1.2s ease-in-out infinite;
+}
+
+.training-ai__call-status--listening .training-ai__call-status-dot {
+  background: #f87171;
+}
+
+.training-ai__call-status--connecting .training-ai__call-status-dot {
+  background: #60a5fa;
+}
+
+.training-ai__call-persona {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0 0.25rem;
+  text-align: center;
+}
+
+.training-ai__call-avatar-ring {
+  display: inline-grid;
+  place-items: center;
+  padding: 0.5rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+
+.training-ai__call-avatar-ring.is-speaking {
+  animation: training-ai-call-ring-pulse 1.4s ease-in-out infinite;
+}
+
+.training-ai__call-avatar--lg {
+  width: 6.5rem;
+  height: 6.5rem;
+  font-size: 1.7rem;
+}
+
+@keyframes training-ai-call-ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35), 0 0 0 0 rgba(245, 158, 11, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35), 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+}
+
+.training-ai__call-persona-name {
+  margin-top: 0.3rem;
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
+.training-ai__call-persona-role {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.training-ai__call-caption {
+  min-height: 2.6rem;
+  max-width: 34rem;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(55, 65, 81, 0.7);
+  background: rgba(17, 24, 39, 0.55);
+  color: var(--text-h);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.training-ai__call-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.training-ai__call-mic-btn,
+.training-ai__call-transcript-btn,
+.training-ai__call-hangup-btn {
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.training-ai__call-mic-btn {
+  min-width: 9rem;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--text-h);
+}
+
+.training-ai__call-mic-btn.is-listening {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.65);
+  animation: training-ai-mic-pulse 1.2s ease-in-out infinite;
+}
+
+.training-ai__call-transcript-btn {
+  border: 1px solid rgba(75, 85, 99, 0.85);
+  background: rgba(10, 12, 18, 0.55);
+  color: var(--text-muted);
+}
+
+.training-ai__call-hangup-btn {
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
 .training-ai__session-player-panel {
   margin-bottom: 1rem;
 }

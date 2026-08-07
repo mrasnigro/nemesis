@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import PersonaCallStage from '../components/PersonaCallStage.jsx'
 import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { getAvatarEngine } from '../services/avatar/index.js'
 
 function formatTime(iso) {
   if (!iso) return ''
@@ -64,6 +66,10 @@ export default function TrainingSimulationPage() {
   const [finishHint, setFinishHint] = useState('')
   const [listening, setListening] = useState(false)
   const [busyHint, setBusyHint] = useState('')
+  const [speakingLocal, setSpeakingLocal] = useState(false)
+  const [caption, setCaption] = useState('')
+  const [showTranscript, setShowTranscript] = useState(false)
+  const lastSpokenMessageIdRef = useRef(null)
 
   useEffect(() => {
     if (!canSimulate) return
@@ -72,6 +78,40 @@ export default function TrainingSimulationPage() {
       if (!started) navigate('/modules/training-ai')
     }
   }, [canSimulate, navigate, scenarioId, selectedScenario, startSimulation])
+
+  // Drive the persona call stage: whenever a new AI line lands while in
+  // voice mode, have the (mock, for now) avatar engine "speak" it so the
+  // stage can animate + caption in sync.
+  useEffect(() => {
+    if (phase !== 'running' || practiceMediaMode !== 'voice') return
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage || lastMessage.role !== 'ai') return
+    if (lastSpokenMessageIdRef.current === lastMessage.id) return
+    lastSpokenMessageIdRef.current = lastMessage.id
+
+    let cancelled = false
+    setCaption(lastMessage.text || '')
+    setSpeakingLocal(true)
+    getAvatarEngine()
+      .speak(selectedPersona, lastMessage.text || '')
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) setSpeakingLocal(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [messages, phase, practiceMediaMode, selectedPersona])
+
+  useEffect(() => {
+    if (phase !== 'running') {
+      setCaption('')
+      setSpeakingLocal(false)
+      setShowTranscript(false)
+      lastSpokenMessageIdRef.current = null
+    }
+  }, [phase])
 
   useEffect(() => {
     if (phase === 'finished' && evaluation?.sessionId) {
@@ -130,8 +170,16 @@ export default function TrainingSimulationPage() {
       : phase === 'briefing'
         ? 'Briefing'
         : practiceMediaMode === 'voice'
-          ? 'Conversa · Voz (stub)'
+          ? 'Conversa · Voz (avatar mock)'
           : 'Conversa por texto'
+
+  const callState = isGeneratingReply
+    ? 'connecting'
+    : speakingLocal
+      ? 'speaking'
+      : listening
+        ? 'listening'
+        : 'idle'
 
   return (
     <section className="imp-module">
@@ -281,35 +329,51 @@ export default function TrainingSimulationPage() {
 
           {phase === 'running' ? (
             <>
-              <VoicePracticeChrome
-                mediaMode={practiceMediaMode}
-                onMediaModeChange={setPracticeMediaMode}
-                listening={listening}
-                onListeningChange={setListening}
-              />
-              <div className="imp-chat training-ai__chat-scroll">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`imp-chat__bubble imp-chat__bubble--${
-                      message.role === 'ai' ? 'ai' : 'user'
-                    }`}
-                  >
-                    <span className="imp-chat__meta">
-                      {message.speaker ||
-                        (message.role === 'ai' ? persona?.name || 'Persona' : 'Você')}
-                      {message.timestamp ? ` · ${formatTime(message.timestamp)}` : ''}
-                    </span>
-                    {message.text}
-                  </div>
-                ))}
-                {isGeneratingReply ? (
-                  <div className="imp-chat__bubble imp-chat__bubble--ai training-ai__typing">
-                    <span className="imp-chat__meta">{persona?.name || 'Agente'} · gerando…</span>
-                    Resposta em andamento (provider async)
-                  </div>
-                ) : null}
-              </div>
+              {practiceMediaMode === 'voice' ? (
+                <PersonaCallStage
+                  persona={persona}
+                  callState={callState}
+                  caption={caption}
+                  listening={listening}
+                  onListeningChange={setListening}
+                  onFinish={handleFinish}
+                  showTranscript={showTranscript}
+                  onToggleTranscript={setShowTranscript}
+                />
+              ) : (
+                <VoicePracticeChrome
+                  mediaMode={practiceMediaMode}
+                  onMediaModeChange={setPracticeMediaMode}
+                  listening={listening}
+                  onListeningChange={setListening}
+                />
+              )}
+
+              {practiceMediaMode !== 'voice' || showTranscript ? (
+                <div className="imp-chat training-ai__chat-scroll">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`imp-chat__bubble imp-chat__bubble--${
+                        message.role === 'ai' ? 'ai' : 'user'
+                      }`}
+                    >
+                      <span className="imp-chat__meta">
+                        {message.speaker ||
+                          (message.role === 'ai' ? persona?.name || 'Persona' : 'Você')}
+                        {message.timestamp ? ` · ${formatTime(message.timestamp)}` : ''}
+                      </span>
+                      {message.text}
+                    </div>
+                  ))}
+                  {isGeneratingReply ? (
+                    <div className="imp-chat__bubble imp-chat__bubble--ai training-ai__typing">
+                      <span className="imp-chat__meta">{persona?.name || 'Agente'} · gerando…</span>
+                      Resposta em andamento (provider async)
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <form className="training-ai__composer" onSubmit={handleSend}>
                 <label className="imp-field training-ai__composer-field">
