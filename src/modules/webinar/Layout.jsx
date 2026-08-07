@@ -6,8 +6,13 @@ const NAV = [
   {
     id: 'app',
     label: 'Painel',
-    to: '/modules/webinar/app',
+    to: '/modules/webinar',
     end: true,
+  },
+  {
+    id: 'list',
+    label: 'Meus webinars',
+    to: '/modules/webinar/webinars',
   },
   {
     id: 'overview',

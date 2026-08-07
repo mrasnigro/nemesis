@@ -83,14 +83,14 @@ export const modules = [
     icon: 'live',
     actionLabel: 'Abrir Webinar',
     features: [
-      'Painel in-app com auth bridge IMP → API',
+      'Painel in-app com lista/detalhe/criação de webinars',
+      'Auth bridge IMP → API Webinar',
       'Backend/streaming em services/webinar',
-      'Fallback sidecar (nova aba) durante o merge',
-      'Próximo: studio/live portados + jornada BDR 1:1',
+      'Próximo: studio/live + jornada BDR 1:1',
     ],
     info: {
       category: 'Eventos',
-      version: '3.0.0-m1-scaffold',
+      version: '3.1.0-m3a-list',
       access: 'Usuário IMP',
       owner: 'Time de Marketing',
     },

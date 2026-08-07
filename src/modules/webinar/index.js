@@ -1,6 +1,8 @@
 export { default as WebinarLayout } from './Layout.jsx'
-/** Default module entry = in-app painel (M2). */
 export { default as WebinarHomePage } from './pages/WebinarAppDashboard.jsx'
 export { default as WebinarAppDashboardPage } from './pages/WebinarAppDashboard.jsx'
 export { default as WebinarOverviewPage } from './pages/WebinarOverview.jsx'
 export { default as WebinarSidecarPage } from './pages/WebinarSidecar.jsx'
+export { default as WebinarListPage } from './pages/WebinarList.jsx'
+export { default as WebinarDetailPage } from './pages/WebinarDetail.jsx'
+export { default as WebinarNewPage } from './pages/WebinarNew.jsx'

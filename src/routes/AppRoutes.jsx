@@ -50,8 +50,11 @@ import {
 } from '../modules/radar'
 import {
   WebinarAppDashboardPage,
+  WebinarDetailPage,
   WebinarHomePage,
   WebinarLayout,
+  WebinarListPage,
+  WebinarNewPage,
   WebinarOverviewPage,
   WebinarSidecarPage,
 } from '../modules/webinar'
@@ -181,6 +184,9 @@ export default function AppRoutes() {
       >
         <Route path="/modules/webinar" element={<WebinarHomePage />} />
         <Route path="/modules/webinar/app" element={<WebinarAppDashboardPage />} />
+        <Route path="/modules/webinar/webinars" element={<WebinarListPage />} />
+        <Route path="/modules/webinar/webinars/novo" element={<WebinarNewPage />} />
+        <Route path="/modules/webinar/webinars/:webinarId" element={<WebinarDetailPage />} />
         <Route path="/modules/webinar/overview" element={<WebinarOverviewPage />} />
         <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
       </Route>
