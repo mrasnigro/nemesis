@@ -64,11 +64,24 @@ export function ImpHandoffBootstrap() {
         }
 
         params.delete('imp_handoff')
+        params.delete('return_to')
         const cleaned = params.toString()
-        const nextUrl = `${window.location.pathname}${cleaned ? `?${cleaned}` : ''}${window.location.hash}`
+        const path = window.location.pathname || '/'
+        const nextUrl = `${path}${cleaned ? `?${cleaned}` : ''}${window.location.hash}`
         window.history.replaceState({}, '', nextUrl)
 
-        const dest = user?.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+        // Deep-link: keep studio/live (etc.). Only bounce home from marketing/login routes.
+        const deep =
+          path !== '/' &&
+          path !== '/login' &&
+          path !== '/register' &&
+          !path.startsWith('/forgot') &&
+          !path.startsWith('/reset')
+        const dest = deep
+          ? path
+          : user?.role === 'admin'
+            ? '/admin/dashboard'
+            : '/dashboard'
         navigate(dest, { replace: true })
         setStatus('idle')
       } catch (err: any) {

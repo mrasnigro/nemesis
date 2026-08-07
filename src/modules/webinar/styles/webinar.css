@@ -228,6 +228,13 @@
   margin-top: 0.85rem;
 }
 
+.webinar-m3c__media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.1rem;
+}
+
 .webinar-m3__detail-grid {
   margin: 0;
   display: grid;

@@ -38,6 +38,33 @@ export function isWebinarServiceConfigured() {
 }
 
 /**
+ * Build absolute sidecar URL for an app path (e.g. /studio/preview/12).
+ * @param {string} path
+ * @param {{ handoffCode?: string, returnTo?: string }} [options]
+ */
+export function buildWebinarAppPathUrl(path, options = {}) {
+  const base = getWebinarServiceUrl()
+  if (!base) return ''
+  const normalized = String(path || '/').startsWith('/') ? path : `/${path}`
+  const url = new URL(normalized, `${base}/`)
+  if (options.handoffCode) {
+    url.searchParams.set('imp_handoff', options.handoffCode)
+  }
+  if (options.returnTo) {
+    url.searchParams.set('return_to', options.returnTo)
+  }
+  return url.toString()
+}
+
+export function buildStudioPreviewUrl(webinarId, options = {}) {
+  return buildWebinarAppPathUrl(`/studio/preview/${encodeURIComponent(webinarId)}`, options)
+}
+
+export function buildLiveViewerUrl(webinarId, options = {}) {
+  return buildWebinarAppPathUrl(`/live/${encodeURIComponent(webinarId)}`, options)
+}
+
+/**
  * @param {{ handoffCode?: string, returnTo?: string }} [options]
  * @returns {string}
  */
@@ -66,6 +93,9 @@ export const webinarConfig = {
   getHandoffSharedKey: getImpHandoffSharedKey,
   isConfigured: isWebinarServiceConfigured,
   buildLaunchUrl: buildWebinarLaunchUrl,
+  buildAppPathUrl: buildWebinarAppPathUrl,
+  buildStudioPreviewUrl,
+  buildLiveViewerUrl,
 }
 
 export default webinarConfig
