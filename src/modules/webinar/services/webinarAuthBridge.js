@@ -1,12 +1,12 @@
 /**
- * In-app auth bridge: IMP user → Webinar JWT via existing handoff endpoints (M2 start / M1).
- * No new tab — tokens stay in module memory + sessionStorage.
+ * In-app auth bridge: IMP user → Webinar JWT via handoff endpoints (M2).
  */
 
 import { getImpHandoffSharedKey } from '../config/webinarConfig.js'
 import { webinarApiFetch } from './webinarApi.js'
 
 const STORAGE_KEY = 'imp_webinar_session_v1'
+const MAX_SESSION_AGE_MS = 14 * 60 * 1000 // re-bridge before typical 15m JWT expiry
 
 /**
  * @typedef {{
@@ -43,6 +43,30 @@ export function clearWebinarSession() {
   persistWebinarSession(null)
 }
 
+/** True if cached session looks fresh enough to attempt /auth/me. */
+export function isSessionFresh(session) {
+  if (!session?.accessToken || !session?.syncedAt) return false
+  const age = Date.now() - new Date(session.syncedAt).getTime()
+  return Number.isFinite(age) && age >= 0 && age < MAX_SESSION_AGE_MS
+}
+
+/**
+ * @param {WebinarSession} session
+ * @returns {Promise<{ ok: boolean, user?: object, reason?: string }>}
+ */
+export async function validateWebinarSession(session) {
+  if (!session?.accessToken) return { ok: false, reason: 'missing_token' }
+  try {
+    const me = await webinarApiFetch('/auth/me', { token: session.accessToken })
+    return { ok: true, user: me }
+  } catch (err) {
+    return {
+      ok: false,
+      reason: err?.status === 401 ? 'unauthorized' : 'validate_failed',
+    }
+  }
+}
+
 /**
  * Mint + exchange handoff against Webinar API using IMP identity.
  * @param {{ username: string, name?: string, role?: string, profile?: string }} impUser
@@ -64,7 +88,9 @@ export async function bridgeImpUserToWebinar(impUser) {
       role: impUser.role || 'imp',
       profile: impUser.profile,
       returnTo:
-        typeof window !== 'undefined' ? `${window.location.origin}/modules/webinar` : undefined,
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/modules/webinar/app`
+          : undefined,
     },
   })
 
@@ -77,6 +103,10 @@ export async function bridgeImpUserToWebinar(impUser) {
     body: { code: registered.code },
   })
 
+  if (!exchanged?.accessToken) {
+    throw new Error('Handoff exchange não retornou accessToken')
+  }
+
   const session = {
     user: exchanged.user,
     accessToken: exchanged.accessToken,
@@ -87,4 +117,32 @@ export async function bridgeImpUserToWebinar(impUser) {
 
   persistWebinarSession(session)
   return session
+}
+
+/**
+ * Prefer cached session if valid; otherwise mint a new one.
+ * @param {object} impUser
+ * @param {{ force?: boolean }} [options]
+ */
+export async function ensureWebinarSession(impUser, options = {}) {
+  if (!options.force) {
+    const cached = loadStoredWebinarSession()
+    if (
+      cached?.impUsername === impUser?.username &&
+      isSessionFresh(cached)
+    ) {
+      const checked = await validateWebinarSession(cached)
+      if (checked.ok) {
+        const next = {
+          ...cached,
+          user: checked.user || cached.user,
+          syncedAt: new Date().toISOString(),
+        }
+        persistWebinarSession(next)
+        return next
+      }
+    }
+  }
+
+  return bridgeImpUserToWebinar(impUser)
 }

@@ -111,8 +111,8 @@ export default function WebinarAppDashboardPage() {
           </p>
         </div>
         <div className="training-ai__page-header-actions">
-          <Link to="/modules/webinar" className="imp-btn imp-btn--ghost">
-            ← Visão geral
+          <Link to="/modules/webinar/overview" className="imp-btn imp-btn--ghost">
+            Status bridge
           </Link>
         </div>
       </header>

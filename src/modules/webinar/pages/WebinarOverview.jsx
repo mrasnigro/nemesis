@@ -56,9 +56,6 @@ export default function WebinarOverviewPage() {
             </p>
           ) : null}
           <div className="webinar-launcher__actions" style={{ marginTop: '1rem' }}>
-            <button type="button" className="imp-btn imp-btn--ghost" onClick={() => ensureSession()}>
-              Re-sincronizar sessão
-            </button>
             <Link
               to="/modules/webinar/app"
               className={`imp-btn imp-btn--primary${isReady ? '' : ' is-disabled'}`}
@@ -69,6 +66,13 @@ export default function WebinarOverviewPage() {
             >
               Abrir painel in-app
             </Link>
+            <button
+              type="button"
+              className="imp-btn imp-btn--ghost"
+              onClick={() => ensureSession({ force: true })}
+            >
+              Forçar novo bridge
+            </button>
           </div>
         </div>
 

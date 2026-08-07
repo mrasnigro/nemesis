@@ -119,23 +119,33 @@ export async function getMe(req: Request, res: Response): Promise<void> {
       res.status(401).json({ error: 'Não autenticado' });
       return;
     }
-    
-    const userResult = await db.select().from(users).where(eq(users.id, req.user.id as any));
-    const userRecord = userResult[0];
-    
-    if (!userRecord) {
-      res.status(404).json({ error: 'Usuário não encontrado' });
-      return;
+
+    try {
+      const userResult = await db.select().from(users).where(eq(users.id, req.user.id as any));
+      const userRecord = userResult[0];
+
+      if (userRecord) {
+        res.status(200).json({
+          id: userRecord.id,
+          name: userRecord.name,
+          email: userRecord.email,
+          role: userRecord.role,
+          source: 'db',
+        });
+        return;
+      }
+    } catch (dbError) {
+      console.warn('[auth/me] DB lookup failed — falling back to JWT payload', dbError);
     }
-    
-    const user = {
-      id: userRecord.id,
-      name: userRecord.name,
-      email: userRecord.email,
-      role: userRecord.role,
-    };
-    
-    res.status(200).json(user);
+
+    // Handoff may mint synthetic users not present in MySQL yet.
+    res.status(200).json({
+      id: req.user.id,
+      name: req.user.name || String(req.user.email || 'IMP').split('@')[0],
+      email: req.user.email,
+      role: req.user.role,
+      source: 'jwt',
+    });
   } catch (error: any) {
     console.error('Erro no getMe:', error);
     res.status(500).json({ error: error.message });

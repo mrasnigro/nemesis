@@ -4,19 +4,19 @@ import './styles/webinar.css'
 
 const NAV = [
   {
-    id: 'home',
-    label: 'Visão geral',
-    to: '/modules/webinar',
-    end: true,
-  },
-  {
     id: 'app',
     label: 'Painel',
     to: '/modules/webinar/app',
+    end: true,
+  },
+  {
+    id: 'overview',
+    label: 'Status bridge',
+    to: '/modules/webinar/overview',
   },
   {
     id: 'legacy',
-    label: 'Abrir sidecar',
+    label: 'Sidecar (legado)',
     to: '/modules/webinar/sidecar',
   },
 ]

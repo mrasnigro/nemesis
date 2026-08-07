@@ -52,6 +52,7 @@ import {
   WebinarAppDashboardPage,
   WebinarHomePage,
   WebinarLayout,
+  WebinarOverviewPage,
   WebinarSidecarPage,
 } from '../modules/webinar'
 import {
@@ -180,6 +181,7 @@ export default function AppRoutes() {
       >
         <Route path="/modules/webinar" element={<WebinarHomePage />} />
         <Route path="/modules/webinar/app" element={<WebinarAppDashboardPage />} />
+        <Route path="/modules/webinar/overview" element={<WebinarOverviewPage />} />
         <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
       </Route>
 

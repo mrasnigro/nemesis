@@ -38,6 +38,7 @@ import clientRoutes from './routes/clientRoutes.js';
 import webrtcRoutes from './routes/webrtcRoutes.js';
 import * as authController from './controllers/authController.js';
 import * as impHandoffController from './controllers/impHandoffController.js';
+import { authMiddleware } from './middleware/authMiddleware.js';
 
 
 
@@ -123,7 +124,7 @@ app.get('/health', async (_req, res) => {
 // Auth Routes - DATABASE INTEGRATED
 app.post('/api/auth/register', authController.register);
 app.post('/api/auth/login', authController.login);
-app.get('/api/auth/me', authController.getMe);
+app.get('/api/auth/me', authMiddleware, authController.getMe);
 app.post('/api/auth/logout', authController.logout);
 app.post('/api/auth/forgot-password', authController.forgotPassword);
 app.post('/api/auth/reset-password', authController.resetPassword);
