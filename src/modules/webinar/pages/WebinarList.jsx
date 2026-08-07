@@ -18,16 +18,12 @@ const FILTERS = [
 ]
 
 export default function WebinarListPage() {
-  const { apiGet, ensureSession, status } = useWebinarSession()
+  const { apiGet } = useWebinarSession()
   const [items, setItems] = useState([])
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-
-  useEffect(() => {
-    if (status === 'idle' || status === 'error') void ensureSession()
-  }, [ensureSession, status])
 
   useEffect(() => {
     let cancelled = false

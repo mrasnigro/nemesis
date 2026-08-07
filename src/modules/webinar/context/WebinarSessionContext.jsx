@@ -14,51 +14,68 @@ export function WebinarSessionProvider({ children }) {
   const [session, setSession] = useState(() => loadStoredWebinarSession())
   const [status, setStatus] = useState('idle') // idle | bridging | ready | error
   const [error, setError] = useState('')
-  const bridgingRef = useRef(false)
+  const sessionRef = useRef(session)
+  const inFlightRef = useRef(null)
 
-  const ensureSession = useCallback(
-    async (options = {}) => {
-      if (!isAuthenticated || !impUser?.username) {
-        setSession(null)
-        clearWebinarSession()
-        setStatus('idle')
-        return null
-      }
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
-      if (bridgingRef.current && !options.force) {
-        return session
-      }
+  const ensureSession = useCallback(async (options = {}) => {
+    if (!isAuthenticated || !impUser?.username) {
+      setSession(null)
+      clearWebinarSession()
+      setStatus('idle')
+      setError('')
+      return null
+    }
 
-      bridgingRef.current = true
+    if (inFlightRef.current && !options.force) {
+      return inFlightRef.current
+    }
+
+    const run = (async () => {
       setStatus('bridging')
       setError('')
       try {
         const next = await ensureWebinarSession(impUser, { force: Boolean(options.force) })
         setSession(next)
+        sessionRef.current = next
         setStatus('ready')
+        setError('')
         return next
       } catch (err) {
         setSession(null)
+        sessionRef.current = null
         clearWebinarSession()
         setStatus('error')
         setError(err instanceof Error ? err.message : 'Falha no bridge Webinar')
         return null
       } finally {
-        bridgingRef.current = false
+        inFlightRef.current = null
       }
-    },
-    [impUser, isAuthenticated, session],
-  )
+    })()
 
+    inFlightRef.current = run
+    return run
+  }, [impUser, isAuthenticated])
+
+  // Bridge once per IMP username — do not depend on ensureSession identity (avoids retry storms).
   useEffect(() => {
+    if (!isAuthenticated || !impUser?.username) {
+      setSession(null)
+      clearWebinarSession()
+      setStatus('idle')
+      setError('')
+      return
+    }
     void ensureSession()
-    // intentionally only when IMP identity changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [impUser?.username, isAuthenticated])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-bridge on identity change
+  }, [isAuthenticated, impUser?.username])
 
   const apiRequest = useCallback(
     async (path, options = {}) => {
-      let token = session?.accessToken
+      let token = sessionRef.current?.accessToken
       if (!token) {
         const next = await ensureSession({ force: true })
         token = next?.accessToken
@@ -76,7 +93,7 @@ export function WebinarSessionProvider({ children }) {
         throw err
       }
     },
-    [ensureSession, session?.accessToken],
+    [ensureSession],
   )
 
   const apiGet = useCallback((path) => apiRequest(path, { method: 'GET' }), [apiRequest])
@@ -90,7 +107,9 @@ export function WebinarSessionProvider({ children }) {
       clearSession: () => {
         clearWebinarSession()
         setSession(null)
+        sessionRef.current = null
         setStatus('idle')
+        setError('')
       },
       apiGet,
       apiRequest,

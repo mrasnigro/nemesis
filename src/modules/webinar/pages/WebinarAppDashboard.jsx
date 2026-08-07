@@ -13,14 +13,10 @@ import {
  * In-app hub (default `/modules/webinar`).
  */
 export default function WebinarAppDashboardPage() {
-  const { ensureSession, status, session, apiGet } = useWebinarSession()
+  const { status, session, apiGet } = useWebinarSession()
   const [preview, setPreview] = useState([])
   const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (status === 'idle' || status === 'error') void ensureSession()
-  }, [ensureSession, status])
 
   useEffect(() => {
     let cancelled = false

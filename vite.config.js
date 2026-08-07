@@ -9,8 +9,9 @@ export default defineConfig({
     proxy: {
       // M1: in-app Webinar API (IMP → services/webinar backend)
       '/webinar-api': {
-        target: process.env.VITE_WEBINAR_PROXY_TARGET || 'http://localhost:3001',
+        target: process.env.VITE_WEBINAR_PROXY_TARGET || 'http://127.0.0.1:3001',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/webinar-api/, '/api'),
       },
     },

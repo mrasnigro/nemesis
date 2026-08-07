@@ -25,7 +25,7 @@ export default function WebinarDetailPage() {
   const { user } = useAuth()
   const fromBdr = Boolean(location.state?.fromBdr)
   const returnTo = location.state?.returnTo || '/modules/bdr/agendamentos'
-  const { apiGet, ensureSession, status } = useWebinarSession()
+  const { apiGet, status } = useWebinarSession()
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -33,11 +33,7 @@ export default function WebinarDetailPage() {
   const [busyKind, setBusyKind] = useState('')
 
   useEffect(() => {
-    if (status === 'idle' || status === 'error') void ensureSession()
-  }, [ensureSession, status])
-
-  useEffect(() => {
-    if (!webinarId) return undefined
+    if (!webinarId || status !== 'ready') return undefined
     let cancelled = false
 
     async function load() {
@@ -61,7 +57,7 @@ export default function WebinarDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [apiGet, webinarId])
+  }, [apiGet, status, webinarId])
 
   async function handleOpenMedia(kind) {
     setLaunchHint('')

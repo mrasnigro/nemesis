@@ -11,15 +11,11 @@ import { launchOneOnOneFromMeeting } from '../services/oneOnOneLaunch.js'
 export default function WebinarOneOnOneLaunchPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { apiRequest, isReady, status, ensureSession } = useWebinarSession()
+  const { apiRequest, isReady, ensureSession } = useWebinarSession()
   const meeting = location.state?.meeting || null
   const [error, setError] = useState('')
   const [phase, setPhase] = useState('preparing')
   const startedRef = useRef(false)
-
-  useEffect(() => {
-    if (status === 'idle' || status === 'error') void ensureSession()
-  }, [ensureSession, status])
 
   useEffect(() => {
     if (!meeting) {
@@ -36,7 +32,6 @@ export default function WebinarOneOnOneLaunchPage() {
     ;(async () => {
       try {
         const result = await launchOneOnOneFromMeeting({ apiRequest, meeting })
-        // Persist link for return visits (BDR listenermay pick this from history state via replace later)
         try {
           sessionStorage.setItem(
             `imp_bdr_webinar_${meeting.id}`,
