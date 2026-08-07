@@ -2502,6 +2502,41 @@
   background: #4b5563; /* graphite-600 */
 }
 
+.bdr-meeting-card__webinar {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.bdr-meeting-card__webinar-btn {
+  width: 100%;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 0.35rem;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f9fafb;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.55rem 0.75rem;
+  cursor: pointer;
+}
+
+.bdr-meeting-card__webinar-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.28);
+}
+
+.bdr-meeting-card__webinar-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.bdr-meeting-card__webinar-hint {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .bdr-meeting-card__notes-editor {
   margin-top: 0.75rem;
   display: grid;

@@ -55,6 +55,7 @@ import {
   WebinarLayout,
   WebinarListPage,
   WebinarNewPage,
+  WebinarOneOnOneLaunchPage,
   WebinarOverviewPage,
   WebinarSidecarPage,
 } from '../modules/webinar'
@@ -187,6 +188,7 @@ export default function AppRoutes() {
         <Route path="/modules/webinar/webinars" element={<WebinarListPage />} />
         <Route path="/modules/webinar/webinars/novo" element={<WebinarNewPage />} />
         <Route path="/modules/webinar/webinars/:webinarId" element={<WebinarDetailPage />} />
+        <Route path="/modules/webinar/reuniao-1a1" element={<WebinarOneOnOneLaunchPage />} />
         <Route path="/modules/webinar/overview" element={<WebinarOverviewPage />} />
         <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
       </Route>

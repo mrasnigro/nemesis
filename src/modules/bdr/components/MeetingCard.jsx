@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useWorkspace } from '../../../workspace/WorkspaceContext'
 import { formatIsoDatePt } from '../services/historyMapping.js'
 
 function IconTrash() {
@@ -106,9 +108,13 @@ function IconFlag() {
  * Day meeting card — Reuniões do Dia layout from sample.
  */
 export default function MeetingCard({ meeting, onUpdate, onRemove }) {
+  const navigate = useNavigate()
+  const { hasModuleAccess } = useWorkspace()
+  const canWebinar = hasModuleAccess?.('webinar')
   const [showNotes, setShowNotes] = useState(false)
   const [confirmResend, setConfirmResend] = useState(false)
   const [toast, setToast] = useState('')
+  const [openingOneOnOne, setOpeningOneOnOne] = useState(false)
 
   const playRecording = () => {
     if (!meeting.recordingUrl) {
@@ -125,6 +131,33 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
     setToast(
       `E-mail de convite reenviado (simulado) para ${meeting.email || 'contato sem e-mail'}.`,
     )
+  }
+
+  const openOneOnOne = () => {
+    if (!canWebinar) {
+      setToast('Módulo Webinar não disponível neste workspace.')
+      return
+    }
+    setOpeningOneOnOne(true)
+    // Prefer already-linked webinar if BDR state was patched earlier.
+    let linkedId = meeting.webinarId
+    if (!linkedId) {
+      try {
+        const raw = sessionStorage.getItem(`imp_bdr_webinar_${meeting.id}`)
+        if (raw) linkedId = JSON.parse(raw)?.webinarId
+      } catch {
+        /* ignore */
+      }
+    }
+    if (linkedId) {
+      onUpdate?.(meeting.id, { webinarId: String(linkedId) })
+      navigate(`/modules/webinar/webinars/${linkedId}`, {
+        state: { fromBdr: true, meetingId: meeting.id, returnTo: '/modules/bdr/agendamentos' },
+      })
+      setOpeningOneOnOne(false)
+      return
+    }
+    navigate('/modules/webinar/reuniao-1a1', { state: { meeting } })
   }
 
   const dateTimeLabel = `${formatIsoDatePt(meeting.date)} às ${meeting.time}`
@@ -175,6 +208,26 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
           Reenviar Email
         </button>
       </div>
+
+      {canWebinar ? (
+        <div className="bdr-meeting-card__webinar">
+          <button
+            type="button"
+            className="bdr-meeting-card__webinar-btn"
+            onClick={openOneOnOne}
+            disabled={openingOneOnOne}
+          >
+            {meeting.webinarId || openingOneOnOne
+              ? openingOneOnOne
+                ? 'Abrindo reunião…'
+                : 'Abrir reunião 1:1'
+              : 'Iniciar reunião 1:1'}
+          </button>
+          <p className="bdr-meeting-card__webinar-hint">
+            Abre o Webinar dentro do IMP com o contexto deste agendamento.
+          </p>
+        </div>
+      ) : null}
 
       {toast ? <p className="bdr-meeting-card__toast">{toast}</p> : null}
 

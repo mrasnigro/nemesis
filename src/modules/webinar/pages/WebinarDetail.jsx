@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import WebinarSessionGate from '../components/WebinarSessionGate.jsx'
 import { useWebinarSession } from '../context/WebinarSessionContext.jsx'
 import {
@@ -11,6 +11,9 @@ import {
 
 export default function WebinarDetailPage() {
   const { webinarId } = useParams()
+  const location = useLocation()
+  const fromBdr = Boolean(location.state?.fromBdr)
+  const returnTo = location.state?.returnTo || '/modules/bdr/agendamentos'
   const { apiGet, ensureSession, status } = useWebinarSession()
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -53,11 +56,20 @@ export default function WebinarDetailPage() {
         <header className="webinar-page__intro webinar-page__intro--row">
           <div>
             <h2>{item?.title || 'Detalhe do webinar'}</h2>
-            <p>GET /client/webinars/:id · M3a</p>
+            <p>
+              {fromBdr
+                ? 'Aberto a partir do agendamento BDR (M4)'
+                : 'GET /client/webinars/:id · M3a'}
+            </p>
           </div>
           <div className="training-ai__page-header-actions">
+            {fromBdr ? (
+              <Link to={returnTo} className="imp-btn imp-btn--primary">
+                ← Voltar ao BDR
+              </Link>
+            ) : null}
             <Link to="/modules/webinar/webinars" className="imp-btn imp-btn--ghost">
-              ← Lista
+              Lista
             </Link>
           </div>
         </header>
@@ -109,8 +121,8 @@ export default function WebinarDetailPage() {
             </dl>
 
             <p className="webinar-launcher__note" style={{ marginTop: '1rem' }}>
-              Studio / sala ao vivo entram no M3c. Sidecar ainda pode abrir o FE legado se
-              necessário.
+              Studio / sala ao vivo entram no M3c. Por enquanto o vínculo BDR → webinar já fecha o
+              fluxo de agenda (M4).
             </p>
           </div>
         ) : null}
