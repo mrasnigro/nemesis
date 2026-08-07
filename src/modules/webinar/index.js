@@ -1,2 +1,5 @@
 export { default as WebinarLayout } from './Layout.jsx'
-export { default as WebinarHomePage } from './pages/WebinarHome.jsx'
+export { default as WebinarHomePage } from './pages/WebinarOverview.jsx'
+export { default as WebinarOverviewPage } from './pages/WebinarOverview.jsx'
+export { default as WebinarAppDashboardPage } from './pages/WebinarAppDashboard.jsx'
+export { default as WebinarSidecarPage } from './pages/WebinarSidecar.jsx'

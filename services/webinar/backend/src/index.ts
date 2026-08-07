@@ -37,6 +37,7 @@ import clientWebinarRoutes from './routes/clientWebinarRoutes.js';
 import clientRoutes from './routes/clientRoutes.js';
 import webrtcRoutes from './routes/webrtcRoutes.js';
 import * as authController from './controllers/authController.js';
+import * as impHandoffController from './controllers/impHandoffController.js';
 
 
 
@@ -58,10 +59,28 @@ console.log(`📂 Frontend Path: ${frontendPath}`);
 console.log("✅ Frontend path configured.");
 
 // Middleware
-app.use(cors({
-  origin: ['https://s1m0ne.tec.br', 'https://www.s1m0ne.tec.br'],
-  credentials: true,
-}));
+const corsOrigins = [
+  'https://s1m0ne.tec.br',
+  'https://www.s1m0ne.tec.br',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+]
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser / same-origin tools (no Origin header)
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true)
+        return
+      }
+      callback(null, false)
+    },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-IMP-Handoff-Key'],
+  }),
+)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Middleware para receber chunks de vídeo (binários)
@@ -108,6 +127,9 @@ app.get('/api/auth/me', authController.getMe);
 app.post('/api/auth/logout', authController.logout);
 app.post('/api/auth/forgot-password', authController.forgotPassword);
 app.post('/api/auth/reset-password', authController.resetPassword);
+// IMP SSO handoff stub (Phase C)
+app.post('/api/auth/imp-handoff/register', impHandoffController.registerImpHandoff);
+app.post('/api/auth/imp-handoff/exchange', impHandoffController.exchangeImpHandoff);
 console.log("✅ Auth routes mounted.");
 
 // Rest of the routes...

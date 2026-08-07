@@ -49,8 +49,10 @@ import {
   RadarLayout,
 } from '../modules/radar'
 import {
+  WebinarAppDashboardPage,
   WebinarHomePage,
   WebinarLayout,
+  WebinarSidecarPage,
 } from '../modules/webinar'
 import {
   VslCampaignsPage,
@@ -177,6 +179,8 @@ export default function AppRoutes() {
         }
       >
         <Route path="/modules/webinar" element={<WebinarHomePage />} />
+        <Route path="/modules/webinar/app" element={<WebinarAppDashboardPage />} />
+        <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
       </Route>
 
       <Route

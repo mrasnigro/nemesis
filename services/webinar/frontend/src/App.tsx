@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
+import { ImpHandoffBootstrap } from './components/ImpHandoffBootstrap';
 
 import AdminLayout from './components/AdminLayout';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -30,6 +31,7 @@ import './styles/globals.css';
 function App() {
   return (
     <BrowserRouter>
+      <ImpHandoffBootstrap />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginForm />} />
