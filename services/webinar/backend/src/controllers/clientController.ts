@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db/index.js';
+import { db, fromSqliteDate } from '../db/index.js';
 import { users, webinars, clientSubscriptions, plans } from '../db/schema.js';
 import { eq, sql, and, gte } from 'drizzle-orm';
 
@@ -20,7 +20,7 @@ export const getClientStats = async (req: Request, res: Response): Promise<void>
     }
 
     // Fetch client's current subscription
-    const subscription = await db.select().from(clientSubscriptions).where(eq(clientSubscriptions.clientId, clientId)).limit(1);
+    const subscription = await db.select().from(clientSubscriptions).where(eq(clientSubscriptions.clientId, Number(clientId))).limit(1);
     const currentSubscription = subscription[0];
 
     let activePlan = 'Nenhum Plano Ativo';
@@ -40,20 +40,20 @@ export const getClientStats = async (req: Request, res: Response): Promise<void>
         maxParticipants = plan[0].maxParticipants || 0;
       }
       subscriptionStatus = currentSubscription.status || 'inactive';
-      nextRenewal = currentSubscription.expiresAt?.toISOString().split('T')[0] || null;
+      nextRenewal = fromSqliteDate(currentSubscription.expiresAt as any)?.split('T')[0] || null;
     }
 
     // Count watched webinars (assuming 'attended' status in leads table)
     const watchedWebinarsResult = await db.select({ count: sql<number>`count(DISTINCT webinar_id)` })
       .from(webinars)
       .leftJoin(users, eq(webinars.clientId, users.id))
-      .where(and(eq(webinars.clientId, clientId), eq(webinars.status, 'completed')));
+      .where(and(eq(webinars.clientId, Number(clientId)), eq(webinars.status, 'completed')));
     const watchedWebinars = watchedWebinarsResult[0]?.count || 0;
 
     // Count upcoming webinars
     const upcomingWebinarsResult = await db.select({ count: sql<number>`count(*)` })
       .from(webinars)
-      .where(and(eq(webinars.clientId, clientId), gte(webinars.scheduledDate, new Date())));
+      .where(and(eq(webinars.clientId, Number(clientId)), gte(webinars.scheduledDate, new Date().toISOString())));
     const upcomingWebinars = upcomingWebinarsResult[0]?.count || 0;
 
     const stats = {
@@ -82,13 +82,13 @@ export const getClientWebinars = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const clientWebinars = await db.select().from(webinars).where(eq(webinars.clientId, clientId));
+    const clientWebinars = await db.select().from(webinars).where(eq(webinars.clientId, Number(clientId)));
 
     const formattedWebinars = clientWebinars.map(webinar => ({
       id: String(webinar.id),
       title: webinar.title,
       description: webinar.description,
-      date: webinar.scheduledDate?.toISOString(),
+      date: fromSqliteDate(webinar.scheduledDate as any),
       instructor: webinar.presenterName || 'N/A',
       status: webinar.status,
       duration: webinar.durationMinutes || 0,
@@ -109,11 +109,20 @@ export const getClientSubscription = async (req: Request, res: Response): Promis
       return;
     }
 
-    const subscriptionResult = await db.select().from(clientSubscriptions).where(eq(clientSubscriptions.clientId, clientId)).limit(1);
+    const subscriptionResult = await db.select().from(clientSubscriptions).where(eq(clientSubscriptions.clientId, Number(clientId))).limit(1);
     const subscription = subscriptionResult[0];
 
     if (!subscription) {
-      res.status(404).json({ error: 'Assinatura não encontrada' });
+      // Handoff users may not have a subscription row yet — return a free trial stub
+      res.json({
+        id: '0',
+        planName: 'Trial IMP',
+        price: 0,
+        status: 'active',
+        billingCycle: 'monthly',
+        currentPeriodEnd: null,
+        features: ['Webinars via IMP', 'Studio / Live'],
+      });
       return;
     }
 
@@ -128,11 +137,11 @@ export const getClientSubscription = async (req: Request, res: Response): Promis
     const formattedSubscription = {
       id: String(subscription.id),
       planName: plan.name,
-      price: parseFloat(plan.price as string),
+      price: typeof plan.price === 'number' ? plan.price : parseFloat(String(plan.price)),
       status: subscription.status,
-      billingCycle: 'monthly', // Assuming monthly for now, could be dynamic from plan
-      currentPeriodEnd: subscription.expiresAt?.toISOString(),
-      features: plan.features ? (plan.features as string).split('\n') : [],
+      billingCycle: 'monthly',
+      currentPeriodEnd: fromSqliteDate(subscription.expiresAt as any),
+      features: plan.features ? String(plan.features).split('\n') : [],
     };
 
     res.json(formattedSubscription);

@@ -1,11 +1,8 @@
 {
   "schema": "./src/db/schema.ts",
   "out": "./drizzle",
-  "dialect": "mysql",
+  "dialect": "sqlite",
   "dbCredentials": {
-    "host": "127.0.0.1",
-    "user": "",
-    "password": "",
-    "database": ""
+    "url": "../database/sqlite.db"
   }
 }

@@ -1,17 +1,29 @@
 import express, { Request, Response } from 'express';
-import mysql from 'mysql2/promise';
+import { getLibsqlClient } from '../db/index.js';
 
 const router = express.Router();
 
-// Função auxiliar para obter conexão com o banco
 async function getConnection() {
-  return mysql.createConnection({
-    host: process.env.DB_HOST || '127.0.0.1',
-    user: process.env.DB_USER || 'u926851054_lead',
-    password: process.env.DB_PASSWORD || 'Lead=123',
-    database: process.env.DB_NAME || 'u926851054_webinarpro',
-    port: parseInt(process.env.DB_PORT || '3306'),
-  });
+  const client = getLibsqlClient();
+  return {
+    async execute(sql: string, args: unknown[] = []) {
+      const result = await client.execute({ sql, args: args as any[] });
+      const isSelect = /^\s*select/i.test(sql);
+      if (isSelect) {
+        return [result.rows, []];
+      }
+      return [
+        {
+          insertId: Number(result.lastInsertRowid || 0),
+          affectedRows: Number(result.rowsAffected || 0),
+        },
+        [],
+      ];
+    },
+    async end() {
+      /* shared client */
+    },
+  };
 }
 
 // 1. Obter todos os leads de um webinar

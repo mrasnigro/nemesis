@@ -14,9 +14,18 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     resolve: {
+      // Live FE has its own node_modules (React 18) — force one copy to avoid invalid hook calls.
+      dedupe: ['react', 'react-dom', 'react-router-dom', 'zustand'],
       alias: {
         '@webinar-live': path.resolve(__dirname, 'services/webinar/frontend/src'),
+        react: path.resolve(__dirname, 'node_modules/react'),
+        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+        'react-router-dom': path.resolve(__dirname, 'node_modules/react-router-dom'),
+        zustand: path.resolve(__dirname, 'node_modules/zustand'),
       },
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-router-dom', 'zustand', 'axios', 'lucide-react', 'hls.js'],
     },
     define: {
       // Live FE (api.ts) reads REACT_APP_API_URL (not a VITE_ * auto-inject)

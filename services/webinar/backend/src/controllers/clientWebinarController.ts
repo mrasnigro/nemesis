@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../db/index.js';
+import { db, toSqliteDate, fromSqliteDate } from '../db/index.js';
 import { webinars, chatMessages } from '../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 
@@ -20,15 +20,15 @@ export async function createWebinar(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const [result] = await db.insert(webinars).values({
-      clientId: parseInt(clientId),
+    const inserted = await db.insert(webinars).values({
+      clientId: parseInt(String(clientId), 10),
       title,
       description: description || null,
-      scheduledDate: new Date(scheduledDate),
+      scheduledDate: toSqliteDate(scheduledDate) || new Date().toISOString(),
       durationMinutes: parseInt(durationMinutes),
       isRecurring: isRecurring ? 1 : 0,
       recurrencePattern: recurrencePattern || null,
-      recurrenceEndDate: recurrenceEndDate ? new Date(recurrenceEndDate) : null,
+      recurrenceEndDate: toSqliteDate(recurrenceEndDate),
       timezone: timezone || 'America/Sao_Paulo',
       presenterName: presenterName || null,
       presenterBio: presenterBio || null,
@@ -36,12 +36,15 @@ export async function createWebinar(req: Request, res: Response): Promise<void> 
       registrationPageColor: registrationPageColor || '#007bff',
       maxParticipants: parseInt(maxParticipants) || 0,
       status: status || 'draft',
-    });
+    }).returning();
 
-    const newWebinarId = (result as any).insertId;
-    const newWebinar = await db.select().from(webinars).where(eq(webinars.id, newWebinarId)).limit(1);
+    const newWebinar = inserted[0];
+    if (!newWebinar) {
+      res.status(500).json({ error: 'Falha ao criar webinar' });
+      return;
+    }
 
-    res.status(201).json(newWebinar[0]);
+    res.status(201).json(newWebinar);
   } catch (error: any) {
     console.error('Erro ao criar webinar:', error);
 
@@ -93,11 +96,11 @@ export async function updateWebinar(req: Request, res: Response): Promise<void> 
     const updates: any = {};
     if (title) updates.title = title;
     if (description !== undefined) updates.description = description;
-    if (scheduledDate) updates.scheduledDate = new Date(scheduledDate);
+    if (scheduledDate) updates.scheduledDate = toSqliteDate(scheduledDate);
     if (durationMinutes) updates.durationMinutes = parseInt(durationMinutes);
     if (isRecurring !== undefined) updates.isRecurring = isRecurring ? 1 : 0;
     if (recurrencePattern !== undefined) updates.recurrencePattern = recurrencePattern;
-    if (recurrenceEndDate !== undefined) updates.recurrenceEndDate = recurrenceEndDate ? new Date(recurrenceEndDate) : null;
+    if (recurrenceEndDate !== undefined) updates.recurrenceEndDate = toSqliteDate(recurrenceEndDate);
     if (timezone) updates.timezone = timezone;
     if (presenterName !== undefined) updates.presenterName = presenterName;
     if (presenterBio !== undefined) updates.presenterBio = presenterBio;
@@ -236,18 +239,20 @@ export async function postStudioChat(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const [result] = await db.insert(chatMessages).values({
+    const inserted = await db.insert(chatMessages).values({
       webinarId: webinarId,
-      participantId: role === 'participant' ? 1 : null, // Marcar como participante se role for participant
+      participantId: role === 'participant' ? 1 : null,
       senderName: finalUserName,
       message: message,
       timestampSeconds: Math.floor(Date.now() / 1000),
-    });
-    
-    const newMessageId = (result as any).insertId;
-    const newMessageEntry = await db.select().from(chatMessages).where(eq(chatMessages.id, newMessageId)).limit(1);
-    
-    const msg = newMessageEntry[0];
+    }).returning();
+
+    const msg = inserted[0];
+    if (!msg) {
+      res.status(500).json({ error: 'Falha ao salvar mensagem' });
+      return;
+    }
+
     res.status(201).json({
       id: msg.id,
       userName: msg.senderName || 'Anônimo',

@@ -1,9 +1,3 @@
-/**
- * IMP → Webinar SSO handoff (Phase C stub).
- * POST /api/auth/imp-handoff/register  (shared key)
- * POST /api/auth/imp-handoff/exchange   (one-time code → JWT)
- */
-
 import { Request, Response } from 'express'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -32,7 +26,6 @@ function syntheticUserId(email: string): number {
   for (let i = 0; i < email.length; i += 1) {
     hash = (hash * 31 + email.charCodeAt(i)) >>> 0
   }
-  // Keep away from tiny autoincrement ids; stay within signed int range.
   return 900000000 + (hash % 99999999)
 }
 
@@ -52,15 +45,20 @@ async function resolveOrCreateUser(input: {
       }
     }
 
-    const [result] = await db.insert(users).values({
-      email: input.email,
-      name: input.name,
-      passwordHash: `imp-handoff:${Date.now()}`,
-      role: input.role,
-      isActive: 1,
-    } as any)
+    const inserted = await db
+      .insert(users)
+      .values({
+        email: input.email,
+        name: input.name,
+        passwordHash: `imp-handoff:${Date.now()}`,
+        role: input.role,
+        isActive: 1,
+      })
+      .returning({ id: users.id })
 
-    const userId = Number((result as any).insertId)
+    const userId = Number(inserted[0]?.id)
+    if (!userId) throw new Error('insert users failed')
+
     return {
       id: userId,
       email: input.email,

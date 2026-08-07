@@ -1,18 +1,32 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import mysql from 'mysql2/promise';
+import { getLibsqlClient } from '../db/index.js';
 
 const router = Router();
 
-// Função auxiliar para obter conexão com o banco - M102.45: Garantindo credenciais de produção
+/** Minimal mysql2-style shim over libsql for legacy route bodies. */
 async function getConnection() {
-  return mysql.createConnection({
-    host: process.env.DB_HOST || '127.0.0.1',
-    user: process.env.DB_USER || 'u926851054_lead',
-    password: process.env.DB_PASSWORD || '##Lead123##',
-    database: process.env.DB_NAME || 'u926851054_webinarpro',
-    port: parseInt(process.env.DB_PORT || '3306'),
-  });
+  const client = getLibsqlClient();
+  return {
+    async execute(sql: string, args: unknown[] = []) {
+      const result = await client.execute({ sql, args: args as any[] });
+      // mimic mysql2 [rows, fields] for SELECTs; for writes return result-like object
+      const isSelect = /^\s*select/i.test(sql);
+      if (isSelect) {
+        return [result.rows, []];
+      }
+      return [
+        {
+          insertId: Number(result.lastInsertRowid || 0),
+          affectedRows: Number(result.rowsAffected || 0),
+        },
+        [],
+      ];
+    },
+    async end() {
+      /* libsql client is shared */
+    },
+  };
 }
 
 // 1. Validar código de acesso
