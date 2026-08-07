@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { appPath } from '../lib/appBase';
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export const RegisterForm: React.FC = () => {
 
     const success = await register(name, email, password);
     if (success) {
-      navigate('/dashboard');
+      navigate(appPath('/dashboard'));
     }
   };
 

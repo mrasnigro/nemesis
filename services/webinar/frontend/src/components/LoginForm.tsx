@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { appPath } from '../lib/appBase';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -29,9 +30,9 @@ export const LoginForm: React.FC = () => {
       const isAdmin = currentUser?.role === 'admin';
       
       if (isAdmin) {
-        navigate('/admin/dashboard');
+        navigate(appPath('/admin/dashboard'));
       } else {
-        navigate('/dashboard');
+        navigate(appPath('/dashboard'));
       }
     }
   };

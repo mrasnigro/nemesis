@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { appPath, loginPath } from '../lib/appBase';
 
 interface AdminLayoutProps {
   children?: React.ReactNode;
@@ -13,14 +14,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate(loginPath());
   };
 
   const menuItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
-    { label: 'Usuários', path: '/admin/users', icon: '👥' },
-    { label: 'Planos', path: '/admin/plans', icon: '💳' },
-    { label: 'Webinars', path: '/admin/webinars', icon: '🎥' },
+    { label: 'Dashboard', path: appPath('/admin/dashboard'), icon: '📊' },
+    { label: 'Usuários', path: appPath('/admin/users'), icon: '👥' },
+    { label: 'Planos', path: appPath('/admin/plans'), icon: '💳' },
+    { label: 'Webinars', path: appPath('/admin/webinars'), icon: '🎥' },
   ];
 
   return (

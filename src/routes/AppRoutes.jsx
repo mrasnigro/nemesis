@@ -49,16 +49,34 @@ import {
   RadarLayout,
 } from '../modules/radar'
 import {
-  WebinarAppDashboardPage,
-  WebinarDetailPage,
-  WebinarHomePage,
+  ClientDashboard,
+  ClientLeads,
+  ClientLiveWebinar,
+  ClientNewWebinar,
+  ClientProfile,
+  ClientSubscription,
+  ClientWebinarDetail,
+  ClientWebinars,
+  ImpAdminOutlet,
+  ImpClientOutlet,
+  StudioLayout,
+  StudioPreview,
+  StudioRoom,
+  WebinarAdminDashboard,
+  WebinarAdminNewWebinar,
+  WebinarAdminPlans,
+  WebinarAdminUsers,
+  WebinarAdminWebinars,
+  WebinarFullBleedLayout,
+  WebinarGatedOutlet,
   WebinarLayout,
-  WebinarListPage,
-  WebinarNewPage,
+  WebinarLiveHomeRedirect,
   WebinarOneOnOneLaunchPage,
   WebinarOverviewPage,
+  WebinarSessionRoot,
   WebinarSidecarPage,
 } from '../modules/webinar'
+import WebinarLegacyDetailRedirect from '../modules/webinar/live/WebinarLegacyDetailRedirect.jsx'
 import {
   VslCampaignsPage,
   VslConfigurePage,
@@ -178,19 +196,60 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['imp']}>
             <ModuleRoute moduleId="webinar">
-              <WebinarLayout />
+              <WebinarSessionRoot />
             </ModuleRoute>
           </ProtectedRoute>
         }
       >
-        <Route path="/modules/webinar" element={<WebinarHomePage />} />
-        <Route path="/modules/webinar/app" element={<WebinarAppDashboardPage />} />
-        <Route path="/modules/webinar/webinars" element={<WebinarListPage />} />
-        <Route path="/modules/webinar/webinars/novo" element={<WebinarNewPage />} />
-        <Route path="/modules/webinar/webinars/:webinarId" element={<WebinarDetailPage />} />
-        <Route path="/modules/webinar/reuniao-1a1" element={<WebinarOneOnOneLaunchPage />} />
-        <Route path="/modules/webinar/overview" element={<WebinarOverviewPage />} />
-        <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
+        <Route element={<WebinarLayout />}>
+          <Route element={<WebinarGatedOutlet />}>
+            <Route path="/modules/webinar" element={<WebinarLiveHomeRedirect />} />
+            <Route path="/modules/webinar/dashboard" element={<ImpClientOutlet />}>
+              <Route index element={<ClientDashboard />} />
+              <Route path="webinars" element={<ClientWebinars />} />
+              <Route path="webinars/new" element={<ClientNewWebinar />} />
+              <Route path="webinars/:id" element={<ClientWebinarDetail />} />
+              <Route path="leads" element={<ClientLeads />} />
+              <Route path="subscription" element={<ClientSubscription />} />
+              <Route path="profile" element={<ClientProfile />} />
+            </Route>
+            <Route path="/modules/webinar/admin" element={<ImpAdminOutlet />}>
+              <Route path="dashboard" element={<WebinarAdminDashboard />} />
+              <Route path="users" element={<WebinarAdminUsers />} />
+              <Route path="plans" element={<WebinarAdminPlans />} />
+              <Route path="webinars" element={<WebinarAdminWebinars />} />
+              <Route path="webinars/new" element={<WebinarAdminNewWebinar />} />
+            </Route>
+            <Route path="/modules/webinar/reuniao-1a1" element={<WebinarOneOnOneLaunchPage />} />
+            <Route path="/modules/webinar/overview" element={<WebinarOverviewPage />} />
+            <Route path="/modules/webinar/sidecar" element={<WebinarSidecarPage />} />
+            {/* Legacy stub URLs → live app */}
+            <Route
+              path="/modules/webinar/app"
+              element={<Navigate to="/modules/webinar/dashboard" replace />}
+            />
+            <Route
+              path="/modules/webinar/webinars"
+              element={<Navigate to="/modules/webinar/dashboard/webinars" replace />}
+            />
+            <Route
+              path="/modules/webinar/webinars/novo"
+              element={<Navigate to="/modules/webinar/dashboard/webinars/new" replace />}
+            />
+            <Route
+              path="/modules/webinar/webinars/:webinarId"
+              element={<WebinarLegacyDetailRedirect />}
+            />
+          </Route>
+        </Route>
+
+        <Route element={<WebinarFullBleedLayout />}>
+          <Route path="/modules/webinar/live/:id" element={<ClientLiveWebinar />} />
+          <Route path="/modules/webinar/studio" element={<StudioLayout />}>
+            <Route path="preview/:id" element={<StudioPreview />} />
+            <Route path=":id" element={<StudioRoom />} />
+          </Route>
+        </Route>
       </Route>
 
       <Route

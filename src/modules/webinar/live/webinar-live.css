@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Scoped so IMP chrome is not wiped by WebinarPro global resets */
+.webinar-live-root {
+  font-family: 'Inter', 'Poppins', 'Roboto', sans-serif;
+  color: #333333;
+  line-height: 1.6;
+}
+
+.webinar-live-root a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s ease-in-out;
+}
+
+.webinar-live-root button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.webinar-live-root .btn-primary {
+  @apply px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors;
+}
+
+.webinar-live-root .btn-secondary {
+  @apply px-6 py-3 bg-white text-primary border-2 border-primary rounded-lg font-semibold hover:bg-blue-50 transition-colors;
+}
+
+.webinar-live-root .section-title {
+  @apply text-h3 font-bold text-text mb-4;
+}
+
+.webinar-live-root .section-subtitle {
+  @apply text-h4 font-semibold text-text mb-3;
+}

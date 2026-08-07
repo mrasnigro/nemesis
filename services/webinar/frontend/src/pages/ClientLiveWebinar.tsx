@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useChunkStream } from '../hooks/useChunkStream';
 import StudioChat from '../components/studio/StudioChat';
 import api from '../services/api';
+import { appPath } from '../lib/appBase';
 
 const ClientLiveWebinar: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -169,7 +170,7 @@ const ClientLiveWebinar: React.FC = () => {
       {/* Header */}
       <header className="bg-gray-950 border-b border-gray-800 h-14 flex items-center px-6 flex-shrink-0">
         <button 
-          onClick={() => navigate('/dashboard/webinars')}
+          onClick={() => navigate(appPath('/dashboard/webinars'))}
           className="text-gray-400 hover:text-white mr-4"
         >
           ← Sair
@@ -223,7 +224,7 @@ const ClientLiveWebinar: React.FC = () => {
                       <h3 className="text-xl font-bold text-white">Esta transmissão foi encerrada.</h3>
                       <p className="text-gray-400">Obrigado por participar!</p>
                       <button 
-                        onClick={() => navigate('/dashboard/webinars')}
+                        onClick={() => navigate(appPath('/dashboard/webinars'))}
                         className="mt-4 px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
                       >
                         Voltar para Webinars

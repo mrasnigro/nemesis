@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { appPath, getAppBase, loginPath } from '../lib/appBase';
 
 const API_URL = import.meta.env.REACT_APP_API_URL || 'https://s1m0ne.tec.br/api';
 
@@ -57,10 +58,12 @@ api.interceptors.response.use(
         
         // Não redirecionar se for uma rota pública ou a página da live
         const isPublicRoute = originalRequest.url?.includes('/public/');
-        const isLivePage = window.location.pathname.startsWith('/live/');
+        const livePrefix = appPath('/live/');
+        const isLivePage = window.location.pathname.startsWith(livePrefix) ||
+          (!getAppBase() && window.location.pathname.startsWith('/live/'));
         
         if (!isPublicRoute && !isLivePage) {
-          window.location.href = '/login';
+          window.location.href = loginPath();
         }
         
         return Promise.reject(refreshError);

@@ -5,6 +5,7 @@ import StreamControls from '../components/studio/StreamControls';
 import AudiencePanel from '../components/studio/AudiencePanel';
 import StudioChat from '../components/studio/StudioChat';
 import { useSimpleWebRTC } from '../hooks/useSimpleWebRTC';
+import { appPath } from '../lib/appBase';
 
 const StudioRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +34,7 @@ const StudioRoom: React.FC = () => {
         }
       } catch (error) {
         console.error('Erro ao carregar estúdio:', error);
-        navigate('/dashboard/webinars');
+        navigate(appPath('/dashboard/webinars'));
       } finally {
         setLoading(false);
       }

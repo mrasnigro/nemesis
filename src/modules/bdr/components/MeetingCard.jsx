@@ -151,7 +151,7 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
     }
     if (linkedId) {
       onUpdate?.(meeting.id, { webinarId: String(linkedId) })
-      navigate(`/modules/webinar/webinars/${linkedId}`, {
+      navigate(`/modules/webinar/dashboard/webinars/${linkedId}`, {
         state: { fromBdr: true, meetingId: meeting.id, returnTo: '/modules/bdr/agendamentos' },
       })
       setOpeningOneOnOne(false)

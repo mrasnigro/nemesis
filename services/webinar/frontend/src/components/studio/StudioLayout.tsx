@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { appPath } from '../../lib/appBase';
 
 const StudioLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ const StudioLayout: React.FC = () => {
       <header className="bg-gray-950 border-b border-gray-800 h-14 flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/admin/webinars')}
+            onClick={() => navigate(appPath('/dashboard/webinars'))}
             className="text-gray-400 hover:text-white transition-colors"
             title="Voltar para Webinars"
           >

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { appPath } from '../lib/appBase';
 
 interface Stats {
   totalClients: number;
@@ -474,7 +475,7 @@ export const AdminDashboard: React.FC = () => {
                   ➕ Novo Cliente
                 </button>
                 <button 
-                  onClick={() => navigate('/admin/webinars/new')}
+                  onClick={() => navigate(appPath('/admin/webinars/new'))}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors"
                 >
                   ➕ Novo Webinar

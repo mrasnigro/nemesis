@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { appPath } from '../lib/appBase';
 import api from '../services/api';
 import { 
   PlayCircle, 
@@ -125,7 +126,7 @@ const ClientDashboard: React.FC = () => {
               </div>
               <div className="pt-4 border-t border-gray-100">
                 <Link 
-                  to="/dashboard/subscription" 
+                  to={appPath('/dashboard/subscription')} 
                   className="text-sm text-indigo-600 font-medium hover:text-indigo-800 flex items-center justify-center"
                 >
                   Gerenciar assinatura
@@ -167,12 +168,12 @@ const ClientDashboard: React.FC = () => {
               </h2>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => navigate('/dashboard/webinars/new')}
+                  onClick={() => navigate(appPath('/dashboard/webinars/new'))}
                   className="text-sm bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1 rounded"
                 >
                   + Novo
                 </button>
-                <Link to="/dashboard/webinars" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                <Link to={appPath('/dashboard/webinars')} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
                   Ver todos
                 </Link>
               </div>
@@ -218,7 +219,7 @@ const ClientDashboard: React.FC = () => {
                         </div>
                         <div className="sm:ml-4 flex-shrink-0">
                           <button 
-                            onClick={() => webinar.status === 'live' && navigate(`/live/${webinar.id}`)}
+                            onClick={() => webinar.status === 'live' && navigate(appPath(`/live/${webinar.id}`))}
                             className={`w-full sm:w-auto px-4 py-2 rounded-md text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                               webinar.status === 'live' 
                                 ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500 cursor-pointer' 
@@ -235,7 +236,7 @@ const ClientDashboard: React.FC = () => {
                 <div className="p-8 text-center text-gray-500">
                   <Calendar className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                   <p>Nenhum webinar agendado para os próximos dias.</p>
-                  <Link to="/dashboard/webinars" className="text-indigo-600 hover:text-indigo-800 mt-2 inline-block">
+                  <Link to={appPath('/dashboard/webinars')} className="text-indigo-600 hover:text-indigo-800 mt-2 inline-block">
                     Acesse a biblioteca de gravações
                   </Link>
                 </div>

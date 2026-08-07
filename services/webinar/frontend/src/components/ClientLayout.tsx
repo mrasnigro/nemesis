@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { appPath, loginPath } from '../lib/appBase';
 import { 
   LayoutDashboard, 
   Video, 
@@ -20,15 +21,15 @@ const ClientLayout: React.FC = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate(loginPath());
   };
 
   const navigation = [
-    { name: 'Início', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Meus Webinars', href: '/dashboard/webinars', icon: Video },
-    { name: 'Leads', href: '/dashboard/leads', icon: Users },
-    { name: 'Minha Assinatura', href: '/dashboard/subscription', icon: CreditCard },
-    { name: 'Meu Perfil', href: '/dashboard/profile', icon: UserCircle },
+    { name: 'Início', href: appPath('/dashboard'), icon: LayoutDashboard },
+    { name: 'Meus Webinars', href: appPath('/dashboard/webinars'), icon: Video },
+    { name: 'Leads', href: appPath('/dashboard/leads'), icon: Users },
+    { name: 'Minha Assinatura', href: appPath('/dashboard/subscription'), icon: CreditCard },
+    { name: 'Meu Perfil', href: appPath('/dashboard/profile'), icon: UserCircle },
   ];
 
   return (
@@ -39,7 +40,7 @@ const ClientLayout: React.FC = () => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link to="/dashboard" className="text-xl font-bold text-indigo-600">
+                <Link to={appPath('/dashboard')} className="text-xl font-bold text-indigo-600">
                   WebinarPro
                 </Link>
               </div>

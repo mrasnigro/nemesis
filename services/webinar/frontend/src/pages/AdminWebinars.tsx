@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { appPath } from '../lib/appBase';
 
 interface Webinar {
   id: string;
@@ -66,7 +67,7 @@ export const AdminWebinars: React.FC = () => {
 
       <div className="mb-6">
         <button 
-          onClick={() => navigate('/admin/webinars/new')}
+          onClick={() => navigate(appPath('/admin/webinars/new'))}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
         >
           ➕ Novo Webinar
@@ -173,7 +174,7 @@ export const AdminWebinars: React.FC = () => {
                       </button>
                       {(webinar.status === 'scheduled' || webinar.status === 'live' || webinar.status === 'draft') && (
                         <button 
-                          onClick={() => window.open(`/admin/studio/preview/${webinar.id}`, '_blank')}
+                          onClick={() => window.open(appPath(`/studio/preview/${webinar.id}`), '_blank')}
                           className="px-3 py-1 rounded text-xs font-medium bg-green-100 hover:bg-green-200 text-green-800 transition-colors"
                         >
                           🎥 Estúdio
@@ -294,7 +295,7 @@ export const AdminWebinars: React.FC = () => {
               </button>
               {(selectedWebinar.status === 'scheduled' || selectedWebinar.status === 'live' || selectedWebinar.status === 'draft') && (
                 <button 
-                  onClick={() => window.open(`/admin/studio/preview/${selectedWebinar.id}`, '_blank')}
+                  onClick={() => window.open(appPath(`/studio/preview/${selectedWebinar.id}`), '_blank')}
                   className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                 >
                   Entrar no Estúdio

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import { appPath } from '../lib/appBase';
 
 interface LeadData {
   name: string;
@@ -70,7 +71,7 @@ export const PublicWebinarAccess: React.FC = () => {
 
       // Redirecionar para a live com o ID REAL
       setTimeout(() => {
-        window.location.href = `/live/${realWebinarId}`;
+        window.location.href = appPath(`/live/${realWebinarId}`);
       }, 1500);
     } catch (err: any) {
       console.error('Erro ao registrar:', err);

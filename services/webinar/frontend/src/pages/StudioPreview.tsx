@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { appPath } from '../lib/appBase';
 // import { useSimpleWebRTC } from '../hooks/useSimpleWebRTC';
 
 const StudioPreview: React.FC = () => {
@@ -33,7 +34,7 @@ const StudioPreview: React.FC = () => {
         }
       } catch (error) {
         console.error('Erro ao carregar webinar:', error);
-        navigate('/dashboard/webinars');
+        navigate(appPath('/dashboard/webinars'));
       } finally {
         setLoading(false);
       }
@@ -130,7 +131,7 @@ const StudioPreview: React.FC = () => {
       tracks.forEach(track => track.stop());
     }
     // Navegar para o estúdio
-    navigate(`/studio/${id}`);
+    navigate(appPath(`/studio/${id}`));
   };
 
   if (loading) {
@@ -248,7 +249,7 @@ const StudioPreview: React.FC = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
             <button
-              onClick={() => navigate('/dashboard/webinars')}
+              onClick={() => navigate(appPath('/dashboard/webinars'))}
               className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
             >
               ← Voltar

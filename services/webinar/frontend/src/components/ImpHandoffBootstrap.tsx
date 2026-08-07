@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { appPath } from '../lib/appBase'
 
 const RETURN_TO_KEY = 'imp_return_to'
 
@@ -80,8 +81,8 @@ export function ImpHandoffBootstrap() {
         const dest = deep
           ? path
           : user?.role === 'admin'
-            ? '/admin/dashboard'
-            : '/dashboard'
+            ? appPath('/admin/dashboard')
+            : appPath('/dashboard')
         navigate(dest, { replace: true })
         setStatus('idle')
       } catch (err: any) {

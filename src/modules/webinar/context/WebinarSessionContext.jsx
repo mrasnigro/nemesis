@@ -6,6 +6,7 @@ import {
   loadStoredWebinarSession,
 } from '../services/webinarAuthBridge.js'
 import { webinarApiFetch } from '../services/webinarApi.js'
+import { clearLiveAuthStore, syncLiveAuthStore } from '../live/syncLiveAuth.js'
 
 const WebinarSessionContext = createContext(null)
 
@@ -21,10 +22,19 @@ export function WebinarSessionProvider({ children }) {
     sessionRef.current = session
   }, [session])
 
+  useEffect(() => {
+    if (status === 'ready' && session?.accessToken) {
+      syncLiveAuthStore(session)
+    } else if (status === 'error' || status === 'idle' || !session) {
+      clearLiveAuthStore()
+    }
+  }, [session, status])
+
   const ensureSession = useCallback(async (options = {}) => {
     if (!isAuthenticated || !impUser?.username) {
       setSession(null)
       clearWebinarSession()
+      clearLiveAuthStore()
       setStatus('idle')
       setError('')
       return null
@@ -41,6 +51,7 @@ export function WebinarSessionProvider({ children }) {
         const next = await ensureWebinarSession(impUser, { force: Boolean(options.force) })
         setSession(next)
         sessionRef.current = next
+        syncLiveAuthStore(next)
         setStatus('ready')
         setError('')
         return next
@@ -48,6 +59,7 @@ export function WebinarSessionProvider({ children }) {
         setSession(null)
         sessionRef.current = null
         clearWebinarSession()
+        clearLiveAuthStore()
         setStatus('error')
         setError(err instanceof Error ? err.message : 'Falha no bridge Webinar')
         return null
@@ -65,6 +77,7 @@ export function WebinarSessionProvider({ children }) {
     if (!isAuthenticated || !impUser?.username) {
       setSession(null)
       clearWebinarSession()
+      clearLiveAuthStore()
       setStatus('idle')
       setError('')
       return
@@ -106,6 +119,7 @@ export function WebinarSessionProvider({ children }) {
       ensureSession,
       clearSession: () => {
         clearWebinarSession()
+        clearLiveAuthStore()
         setSession(null)
         sessionRef.current = null
         setStatus('idle')

@@ -59,7 +59,7 @@ export async function launchOneOnOneFromMeeting({ apiRequest, meeting }) {
     return {
       webinarId: String(meeting.webinarId),
       created: false,
-      path: `/modules/webinar/webinars/${meeting.webinarId}`,
+      path: `/modules/webinar/dashboard/webinars/${meeting.webinarId}`,
     }
   }
 
@@ -81,7 +81,7 @@ export async function launchOneOnOneFromMeeting({ apiRequest, meeting }) {
   return {
     webinarId,
     created: true,
-    path: `/modules/webinar/webinars/${webinarId}`,
+    path: `/modules/webinar/dashboard/webinars/${webinarId}`,
     raw: created,
   }
 }

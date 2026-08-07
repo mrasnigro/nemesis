@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { appPath } from '../lib/appBase';
 import { 
   Play, 
   Calendar, 
@@ -138,7 +139,7 @@ const ClientWebinars: React.FC = () => {
       case 'live':
         return (
           <button 
-            onClick={() => navigate(`/studio/preview/${id}`)}
+            onClick={() => navigate(appPath(`/studio/preview/${id}`))}
             className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
           >
             <Play className="w-4 h-4 mr-2" />
@@ -155,7 +156,7 @@ const ClientWebinars: React.FC = () => {
       case 'draft':
         return (
           <button 
-            onClick={() => navigate(`/dashboard/webinars/${id}`)}
+            onClick={() => navigate(appPath(`/dashboard/webinars/${id}`))}
             className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             Editar Rascunho
@@ -189,7 +190,7 @@ const ClientWebinars: React.FC = () => {
           <p className="mt-1 text-sm text-gray-500">Acesse todo o conteúdo disponível na sua assinatura.</p>
         </div>
         <button 
-          onClick={() => navigate("/dashboard/webinars/new")}
+          onClick={() => navigate(appPath("/dashboard/webinars/new"))}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
         >
           ➕ Novo Webinar
@@ -285,7 +286,7 @@ const ClientWebinars: React.FC = () => {
                 
                 <div className="mt-auto space-y-2">
                   <button
-                    onClick={() => navigate(`/dashboard/webinars/${webinar.id}`)}
+                    onClick={() => navigate(appPath(`/dashboard/webinars/${webinar.id}`))}
                     className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                   >
                     Ver Detalhes
@@ -293,7 +294,7 @@ const ClientWebinars: React.FC = () => {
                   {getActionButton(webinar.status, webinar.id)}
                   {(webinar.status === 'draft' || webinar.status === 'scheduled') && (
                     <button 
-                      onClick={() => navigate(`/studio/preview/${webinar.id}`)}
+                      onClick={() => navigate(appPath(`/studio/preview/${webinar.id}`))}
                       className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
                     >
                       🎥 Estúdio
