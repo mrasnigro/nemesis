@@ -13,7 +13,6 @@ export default function TrainingPersonaDetailPage() {
     scenarios,
     canManage,
     canSimulate,
-    startSimulation,
   } = useTrainingAi()
 
   const persona = getPersona(personaId)
@@ -42,8 +41,9 @@ export default function TrainingPersonaDetailPage() {
   const traits = derivePersonaTraits(persona)
 
   function handleStart(scenarioId) {
-    const started = startSimulation(scenarioId, { personaId: persona.id })
-    if (started) navigate(`/modules/training-ai/simulacao/${scenarioId}`)
+    navigate(`/modules/training-ai/simulacao/${scenarioId}`, {
+      state: { personaId: persona.id },
+    })
   }
 
   return (

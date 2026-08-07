@@ -11,7 +11,6 @@ export default function TrainingScenarioDetailPage() {
     getEvaluationTemplate,
     canManage,
     canSimulate,
-    startSimulation,
   } = useTrainingAi()
 
   const scenario = getScenario(scenarioId)
@@ -37,8 +36,7 @@ export default function TrainingScenarioDetailPage() {
   }
 
   function handleStart() {
-    const started = startSimulation(scenario.id)
-    if (started) navigate(`/modules/training-ai/simulacao/${scenario.id}`)
+    navigate(`/modules/training-ai/simulacao/${scenario.id}`)
   }
 
   return (

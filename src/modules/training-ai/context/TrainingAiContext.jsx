@@ -328,31 +328,36 @@ export function TrainingAiProvider({ children }) {
       const personaForSession = personaOverride || bundle.persona
       if (!personaForSession && skipSetup) return null
 
-      const nextSession = createTrainingSession({
-        scenario: bundle.scenario,
-        persona: personaForSession || { id: bundle.scenario.personaId },
-        mode: 'free',
-      })
+      try {
+        const nextSession = createTrainingSession({
+          scenario: bundle.scenario,
+          persona: personaForSession || { id: bundle.scenario.personaId },
+          mode: 'free',
+        })
 
-      const openingSource = personaForSession || bundle.persona
-      const engine = getConversationEngine()
+        const openingSource = personaForSession || bundle.persona
+        const engine = getConversationEngine()
 
-      setSession(nextSession)
-      setAnswers([])
-      setTurnIndex(0)
-      setEvaluation(null)
-      setShowConversation(true)
-      setDraftPersonaId(
-        personaOverride?.id || bundle.scenario.personaId || personas[0]?.id || null,
-      )
-      setPhase(skipSetup ? 'briefing' : 'setup')
-      setMessages([
-        engine.createOpeningMessage({
-          persona: openingSource,
-          scriptTurns: bundle.turns || [],
-        }),
-      ])
-      return bundle.scenario
+        setSession(nextSession)
+        setAnswers([])
+        setTurnIndex(0)
+        setEvaluation(null)
+        setShowConversation(true)
+        setDraftPersonaId(
+          personaOverride?.id || bundle.scenario.personaId || personas[0]?.id || null,
+        )
+        setPhase(skipSetup ? 'briefing' : 'setup')
+        setMessages([
+          engine.createOpeningMessage({
+            persona: openingSource,
+            scriptTurns: bundle.turns || [],
+          }),
+        ])
+        return bundle.scenario
+      } catch (error) {
+        console.error('[training-ai] startSimulation error', error)
+        return null
+      }
     },
     [findPersona, permissions, personas, resolveBundle],
   )

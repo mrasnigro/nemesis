@@ -11,14 +11,14 @@ export default function TrainingCatalogPage() {
     history,
     canSimulate,
     canManage,
-    startSimulation,
     getPersona,
     getEvaluationTemplate,
   } = useTrainingAi()
 
   function handleStart(scenarioId) {
-    const started = startSimulation(scenarioId)
-    if (started) navigate(`/modules/training-ai/simulacao/${scenarioId}`)
+    // Let Simulation.jsx own startSimulation — avoid start+navigate races
+    // that bounce back to the catalog when the session briefly mismatches.
+    navigate(`/modules/training-ai/simulacao/${scenarioId}`)
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import PersonaCallStage from '../components/PersonaCallStage.jsx'
 import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
@@ -38,6 +38,7 @@ function stepState(phase, stepId) {
 
 export default function TrainingSimulationPage() {
   const { scenarioId } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const {
     scenarios,
@@ -69,15 +70,64 @@ export default function TrainingSimulationPage() {
   const [speakingLocal, setSpeakingLocal] = useState(false)
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
+  const [bootError, setBootError] = useState('')
   const lastSpokenMessageIdRef = useRef(null)
+  const bootAttemptRef = useRef(null)
 
+  // Own the simulation boot here. Entry points only navigate to this route —
+  // never bounce silently back to the catalog on a failed/racy start.
   useEffect(() => {
-    if (!canSimulate) return
-    if (!selectedScenario || selectedScenario.id !== scenarioId) {
-      const started = startSimulation(scenarioId)
-      if (!started) navigate('/modules/training-ai')
+    if (!scenarioId) return
+
+    if (bootAttemptRef.current && bootAttemptRef.current !== scenarioId) {
+      bootAttemptRef.current = null
     }
-  }, [canSimulate, navigate, scenarioId, selectedScenario, startSimulation])
+
+    const hasActiveSession =
+      selectedScenario?.id === scenarioId &&
+      (phase === 'setup' || phase === 'briefing' || phase === 'running')
+
+    if (hasActiveSession) {
+      setBootError('')
+      return
+    }
+
+    // Finished sessions navigate to the report via another effect.
+    if (phase === 'finished' && selectedScenario?.id === scenarioId) {
+      return
+    }
+
+    if (!canSimulate) {
+      setBootError('Sem permissão para iniciar simulações.')
+      return
+    }
+
+    // Avoid retry loops if start already failed for this scenarioId.
+    if (bootAttemptRef.current === scenarioId) return
+    bootAttemptRef.current = scenarioId
+    setBootError('')
+
+    try {
+      const personaIdFromNav = location.state?.personaId
+      const started = startSimulation(
+        scenarioId,
+        personaIdFromNav ? { personaId: personaIdFromNav } : {},
+      )
+      if (!started) {
+        setBootError('Não foi possível iniciar este cenário. Volte ao catálogo e tente de novo.')
+      }
+    } catch (error) {
+      console.error('[training-ai] startSimulation failed', error)
+      setBootError('Erro ao iniciar a simulação. Veja o console para detalhes.')
+    }
+  }, [
+    canSimulate,
+    location.state,
+    phase,
+    scenarioId,
+    selectedScenario?.id,
+    startSimulation,
+  ])
 
   // Drive the persona call stage: whenever a new AI line lands while in
   // voice mode, have the (mock, for now) avatar engine "speak" it so the
@@ -148,17 +198,39 @@ export default function TrainingSimulationPage() {
     }
   }
 
-  if (!scenario) {
+  if (bootError) {
     return (
       <section className="imp-module">
         <div className="training-ai__empty">
-          <h3>Cenário não encontrado</h3>
-          <p>Volte ao catálogo e selecione um treinamento válido.</p>
+          <h3>Não foi possível iniciar</h3>
+          <p>{bootError}</p>
           <div className="imp-actions">
             <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
-              Ir ao catálogo
+              Voltar ao catálogo
             </Link>
           </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (!scenario || phase === 'idle') {
+    return (
+      <section className="imp-module">
+        <div className="training-ai__empty">
+          <h3>{scenario ? 'Preparando simulação…' : 'Cenário não encontrado'}</h3>
+          <p>
+            {scenario
+              ? 'Carregando agente e briefing.'
+              : 'Volte ao catálogo e selecione um treinamento válido.'}
+          </p>
+          {!scenario ? (
+            <div className="imp-actions">
+              <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
+                Ir ao catálogo
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
     )
