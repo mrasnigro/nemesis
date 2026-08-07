@@ -60,7 +60,7 @@ console.log(`📂 Frontend Path: ${frontendPath}`);
 console.log("✅ Frontend path configured.");
 
 // Middleware
-const corsOrigins = [
+const defaultCorsOrigins = [
   'https://s1m0ne.tec.br',
   'https://www.s1m0ne.tec.br',
   'http://localhost:3000',
@@ -68,6 +68,14 @@ const corsOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
 ]
+// Extra origins (e.g. Netlify URL) via comma-separated CORS_ORIGINS env var,
+// so they can be updated on Render without a code change/redeploy.
+const envCorsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+const corsOrigins = [...defaultCorsOrigins, ...envCorsOrigins]
+console.log(`🌐 CORS origins permitidas: ${corsOrigins.join(', ')}`)
 app.use(
   cors({
     origin(origin, callback) {

@@ -20,15 +20,15 @@ export async function register(req: Request, res: Response): Promise<void> {
     }
 
     // Inserção sem hash para simplificar por enquanto (conforme banco atual)
-    const [result] = await db.insert(users).values({
+    const [created] = await db.insert(users).values({
       email,
       name,
       passwordHash: password,
       role: 'client',
       isActive: 1
-    } as any);
+    } as any).returning({ id: users.id });
 
-    const userId = (result as any).insertId;
+    const userId = created.id;
 
     // Criar assinatura trial automática de 30 dias para o novo usuário
     try {
@@ -41,8 +41,8 @@ export async function register(req: Request, res: Response): Promise<void> {
           planId: trialPlan[0].id,
           status: 'active',
           paymentStatus: 'paid', // Trial inicial marcado como pago
-          startedAt: new Date(),
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias
+          startedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
         });
       }
     } catch (subError) {

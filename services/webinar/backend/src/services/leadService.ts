@@ -51,7 +51,7 @@ export const leadService = {
     sql += ' ORDER BY registered_at DESC'
 
     const result = await client.execute({ sql, args })
-    return result.rows.map((row) => row as unknown as Lead)
+    return result.rows.map((row: unknown) => row as Lead)
   },
 
   async getLeadsBySession(sessionId: number): Promise<Lead[]> {
@@ -64,7 +64,7 @@ export const leadService = {
       `,
       args: [sessionId],
     })
-    return result.rows.map((row) => row as unknown as Lead)
+    return result.rows.map((row: unknown) => row as Lead)
   },
 
   async getLeadsStats(clientId: number): Promise<Record<string, number>> {

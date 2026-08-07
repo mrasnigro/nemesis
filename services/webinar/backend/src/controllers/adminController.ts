@@ -3,7 +3,6 @@ import { db } from '../db/index.js';
 import { users, plans, webinars, clientSubscriptions } from '../db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 
-
 export async function getStats(_req: Request, res: Response): Promise<void> {
   try {
     const totalUsersResult = await db.select({ count: sql<number>`count(*)` }).from(users);
@@ -83,15 +82,15 @@ export async function createUser(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [result] = await db.insert(users).values({
+    const [created] = await db.insert(users).values({
       name,
       email,
       passwordHash: password,
       role: role || 'client',
       isActive: 1
-    });
+    }).returning({ id: users.id });
 
-    const insertedId = (result as any).insertId;
+    const insertedId = created.id;
     
     // Se o usuário for um cliente, atribuir automaticamente o plano Trial
     if ((role || 'client') === 'client') {
@@ -105,8 +104,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
             planId: trialPlan[0].id,
             status: 'active',
             paymentStatus: 'pending',
-            startedAt: new Date(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 dias de validade
+            startedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias de validade
           });
         }
       } catch (subError) {

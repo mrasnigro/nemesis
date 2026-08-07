@@ -87,19 +87,21 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 
     const finalStatus = paymentStatus || status || 'pending';
     const finalExpiresAt = expiresAt ? new Date(expiresAt) : new Date(new Date().setMonth(new Date().getMonth() + 1));
+    const startedAtIso = startedAt ? new Date(startedAt).toISOString() : new Date().toISOString();
+    const expiresAtIso = finalExpiresAt.toISOString();
 
-    const [newPaymentResult] = await db.insert(clientSubscriptions).values({
+    const [created] = await db.insert(clientSubscriptions).values({
       clientId: parseInt(clientId),
       planId: pId,
       status: 'active', // Default status for new subscriptions
       paymentStatus: finalStatus,
       paymentMethod: paymentMethod || null,
       autoRenewal: autoRenewal !== undefined ? (autoRenewal ? 1 : 0) : 1,
-      startedAt: startedAt ? new Date(startedAt) : new Date(),
-      expiresAt: finalExpiresAt,
-    });
+      startedAt: startedAtIso,
+      expiresAt: expiresAtIso,
+    }).returning({ id: clientSubscriptions.id });
 
-    const newPaymentId = (newPaymentResult as any).insertId;
+    const newPaymentId = created.id;
 
     // Se o pagamento criado já for 'paid', criar o próximo registro pendente
     if (finalStatus === 'paid') {
@@ -113,8 +115,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         paymentStatus: 'pending',
         paymentMethod: null,
         autoRenewal: autoRenewal !== undefined ? (autoRenewal ? 1 : 0) : 1,
-        startedAt: finalExpiresAt,
-        expiresAt: nextExpiry,
+        startedAt: expiresAtIso,
+        expiresAt: nextExpiry.toISOString(),
       });
     }
 
@@ -139,16 +141,16 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
     if (paymentStatus) updates.paymentStatus = paymentStatus;
     if (paymentMethod) updates.paymentMethod = paymentMethod;
     if (autoRenewal !== undefined) updates.autoRenewal = autoRenewal ? 1 : 0;
-    if (expiresAt) updates.expiresAt = new Date(expiresAt);
+    if (expiresAt) updates.expiresAt = new Date(expiresAt).toISOString();
     if (planId) updates.planId = parseInt(planId);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'Nenhum campo para atualizar fornecido' });
     }
 
-    const [updateResult] = await db.update(clientSubscriptions).set(updates).where(eq(clientSubscriptions.id, paymentId));
+    const updateResult = await db.update(clientSubscriptions).set(updates).where(eq(clientSubscriptions.id, paymentId));
 
-    if ((updateResult as any).affectedRows === 0) {
+    if ((updateResult as any).rowsAffected === 0) {
       return res.status(404).json({ error: 'Pagamento (assinatura) não encontrado' });
     }
 
@@ -170,8 +172,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
           paymentStatus: 'pending',
           paymentMethod: null,
           autoRenewal: sub.autoRenewal,
-          startedAt: sub.expiresAt || new Date(),
-          expiresAt: nextExpiry,
+          startedAt: sub.expiresAt || new Date().toISOString(),
+          expiresAt: nextExpiry.toISOString(),
         });
 
         // Nota: O plano do cliente é gerenciado via client_subscriptions, não há campo planId em users.
@@ -193,9 +195,9 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
   try {
     const paymentId = parseInt(req.params.id);
 
-    const [deleteResult] = await db.delete(clientSubscriptions).where(eq(clientSubscriptions.id, paymentId));
+    const deleteResult = await db.delete(clientSubscriptions).where(eq(clientSubscriptions.id, paymentId));
 
-    if ((deleteResult as any).affectedRows === 0) {
+    if ((deleteResult as any).rowsAffected === 0) {
       return res.status(404).json({ error: 'Pagamento (assinatura) não encontrado' });
     }
 

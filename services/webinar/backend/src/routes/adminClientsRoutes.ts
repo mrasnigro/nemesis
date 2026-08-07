@@ -108,15 +108,15 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ error: 'Email já está em uso' });
     }
 
-    const [newUserResult] = await db.insert(users).values({
+    const [created] = await db.insert(users).values({
       name,
       email,
       passwordHash: pwd,
       role: 'client',
       isActive: 1,
-    });
+    }).returning({ id: users.id });
 
-    const newClientId = (newUserResult as any).insertId;
+    const newClientId = created.id;
 
     // Lógica de Novo Cliente: Sempre criar dois registros (Trial Pago Vencido Hoje + Básico Pendente Vencendo Próximo Mês)
     if (newClientId) {
@@ -132,8 +132,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         clientId: newClientId,
         planId: trialPlan.id,
         status: 'active',
-        startedAt: today,
-        expiresAt: today,
+        startedAt: today.toISOString(),
+        expiresAt: today.toISOString(),
         paymentStatus: 'paid',
       });
 
@@ -143,8 +143,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         clientId: newClientId,
         planId: basicPlan.id,
         status: 'active',
-        startedAt: today,
-        expiresAt: nextMonth,
+        startedAt: today.toISOString(),
+        expiresAt: nextMonth.toISOString(),
         paymentStatus: 'pending',
       });
       console.log(`[BACKEND] Novo Cliente ${newClientId}: Criado Trial Pago (ID ${trialPlan.id}) e Básico Pendente (ID ${basicPlan.id})`);
@@ -198,8 +198,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
           clientId: clientId,
           planId: parseInt(planId),
           status: subscriptionStatus || 'active',
-          startedAt: new Date(),
-          expiresAt: new Date(new Date().setDate(new Date().getDate() + 30)),
+          startedAt: new Date().toISOString(),
+          expiresAt: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
           paymentStatus: 'paid',
         });
       }
@@ -247,9 +247,9 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
     // Delete associated subscriptions first
     await db.delete(clientSubscriptions).where(eq(clientSubscriptions.clientId, clientId));
     // Then delete the user
-    const [deleteResult] = await db.delete(users).where(and(eq(users.id, clientId), eq(users.role, 'client')));
+    const deleteResult = await db.delete(users).where(and(eq(users.id, clientId), eq(users.role, 'client')));
 
-    if ((deleteResult as any).affectedRows === 0) {
+    if ((deleteResult as any).rowsAffected === 0) {
       return res.status(404).json({ error: 'Cliente não encontrado' });
     }
 
