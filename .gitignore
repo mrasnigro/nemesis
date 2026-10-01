@@ -8,8 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 /dist
 /.builds
-/docs
-# Local reference media. Markdown under docs/ is part of the project.
+# Local reference media and scraped captures. Markdown and the API spec under docs/ are part of the project.
+/docs/screenshots/bdr/live-fetch/
+/docs/video/
 /docs/**/*.png
 /docs/**/*.jpg
 /docs/**/*.jpeg
