@@ -1,39 +1,45 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { config } from '../../core/config.js'
-import { login, sessionCookieName } from './auth.service.js'
+import type { AuthUser } from '../../types/express.js'
+import { login, SESSION_TTL_SECONDS, sessionCookieName } from './auth.service.js'
 
 const loginBody = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  username: z.string().trim().min(1).max(80),
+  password: z.string().min(1).max(200),
 })
 
-function publicUser(user: NonNullable<Request['user']>) {
+function publicUser(user: AuthUser) {
   return {
     id: user.id,
     username: user.username,
     name: user.name,
+    email: user.email,
     role: user.role,
-    customerId: user.customerId,
+    profile: user.profile,
+    customer: user.customerId ? { id: user.customerId, name: user.customerName } : null,
     modules: user.modules,
+  }
+}
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: config.NODE_ENV === 'production',
+    path: '/',
   }
 }
 
 export async function loginController(req: Request, res: Response) {
   const body = loginBody.parse(req.body)
-  const result = await login(body.username, body.password)
-  res.cookie(sessionCookieName(), result.token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: config.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 8 * 60 * 60 * 1000,
-  })
+  const result = await login(body.username, body.password, req.ip)
+  res.cookie(sessionCookieName(), result.token, { ...cookieOptions(), maxAge: SESSION_TTL_SECONDS * 1000 })
   res.json({ data: publicUser(result.user) })
 }
 
 export async function logoutController(_req: Request, res: Response) {
-  res.clearCookie(sessionCookieName(), { path: '/' })
+  res.clearCookie(sessionCookieName(), cookieOptions())
   res.status(204).send()
 }
 

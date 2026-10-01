@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from 'express'
 import { ZodError } from 'zod'
 import { AppError } from './errors.js'
+import { log } from './logger.js'
+
+function isBodyParseError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { type?: string }).type === 'entity.parse.failed'
+}
 
 export function asyncHandler(
   handler: (req: Request, res: Response, next: NextFunction) => Promise<void>,
@@ -10,7 +15,11 @@ export function asyncHandler(
   }
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function notFoundHandler(req: Request, _res: Response, next: NextFunction) {
+  next(new AppError(404, 'NOT_FOUND', `No route for ${req.method} ${req.path}`))
+}
+
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) {
     res.status(400).json({
       error: {
@@ -36,7 +45,18 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return
   }
 
-  console.error(JSON.stringify({ level: 'error', message: 'unhandled', err: String(err) }))
+  if (isBodyParseError(err)) {
+    res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'Malformed JSON body', details: [] },
+    })
+    return
+  }
+
+  log('error', 'unhandled', {
+    requestId: req.requestId,
+    path: req.originalUrl,
+    err: err instanceof Error ? (err.stack ?? err.message) : String(err),
+  })
   res.status(500).json({
     error: {
       code: 'INTERNAL',

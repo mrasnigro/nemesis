@@ -1,0 +1,56 @@
+import cookieParser from 'cookie-parser'
+import cors from 'cors'
+import express, { Router } from 'express'
+import helmet from 'helmet'
+import { config } from './core/config.js'
+import { pingDatabase } from './core/db.js'
+import { errorHandler, notFoundHandler } from './core/http.js'
+import { requestContext } from './core/requestContext.js'
+import { auditRouter } from './modules/audit/audit.routes.js'
+import { requireAccountManager, requireAuth } from './modules/auth/auth.middleware.js'
+import { authRouter } from './modules/auth/auth.routes.js'
+import { bdrRouter } from './modules/bdr/bdr.routes.js'
+import { customersRouter } from './modules/customers/customers.routes.js'
+import { trainingAiRouter } from './modules/training-ai/training-ai.routes.js'
+import { usersRouter } from './modules/users/users.routes.js'
+import { webinarBridgeRouter } from './modules/webinar-bridge/webinar-bridge.routes.js'
+
+export const API_VERSION = '0.2.0'
+
+export function createApp() {
+  const app = express()
+
+  app.disable('x-powered-by')
+  app.set('trust proxy', config.trustProxy)
+  app.use(requestContext)
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }))
+  app.use(cors({ origin: config.corsOrigins, credentials: true }))
+  app.use(express.json({ limit: '1mb' }))
+  app.use(cookieParser())
+
+  app.get('/health', async (_req, res) => {
+    const up = await pingDatabase().catch(() => false)
+    res.status(up ? 200 : 503).json({
+      status: up ? 'ok' : 'error',
+      version: API_VERSION,
+      database: up ? 'up' : 'down',
+      timestamp: new Date().toISOString(),
+    })
+  })
+
+  const admin = Router()
+  admin.use(requireAuth, requireAccountManager)
+  admin.use('/customers', customersRouter)
+  admin.use('/users', usersRouter)
+  admin.use('/audit-logs', auditRouter)
+
+  app.use('/api/auth', authRouter)
+  app.use('/api/admin', admin)
+  app.use('/api/modules/training-ai', trainingAiRouter)
+  app.use('/api/modules/bdr', bdrRouter)
+  app.use('/api/modules/webinar', webinarBridgeRouter)
+
+  app.use(notFoundHandler)
+  app.use(errorHandler)
+  return app
+}

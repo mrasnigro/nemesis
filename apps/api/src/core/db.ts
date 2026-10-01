@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise'
+import mysql, { type PoolConnection } from 'mysql2/promise'
 import { config } from './config.js'
 
 export const pool = mysql.createPool({
@@ -22,4 +22,23 @@ export async function pingDatabase(): Promise<boolean> {
   } finally {
     connection.release()
   }
+}
+
+export async function withTransaction<T>(work: (conn: PoolConnection) => Promise<T>): Promise<T> {
+  const conn = await pool.getConnection()
+  try {
+    await conn.beginTransaction()
+    const result = await work(conn)
+    await conn.commit()
+    return result
+  } catch (error) {
+    await conn.rollback()
+    throw error
+  } finally {
+    conn.release()
+  }
+}
+
+export function isDuplicateKeyError(error: unknown): error is { code: 'ER_DUP_ENTRY'; message: string } {
+  return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'ER_DUP_ENTRY'
 }
