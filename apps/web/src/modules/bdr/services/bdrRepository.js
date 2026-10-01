@@ -1,13 +1,5 @@
 import { PLATFORM_API_BASE, PlatformApiError, platformRequest } from '../../../core/api/platformClient.js'
-import { SEED_OBJECTION_CATEGORIES } from '../data/seeds.js'
 import { BdrApiError } from './bdrErrors.js'
-import { mockBdrRepository } from './mockBdrRepository.js'
-
-export const bdrDataMode = import.meta.env.VITE_BDR_DATA === 'api' ? 'api' : 'mock'
-
-function clone(value) {
-  return structuredClone(value)
-}
 
 async function request(path, options = {}) {
   try {
@@ -40,11 +32,18 @@ function withRecordingUrl(row) {
   return { ...row, recordingUrl: row.recordingUrl ? `${PLATFORM_API_BASE}${row.recordingUrl}` : null }
 }
 
+/** History rows are displayed in the operator's locale, derived from the server's start time. */
+function presentCall(row) {
+  const call = withRecordingUrl(row)
+  if (!call) return call
+  return { ...call, timestamp: call.startedAt ? new Date(call.startedAt).toLocaleString('pt-BR') : '' }
+}
+
 function post(path, body) {
   return request(path, { method: 'POST', body: body ?? {} })
 }
 
-const apiBdrRepository = {
+export const bdrRepository = {
   async listCampaigns() {
     return listAll('/api/modules/bdr/campaigns')
   },
@@ -66,6 +65,19 @@ const apiBdrRepository = {
 
   async getDialerConfig() {
     const payload = await request('/api/modules/bdr/dialer/config')
+    return payload.data
+  },
+
+  async getTelephonySettings() {
+    const payload = await request('/api/modules/bdr/telephony/settings')
+    return payload.data
+  },
+
+  async saveTelephonySettings(settings) {
+    const payload = await request('/api/modules/bdr/telephony/settings', {
+      method: 'PUT',
+      body: settings,
+    })
     return payload.data
   },
 
@@ -103,21 +115,21 @@ const apiBdrRepository = {
   },
 
   async listHistory() {
-    return (await listAll('/api/modules/bdr/calls')).map(withRecordingUrl)
+    return (await listAll('/api/modules/bdr/calls')).map(presentCall)
   },
 
   async saveHistory(row) {
     const payload = await post('/api/modules/bdr/calls', row)
-    return withRecordingUrl(payload.data)
+    return presentCall(payload.data)
   },
 
   async listMeetings() {
-    return listAll('/api/modules/bdr/meetings')
+    return (await listAll('/api/modules/bdr/meetings')).map(withRecordingUrl)
   },
 
   async saveMeeting(meeting) {
     const payload = await post('/api/modules/bdr/meetings', meeting)
-    return payload.data
+    return withRecordingUrl(payload.data)
   },
 
   async updateMeeting(id, patch) {
@@ -125,7 +137,7 @@ const apiBdrRepository = {
       method: 'PATCH',
       body: patch,
     })
-    return payload.data
+    return withRecordingUrl(payload.data)
   },
 
   async removeMeeting(id) {
@@ -136,14 +148,4 @@ const apiBdrRepository = {
     const payload = await request('/api/modules/bdr/metrics')
     return payload.data
   },
-
-  async setMetrics(next) {
-    return next
-  },
-
-  async getObjections() {
-    return clone(SEED_OBJECTION_CATEGORIES)
-  },
 }
-
-export const bdrRepository = bdrDataMode === 'api' ? apiBdrRepository : mockBdrRepository

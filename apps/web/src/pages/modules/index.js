@@ -1,5 +1,4 @@
 export { default as TrainingAiPage } from '../../modules/training-ai/pages/Catalog.jsx'
-export { default as BdrPage } from './Bdr'
 export { default as ProspectingPage } from '../../modules/prospecting/pages/Search.jsx'
 export { default as RadarPage } from '../../modules/radar/pages/Dashboard.jsx'
 export { default as WebinarPage } from '../../modules/webinar/pages/Events.jsx'

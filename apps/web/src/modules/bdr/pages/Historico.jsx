@@ -5,7 +5,7 @@ import { CALL_SITUATIONS, CLIENT_STATUSES } from '../data/catalogs.js'
 import { formatDurationShort } from '../services/formatters.js'
 import { filterHistoryRows } from '../services/historyMapping.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
-import '../../../pages/modules/Bdr.css'
+import '../styles/bdr-pages.css'
 import '../styles/bdr-foundation.css'
 
 function ActionIcon({ name }) {
@@ -43,7 +43,7 @@ function ActionIcon({ name }) {
   return <span className="bdr-history-actions__icon">{icons[name]}</span>
 }
 
-/** Normalize seed timestamps toward sample `YYYY-MM-DD HH:mm`. */
+/** Normalize the pt-BR call timestamp to `YYYY-MM-DD HH:mm`. */
 function formatHistoryTimestamp(value) {
   if (!value) return '—'
   const br = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2})/)

@@ -74,21 +74,6 @@ function IconNotes() {
   )
 }
 
-function IconMail() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 0 8 7 8-7"
-      />
-    </svg>
-  )
-}
-
 function IconFlag() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -112,26 +97,9 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
   const { hasModuleAccess } = useWorkspace()
   const canWebinar = hasModuleAccess?.('webinar')
   const [showNotes, setShowNotes] = useState(false)
-  const [confirmResend, setConfirmResend] = useState(false)
+  const [showRecording, setShowRecording] = useState(false)
   const [toast, setToast] = useState('')
   const [openingOneOnOne, setOpeningOneOnOne] = useState(false)
-
-  const playRecording = () => {
-    if (!meeting.recordingUrl) {
-      setToast('Sem gravação vinculada (mock).')
-      return
-    }
-    setToast(`Simulação: ouvir gravação — ${meeting.recordingUrl}`)
-  }
-
-  const confirmResendEmail = () => {
-    const at = new Date().toISOString()
-    onUpdate?.(meeting.id, { emailResentAt: at })
-    setConfirmResend(false)
-    setToast(
-      `E-mail de convite reenviado (simulado) para ${meeting.email || 'contato sem e-mail'}.`,
-    )
-  }
 
   const openOneOnOne = () => {
     if (!canWebinar) {
@@ -192,20 +160,24 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
       </div>
 
       <div className="bdr-meeting-card__recording">
-        <button type="button" onClick={playRecording}>
+        <button
+          type="button"
+          disabled={!meeting.recordingUrl}
+          title={meeting.recordingUrl ? 'Ouvir gravação da ligação' : 'Sem gravação vinculada'}
+          onClick={() => setShowRecording((open) => !open)}
+        >
           <IconVolume />
           Ouvir Gravação
         </button>
+        {showRecording && meeting.recordingUrl ? (
+          <audio className="bdr-recording-player" controls autoPlay preload="none" src={meeting.recordingUrl} />
+        ) : null}
       </div>
 
       <div className="bdr-meeting-card__actions">
         <button type="button" onClick={() => setShowNotes(true)}>
           <IconNotes />
           Anotações
-        </button>
-        <button type="button" onClick={() => setConfirmResend(true)}>
-          <IconMail />
-          Reenviar Email
         </button>
       </div>
 
@@ -294,40 +266,6 @@ export default function MeetingCard({ meeting, onUpdate, onRemove }) {
         </div>
       ) : null}
 
-      {confirmResend ? (
-        <div
-          className="bdr-modal-scrim"
-          role="presentation"
-          onClick={() => setConfirmResend(false)}
-        >
-          <div
-            className="bdr-resend-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`bdr-resend-title-${meeting.id}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id={`bdr-resend-title-${meeting.id}`}>Reenviar Email</h3>
-            <p>Deseja realmente reenviar o email de confirmação agora?</p>
-            <div className="bdr-resend-modal__actions">
-              <button
-                type="button"
-                className="bdr-resend-modal__cancel"
-                onClick={() => setConfirmResend(false)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="bdr-resend-modal__confirm"
-                onClick={confirmResendEmail}
-              >
-                Reenviar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </article>
   )
 }

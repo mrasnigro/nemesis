@@ -8,8 +8,8 @@ export default function MetricCards() {
       id: 'total',
       label: 'Total de Ligações',
       value: String(metrics.totalCalls),
-      hint: `↑ ${metrics.weekDeltaPercent}% vs semana anterior`,
-      hintTone: 'up',
+      hint: `${metrics.weekDeltaPercent < 0 ? '↓' : '↑'} ${Math.abs(metrics.weekDeltaPercent)}% vs semana anterior`,
+      hintTone: metrics.weekDeltaPercent < 0 ? 'warn' : 'up',
       valueTone: '',
     },
     {

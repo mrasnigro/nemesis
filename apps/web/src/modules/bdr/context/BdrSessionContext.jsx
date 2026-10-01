@@ -18,11 +18,8 @@ import { isScriptCompleted } from '../data/scriptContent.js'
 import {
   createEmptyDiagnosis,
   createEmptyScriptProgress,
-  SEED_CAMPAIGNS,
-  SEED_HISTORY,
-  SEED_MEETINGS,
-  SEED_METRICS,
-} from '../data/seeds.js'
+  EMPTY_METRICS,
+} from '../data/emptyAttendance.js'
 import {
   createConnectedCall,
   createIdleCall,
@@ -32,7 +29,7 @@ import {
   validateManualStart,
 } from '../services/callSessionMachine.js'
 import { getBdrPermissionsForUser } from '../services/bdrPermissions.js'
-import { BLOCKING_DIAL_ERRORS } from '../services/bdrErrors.js'
+import { BdrApiError, BLOCKING_DIAL_ERRORS } from '../services/bdrErrors.js'
 import { bdrRepository } from '../services/bdrRepository.js'
 import {
   canTransition,
@@ -61,7 +58,7 @@ function loadSelectedCampaignId() {
   } catch {
     /* ignore */
   }
-  return SEED_CAMPAIGNS[0]?.id || '1'
+  return ''
 }
 
 const RECENT_ATTEMPTS_LIMIT = 20
@@ -102,8 +99,8 @@ function createInitialState() {
     operatorStatus: 'desconectado',
     tempoAtendimentoSec: 0,
     selectedCampaignId: loadSelectedCampaignId(),
-    campaigns: structuredClone(SEED_CAMPAIGNS),
-    metrics: structuredClone(SEED_METRICS),
+    campaigns: [],
+    metrics: { ...EMPTY_METRICS },
     call: createIdleCall(),
     diagnosis: createEmptyDiagnosis(),
     scriptProgress: createEmptyScriptProgress(),
@@ -111,14 +108,15 @@ function createInitialState() {
     salesTemperature: 50,
     notes: '',
     activeTab: 'company',
-    history: structuredClone(SEED_HISTORY),
-    meetings: structuredClone(SEED_MEETINGS),
+    history: [],
+    meetings: [],
     activeCallMeetingIds: [],
     permissions: getBdrPermissionsForUser(null, true),
     dialerConfig: null,
     dialError: null,
     recentAttempts: [],
     hydrated: false,
+    loadError: null,
   }
 }
 
@@ -443,14 +441,26 @@ export function BdrSessionProvider({ children }) {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [campaigns, history, meetings, metrics, dialerConfig] = await Promise.all([
-        bdrRepository.listCampaigns(),
-        bdrRepository.listHistory(),
-        bdrRepository.listMeetings(),
-        bdrRepository.getMetrics(),
-        bdrRepository.getDialerConfig().catch(() => null),
-      ])
+      let loaded
+      try {
+        loaded = await Promise.all([
+          bdrRepository.listCampaigns(),
+          bdrRepository.listHistory(),
+          bdrRepository.listMeetings(),
+          bdrRepository.getMetrics(),
+          bdrRepository.getDialerConfig().catch(() => null),
+        ])
+      } catch (error) {
+        if (!cancelled) {
+          dispatch({
+            type: 'HYDRATE',
+            payload: { loadError: error?.message || 'Não foi possível carregar os dados da Discagem.' },
+          })
+        }
+        return
+      }
       if (cancelled) return
+      const [campaigns, history, meetings, metrics, dialerConfig] = loaded
       const selected = stateRef.current.selectedCampaignId
       const fallback = campaigns.find((c) => c.status === 'active') || campaigns[0]
       dispatch({
@@ -537,6 +547,11 @@ export function BdrSessionProvider({ children }) {
     const timer = window.setTimeout(async () => {
       startingSessionRef.current = sessionId
       try {
+        if (call.mode !== 'manual' && !stateRef.current.selectedCampaignId) {
+          throw new BdrApiError('Crie ou selecione uma campanha com leads antes de discar.', {
+            code: 'NO_CAMPAIGN',
+          })
+        }
         const attempt =
           call.mode === 'manual'
             ? await bdrRepository.startManualAttempt(call.manualPhone, stateRef.current.selectedCampaignId)
@@ -730,7 +745,6 @@ export function BdrSessionProvider({ children }) {
       const hasMeeting = callMeetings.length > 0
       const clientStatus = dispositionToClientStatus(disposition, { hasMeeting })
       const row = {
-        id: `h_${Date.now()}`,
         phone,
         company: lead?.company || (state.call.mode === 'manual' ? 'Manual' : ''),
         leadName: lead?.name || '',
@@ -739,7 +753,6 @@ export function BdrSessionProvider({ children }) {
         result: qualificationLabel,
         duration: state.call.elapsedTime,
         method: state.call.contactMethod === 'whatsapp' ? 'WhatsApp' : 'Telefone Fixo',
-        timestamp: new Date().toLocaleString('pt-BR'),
         notes: notes ?? state.notes,
         diagnosis: {
           ...diag,
@@ -760,7 +773,6 @@ export function BdrSessionProvider({ children }) {
         attemptId: state.call.attempt?.id || null,
         callbackAt: disposition === 'callback' ? meetingStartIso(callMeetings[0]) : null,
         meetingIds: callMeetings.map((m) => m.id),
-        meetings: callMeetings,
       }
       let savedRow
       try {
@@ -768,13 +780,11 @@ export function BdrSessionProvider({ children }) {
       } catch (error) {
         return { ok: false, error: `Não foi possível salvar a ligação: ${error?.message || 'erro de rede'}` }
       }
-      const historyId = savedRow?.id || row.id
+      // The API links the meetings to the saved call; mirror that locally so the calendar stays in sync.
       for (const meeting of callMeetings) {
-        const patch = { linkedHistoryId: historyId, callId: savedRow?.id ?? null, callNotes: row.notes }
-        await bdrRepository.updateMeeting(meeting.id, patch).catch(() => null)
-        dispatch({ type: 'UPDATE_MEETING', id: meeting.id, patch })
+        dispatch({ type: 'UPDATE_MEETING', id: meeting.id, patch: { callId: savedRow.id } })
       }
-      dispatch({ type: 'PREPEND_HISTORY', row: savedRow || row })
+      dispatch({ type: 'PREPEND_HISTORY', row: savedRow })
       dispatch({ type: 'BUMP_CALL_METRICS' })
       // Live rule: always restart automatic searching
       dispatch({ type: 'RESET_AFTER_FINALIZE' })
@@ -782,7 +792,7 @@ export function BdrSessionProvider({ children }) {
         (campaigns) => dispatch({ type: 'SET_CAMPAIGNS', campaigns }),
         () => null,
       )
-      return { ok: true, row: savedRow || row, meetings: callMeetings }
+      return { ok: true, row: savedRow, meetings: callMeetings }
     },
     [state],
   )
@@ -830,6 +840,12 @@ export function BdrSessionProvider({ children }) {
     return config
   }, [])
 
+  const reloadDialerConfig = useCallback(async () => {
+    const config = await bdrRepository.getDialerConfig()
+    dispatch({ type: 'SET_DIALER_CONFIG', config })
+    return config
+  }, [])
+
   const reloadCampaigns = useCallback(async () => {
     const campaigns = await bdrRepository.listCampaigns()
     dispatch({ type: 'SET_CAMPAIGNS', campaigns })
@@ -872,6 +888,7 @@ export function BdrSessionProvider({ children }) {
       disconnectSession,
       clearDialError,
       setExtension,
+      reloadDialerConfig,
       reloadCampaigns,
       prependMeeting,
       updateMeeting,
@@ -883,6 +900,7 @@ export function BdrSessionProvider({ children }) {
     markNotHuman,
     clearDialError,
     setExtension,
+    reloadDialerConfig,
     reloadCampaigns,
     state,
     setOperatorStatus,

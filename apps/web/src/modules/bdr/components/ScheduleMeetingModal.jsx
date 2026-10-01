@@ -228,10 +228,7 @@ export default function ScheduleMeetingModal({ open, onClose }) {
       endTime: endTimeFromStart(selectedTime),
       protocol: lead?.protocol || 'N/A',
       notes: '',
-      recordingUrl: '',
       createdAt: new Date().toISOString(),
-      emailResentAt: null,
-      linkedHistoryId: null,
     }
     prependMeeting(meeting)
     setSaved(true)

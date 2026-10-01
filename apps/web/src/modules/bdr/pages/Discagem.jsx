@@ -16,7 +16,7 @@ import DialAttemptsLog from '../components/DialAttemptsLog.jsx'
 import EndCallModal from '../components/EndCallModal.jsx'
 import ScheduleMeetingModal from '../components/ScheduleMeetingModal.jsx'
 import { useBdrSession } from '../hooks/useBdrSession.js'
-import '../../../pages/modules/Bdr.css'
+import '../styles/bdr-pages.css'
 import '../styles/bdr-foundation.css'
 
 /**

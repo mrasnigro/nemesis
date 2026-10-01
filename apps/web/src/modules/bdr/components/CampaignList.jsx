@@ -3,7 +3,7 @@ import { useBdrPermissions } from '../hooks/useBdrPermissions.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 
 export default function CampaignList() {
-  const { campaigns, selectedCampaignId, selectCampaign } = useBdrSession()
+  const { campaigns, selectedCampaignId, selectCampaign, hydrated, loadError } = useBdrSession()
   const { canSelectCampaign } = useBdrPermissions()
 
   return (
@@ -11,6 +11,17 @@ export default function CampaignList() {
       <header>
         <h2>Campanhas Ativas</h2>
       </header>
+
+      {loadError ? (
+        <p className="bdr-setup__note" role="alert">
+          {loadError}
+        </p>
+      ) : null}
+      {hydrated && !loadError && campaigns.length === 0 ? (
+        <p className="bdr-setup__note">
+          Nenhuma campanha ainda. Crie uma campanha e importe os leads no painel &ldquo;Telefonia e fila&rdquo;.
+        </p>
+      ) : null}
 
       <ul className="bdr-home__campaigns">
         {campaigns.map((campaign) => {

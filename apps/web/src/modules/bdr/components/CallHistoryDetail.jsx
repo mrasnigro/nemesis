@@ -3,7 +3,7 @@ import { formatDurationShort } from '../services/formatters.js'
 import { formatDiagnosisSummary } from '../services/historyMapping.js'
 
 /**
- * Call detail panel — qualification, client status, diagnosis, mock actions.
+ * Call detail panel — qualification, client status, diagnosis, linked meetings and recording.
  */
 export default function CallHistoryDetail({ row, onClose }) {
   if (!row) return null
