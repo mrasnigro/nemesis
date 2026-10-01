@@ -7,7 +7,7 @@ Two tracks run in parallel. Customer prototypes keep changing in the shell. Prod
 
 | Track | Modules | Data | Changes allowed |
 | --- | --- | --- | --- |
-| Production | `training-ai`, `bdr` | Platform API and MySQL (`VITE_<MODULE>_DATA=api`); seeds remain for offline demos | Contract-first: update `openapi.yaml`, migration, and tests with the change |
+| Production | `training-ai`, `bdr` | `bdr`: platform API and MySQL only. `training-ai`: API with `VITE_TRAINING_AI_DATA`; seeds remain for offline demos | Contract-first: update `openapi.yaml`, migration, and tests with the change |
 | Customer prototype | `prospecting`, `radar`, `vsl` | Seeds only. No platform routes | Flows, copy, and fields can still change |
 | Integrated product | `webinar` | Webinar API and `imp_webinar` | Shell adapters and the Webinar service |
 
@@ -42,8 +42,12 @@ Two tracks run in parallel. Customer prototypes keep changing in the shell. Prod
 | Screens | Painel, discagem automática, manual, histórico, agendamentos |
 | API | `/api/modules/bdr`: campaigns, lead queue (import or Prospecção handoff), dial attempts, calls, recordings, meetings, metrics, telephony settings |
 | Telephony | FaleVono provider. Each attempt is classified; only a human answer connects the operator. Unanswered leads are retried per customer settings. The 5-second rule is kept |
-| Recordings | Downloaded after the call and stored on the server; streamed from `/calls/{id}/recording` |
-| Default data mode | `mock` until the demo no longer needs offline seeds |
+| Recordings | Downloaded after the call and stored on the server; streamed from `/calls/{id}/recording`. A meeting plays the recording of its linked call |
+| Data | API and MySQL only. No seeds, no mock repository, no data-mode flag. A new customer starts empty: create a campaign, import leads (CSV or Prospecção), set the extension |
+| Calls | `bdr_calls` is the single record of an attendance: linked to its attempt and lead, `qualification_id` and `callback_at` are columns, the diagnosis form stays in `call_json`. Meetings link through `call_id` |
+| Telephony setup | The customer administrator configures the provider, credentials (write-only, encrypted) and retry rules in the Painel. `npm run telephony` is the CLI equivalent |
+| Tests | 24 API integration tests: campaigns and queue, telephony privacy, dialer, call save and attempt finalize, recordings, meetings, metrics, tenant isolation |
+| Not built | Meeting invitation e-mail (needs a mail provider). Real-line validation against FaleVono. Per-customer goals on the metric cards |
 
 ### Prospecção (`prospecting`) — customer prototype
 

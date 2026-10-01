@@ -633,6 +633,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: qualificationId
+          in: query
+          schema:
+            type: string
       responses:
         '200':
           description: One page of calls
@@ -678,6 +682,14 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: "`ATTEMPT_NOT_ANSWERED` or `ATTEMPT_ALREADY_SAVED`. Nothing is stored."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   /api/modules/bdr/calls/{callId}:
     parameters:
@@ -937,7 +949,7 @@ paths:
       operationId: getBdrMetrics
       responses:
         '200':
-          description: Aggregates over calls, attempts, and meetings
+          description: Aggregates over saved calls and meetings
           content:
             application/json:
               schema:
@@ -945,8 +957,7 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    type: object
-                    additionalProperties: true
+                    $ref: '#/components/schemas/BdrMetrics'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2116,16 +2127,45 @@ components:
         status:
           type: string
           enum: [active, paused]
-        leadCount:
+        leads:
           type: integer
-        completedCount:
+          description: Leads in the queue. Maintained by the server from the lead queue; not writable.
+        completed:
           type: integer
+          description: Leads that are done or exhausted. Maintained by the server.
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+
+    BdrMetrics:
+      type: object
+      required: [totalCalls, callsToday, averageDurationLabel, meetingsScheduled, callsGoal, meetingsGoal, weekDeltaPercent]
+      properties:
+        totalCalls:
+          type: integer
+        callsToday:
+          type: integer
+          description: Calls since 00:00 UTC.
+        averageDurationLabel:
+          type: string
+          description: Average duration of the last 7 days, e.g. `1m 30s`.
+        meetingsScheduled:
+          type: integer
+        callsGoal:
+          type: integer
+          description: Fixed daily target until per-customer goals exist.
+        meetingsGoal:
+          type: integer
+        weekDeltaPercent:
+          type: integer
+          description: Calls in the last 7 days against the 7 days before. 100 when the previous week had none.
 
     BdrCampaignWrite:
       type: object
@@ -2139,11 +2179,22 @@ components:
 
     BdrCall:
       type: object
+      description: >
+        Link, qualification and callback are columns. The attendance form (diagnosis, notes, script progress and
+        similar fields) is returned as extra properties.
       required: [id, phone, mode, callStatus, startedAt]
+      additionalProperties: true
       properties:
         id:
           type: string
         campaignId:
+          type: string
+          nullable: true
+        attemptId:
+          type: string
+          nullable: true
+          description: Dial attempt that produced this call. Null for WhatsApp-mode manual calls.
+        leadId:
           type: string
           nullable: true
         phone:
@@ -2159,20 +2210,48 @@ components:
           type: string
         qualificationId:
           type: string
+          nullable: true
+        callbackAt:
+          type: string
+          format: date-time
+          nullable: true
         durationSeconds:
           type: integer
-        notes:
+        meetingIds:
+          type: array
+          items:
+            type: string
+        meetings:
+          type: array
+          description: Meetings booked during the call (bdr_meetings.call_id).
+          items:
+            $ref: '#/components/schemas/BdrMeeting'
+        recordingStatus:
           type: string
+          enum: [none, pending, stored, missing, failed]
+        recordingUrl:
+          type: string
+          nullable: true
+          description: Present only when the recording is stored. Relative to the API origin.
         startedAt:
           type: string
           format: date-time
 
     BdrCallWrite:
       type: object
+      description: >
+        Saves a finished attendance. Unknown properties (diagnosis, notes, ...) are stored with the call.
+        When attemptId is set, the attempt must belong to the caller and have been answered; it is closed,
+        the lead is settled, and the recording download is scheduled.
       required: [phone, mode, callStatus]
+      additionalProperties: true
       properties:
         campaignId:
           type: string
+          nullable: true
+        attemptId:
+          type: string
+          nullable: true
         phone:
           type: string
         leadName:
@@ -2186,13 +2265,20 @@ components:
           type: string
         qualificationId:
           type: string
-        durationSeconds:
-          type: integer
-        notes:
-          type: string
-        startedAt:
+          nullable: true
+          description: "`callback` and `no_contact` put the lead back in the queue."
+        callbackAt:
           type: string
           format: date-time
+          nullable: true
+        meetingIds:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+          description: Meetings of the same customer to link to this call. Others are ignored.
+        durationSeconds:
+          type: integer
 
     BdrMeeting:
       type: object
@@ -2216,6 +2302,10 @@ components:
           format: date-time
         notes:
           type: string
+        recordingUrl:
+          type: string
+          nullable: true
+          description: Recording of the linked call, when stored.
 
     BdrMeetingWrite:
       type: object

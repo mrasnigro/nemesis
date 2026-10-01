@@ -20,6 +20,14 @@ The shell keeps one screen tree. Removals take away a second copy, an in-memory 
 | Plaintext Webinar passwords | bcrypt on every write; login rejects non-bcrypt hashes |
 | Hardcoded Webinar JWT secret fallbacks | `utils/jwt.ts` refuses to start in production without 32+ character secrets |
 | Hardcoded legacy Hostinger DB credentials | `src/diagnostic.ts` now uses the env-only pool. The old values remain in git history and must be rotated |
+| BDR browser data mode (`VITE_BDR_DATA`, `bdrDataMode`) | BDR completion: the module always uses the platform API |
+| BDR seeds and `mockBdrRepository` | BDR completion: `data/seeds.js`, `data/index.js` and `services/mockBdrRepository.js` deleted. Blank attendance forms moved to `data/emptyAttendance.js` |
+| BDR demo rows in the dev database (`seedBdr`, `seedDialQueue`) | BDR completion: removed from `scripts/seed.ts`. Campaigns, leads, calls and meetings are created in the app |
+| BDR re-export shims and old dialer CSS | BDR completion: `src/pages/modules/Bdr.jsx`, `src/pages/modules/bdr/*.jsx` deleted; `Bdr.css` moved to `src/modules/bdr/styles/bdr-pages.css` |
+| Simulated "Reenviar Email" on meetings | BDR completion: the button only wrote a timestamp and showed a fake confirmation. Re-add it with a real mail provider |
+| Simulated recording playback on meetings | BDR completion: a meeting plays the recording of its linked call |
+| Client-side history ids and timestamps | BDR completion: the API owns ids and `startedAt`; meetings are linked through `bdr_meetings.call_id` |
+| `bdr_campaigns.campaign_json` and JSON counters | Migration `006_bdr_calls_link.sql`: counters come only from `bdr_leads` |
 
 ## Keep on purpose
 
@@ -37,7 +45,6 @@ The shell keeps one screen tree. Removals take away a second copy, an in-memory 
 | --- | --- | --- |
 | Training seeds | `src/modules/training-ai/data/` | `VITE_TRAINING_AI_DATA=api` is the default and the demo no longer needs the offline catalog |
 | Training context writes that only update React state | `TrainingAiContext.jsx` | The context loads and saves only through `services/api` |
-| BDR seeds and `mockBdrRepository` | `src/modules/bdr/data/seeds.js`, `src/modules/bdr/services/mockBdrRepository.js` | `VITE_BDR_DATA=api` is the default |
 | In-browser prospect, radar, and VSL directories | each module's `data/seeds.js` and context filters | That module has been promoted and list filters run in SQL |
 
 Keep a small fixture for tests if a test needs sample rows. That fixture is not imported by the app.
@@ -48,8 +55,6 @@ Keep a small fixture for tests if a test needs sample rows. That fixture is not 
 | --- | --- | --- |
 | Coming-soon stubs | `src/pages/modules/TrainingAi.jsx`, `Prospecting.jsx`, `Radar.jsx`, `Vsl.jsx` | A search shows no imports |
 | Unused barrel | `src/pages/modules/index.js` | Same search. It imports `modules/webinar/pages/Events.jsx`, which does not exist |
-| Re-export shims | `src/pages/modules/Bdr.jsx`, `src/pages/modules/bdr/*.jsx` | No imports remain |
-| Dialer CSS in the old folder | `src/pages/modules/Bdr.css` | After it moves to `src/modules/bdr/styles/` and the page imports point there |
 | Coming-soon component | `src/components/ModulePage.jsx`, `ModulePage.css` | After the stubs are gone |
 | Old Webinar shell screens | `src/modules/webinar/pages/WebinarList.jsx`, `WebinarNew.jsx`, `WebinarDetail.jsx`, `WebinarAppDashboard.jsx` | Confirmed unused |
 | Shim re-exporting the old dashboard | `src/pages/modules/Webinar.jsx` | Same time as those screens |

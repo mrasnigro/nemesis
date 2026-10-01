@@ -48,7 +48,7 @@ Markdown, the OpenAPI spec, and small JSON indexes under `docs/` are versioned. 
 | `layouts/` | Launcher, admin, dialer, module workspace |
 | `pages/` | Login, dashboard, admin. `pages/modules/` is an older layer; see the removal register |
 | `modules/training-ai/` | Production. API client plus offline seeds and mock AI/avatar providers |
-| `modules/bdr/` | Production. API repository (dialer, queue, history, recordings) plus offline seeds |
+| `modules/bdr/` | Production. API repository (dialer, queue, history, recordings). No seeds |
 | `modules/prospecting/`, `radar/`, `vsl/` | Customer prototypes on seeds |
 | `modules/webinar/` | IMP routes, handoff, session bridge. Live screens re-exported from the Webinar frontend |
 
