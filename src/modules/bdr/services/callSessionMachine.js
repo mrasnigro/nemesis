@@ -1,42 +1,60 @@
-import { SEARCH_CONNECT_SECONDS } from '../data/catalogs.js'
+let sessionSeq = 0
+
+function nextSessionId() {
+  sessionSeq += 1
+  return `${Date.now()}-${sessionSeq}`
+}
 
 export function createIdleCall() {
   return {
     status: 'idle',
+    sessionId: null,
     elapsedTime: 0,
     currentLead: null,
     mode: null,
     contactMethod: null,
     manualPhone: '',
+    attempt: null,
+    nextDialAt: 0,
   }
 }
 
-export function createSearchingCall({ mode, contactMethod = 'phone', manualPhone = '' }) {
+/**
+ * "searching" = the dialer is working on this operator's behalf: reserving a lead and ringing it.
+ * `attempt` is the provider attempt currently ringing; null while the next one is being requested.
+ */
+export function createSearchingCall({
+  mode,
+  contactMethod = 'phone',
+  manualPhone = '',
+  nextDialAt = 0,
+}) {
   return {
     status: 'searching',
+    sessionId: nextSessionId(),
     elapsedTime: 0,
     currentLead: null,
     mode,
     contactMethod,
     manualPhone,
+    attempt: null,
+    nextDialAt,
   }
 }
 
-export function createConnectedCall(call, lead) {
+export function createConnectedCall(call, lead, attempt = call.attempt) {
   return {
     ...call,
     status: 'connected',
+    elapsedTime: 0,
     currentLead: lead,
+    attempt,
   }
 }
 
 /** Live: after finalize always restart automatic searching */
 export function createPostFinalizeSearchingCall() {
   return createSearchingCall({ mode: 'automatic', contactMethod: 'phone', manualPhone: '' })
-}
-
-export function shouldConnectFromSearching(elapsedTime) {
-  return elapsedTime >= SEARCH_CONNECT_SECONDS
 }
 
 export function canScheduleMeeting(callStatus) {
@@ -53,4 +71,22 @@ export function validateManualStart({ phone, contactMethod }) {
   return { ok: true }
 }
 
-export { SEARCH_CONNECT_SECONDS }
+export function manualLeadFromPhone(phone) {
+  return {
+    id: `manual-${Date.now()}`,
+    phone,
+    name: 'Contato Manual',
+    company: 'Ligação Manual',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    cep: '',
+    cnpj: '',
+    protocol: `M${Date.now()}`,
+    partnerName: 'Contato Manual',
+    partnerCpf: '',
+    identifier: 'Ligação Manual',
+    socialReason: 'Ligação Manual',
+  }
+}

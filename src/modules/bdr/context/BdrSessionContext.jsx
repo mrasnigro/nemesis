@@ -8,9 +8,11 @@ import {
   useRef,
 } from 'react'
 import {
+  ATTEMPT_POLL_MS,
   AUTO_INDISPONIVEL_MS,
   CAMPAIGN_STORAGE_KEY,
-  SEARCH_CONNECT_SECONDS,
+  dialOutcomeLabel,
+  NEXT_DIAL_DELAY_MS,
 } from '../data/catalogs.js'
 import { isScriptCompleted } from '../data/scriptContent.js'
 import {
@@ -26,10 +28,11 @@ import {
   createIdleCall,
   createPostFinalizeSearchingCall,
   createSearchingCall,
-  shouldConnectFromSearching,
+  manualLeadFromPhone,
   validateManualStart,
 } from '../services/callSessionMachine.js'
 import { getBdrPermissionsForUser } from '../services/bdrPermissions.js'
+import { BLOCKING_DIAL_ERRORS } from '../services/bdrErrors.js'
 import { bdrRepository } from '../services/bdrRepository.js'
 import {
   canTransition,
@@ -54,11 +57,44 @@ const BdrSessionContext = createContext(null)
 function loadSelectedCampaignId() {
   try {
     const stored = sessionStorage.getItem(CAMPAIGN_STORAGE_KEY)
-    if (stored && SEED_CAMPAIGNS.some((c) => c.id === stored)) return stored
+    if (stored) return stored
   } catch {
     /* ignore */
   }
   return SEED_CAMPAIGNS[0]?.id || '1'
+}
+
+const RECENT_ATTEMPTS_LIMIT = 20
+const MAX_POLL_FAILURES = 5
+
+function recentAttemptEntry(attempt) {
+  return {
+    id: attempt.id,
+    phone: attempt.lead?.phone || attempt.phone,
+    company: attempt.lead?.company || '',
+    leadName: attempt.lead?.name || '',
+    outcome: attempt.outcome,
+    outcomeLabel: dialOutcomeLabel(attempt.outcome),
+    attempts: attempt.lead?.attempts ?? null,
+    at: new Date().toLocaleTimeString('pt-BR'),
+  }
+}
+
+function meetingStartIso(meeting) {
+  if (!meeting) return null
+  const raw = meeting.startsAt || (meeting.date && meeting.time ? `${meeting.date}T${meeting.time}:00` : null)
+  const date = raw ? new Date(raw) : null
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null
+}
+
+const CLEARED_ATTENDANCE = {
+  diagnosis: createEmptyDiagnosis(),
+  scriptProgress: createEmptyScriptProgress(),
+  dispositionId: null,
+  salesTemperature: 50,
+  notes: '',
+  activeTab: 'company',
+  activeCallMeetingIds: [],
 }
 
 function createInitialState() {
@@ -79,6 +115,9 @@ function createInitialState() {
     meetings: structuredClone(SEED_MEETINGS),
     activeCallMeetingIds: [],
     permissions: getBdrPermissionsForUser(null, true),
+    dialerConfig: null,
+    dialError: null,
+    recentAttempts: [],
     hydrated: false,
   }
 }
@@ -114,22 +153,68 @@ function reducer(state, action) {
       if (!isDialAllowed(state.operatorStatus)) return state
       return {
         ...state,
+        ...CLEARED_ATTENDANCE,
+        dialError: null,
         call: createSearchingCall({ mode: 'automatic', contactMethod: 'phone' }),
-        diagnosis: createEmptyDiagnosis(),
-        scriptProgress: createEmptyScriptProgress(),
-        dispositionId: null,
-        salesTemperature: 50,
-        notes: '',
-        activeTab: 'company',
-        activeCallMeetingIds: [],
       }
     }
+
+    case 'SET_DIALER_CONFIG':
+      return { ...state, dialerConfig: action.config }
+
+    case 'SET_CAMPAIGNS':
+      return { ...state, campaigns: action.campaigns }
+
+    case 'ATTEMPT_STARTED':
+    case 'ATTEMPT_UPDATED':
+      if (state.call.status !== 'searching' || state.call.sessionId !== action.sessionId) return state
+      return { ...state, call: { ...state.call, attempt: action.attempt } }
+
+    /** Unanswered (or reclassified) attempt: never reaches the operator; automatic mode dials the next lead. */
+    case 'ATTEMPT_ENDED': {
+      if (state.call.sessionId !== action.sessionId) return state
+      const recentAttempts = [recentAttemptEntry(action.attempt), ...state.recentAttempts].slice(
+        0,
+        RECENT_ATTEMPTS_LIMIT,
+      )
+      if (state.call.mode === 'automatic' && isDialAllowed(state.operatorStatus)) {
+        return {
+          ...state,
+          ...CLEARED_ATTENDANCE,
+          recentAttempts,
+          call: createSearchingCall({
+            mode: 'automatic',
+            contactMethod: 'phone',
+            nextDialAt: Date.now() + NEXT_DIAL_DELAY_MS,
+          }),
+        }
+      }
+      return {
+        ...state,
+        ...CLEARED_ATTENDANCE,
+        recentAttempts,
+        call: createIdleCall(),
+        dialError:
+          state.call.mode === 'manual'
+            ? { code: 'NOT_ANSWERED', message: `Ligação ${dialOutcomeLabel(action.attempt.outcome).toLowerCase()}.` }
+            : state.dialError,
+      }
+    }
+
+    case 'DIAL_ERROR':
+      if (action.sessionId && state.call.sessionId !== action.sessionId) return state
+      return { ...state, call: createIdleCall(), dialError: action.error }
+
+    case 'CLEAR_DIAL_ERROR':
+      return { ...state, dialError: null }
 
     case 'START_MANUAL': {
       const check = validateManualStart(action)
       if (!check.ok) return state
       return {
         ...state,
+        ...CLEARED_ATTENDANCE,
+        dialError: null,
         // Entering a manual dial always puts the operator in session
         operatorStatus: 'atendimento',
         call: createSearchingCall({
@@ -137,13 +222,6 @@ function reducer(state, action) {
           contactMethod: action.contactMethod,
           manualPhone: action.phone.trim(),
         }),
-        diagnosis: createEmptyDiagnosis(),
-        scriptProgress: createEmptyScriptProgress(),
-        dispositionId: null,
-        salesTemperature: 50,
-        notes: '',
-        activeTab: 'company',
-        activeCallMeetingIds: [],
       }
     }
 
@@ -157,10 +235,10 @@ function reducer(state, action) {
     }
 
     case 'CONNECT_LEAD':
-      if (state.call.status !== 'searching') return state
+      if (state.call.status !== 'searching' || state.call.sessionId !== action.sessionId) return state
       return {
         ...state,
-        call: createConnectedCall(state.call, action.lead),
+        call: createConnectedCall(state.call, action.lead, action.attempt ?? state.call.attempt),
         activeTab: 'company',
       }
 
@@ -357,18 +435,24 @@ function reducer(state, action) {
 export function BdrSessionProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
   const autoIndisponivelRef = useRef(null)
-  const pickingLeadRef = useRef(false)
+  const startingSessionRef = useRef(null)
+  const pollInFlightRef = useRef(false)
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [campaigns, history, meetings, metrics] = await Promise.all([
+      const [campaigns, history, meetings, metrics, dialerConfig] = await Promise.all([
         bdrRepository.listCampaigns(),
         bdrRepository.listHistory(),
         bdrRepository.listMeetings(),
         bdrRepository.getMetrics(),
+        bdrRepository.getDialerConfig().catch(() => null),
       ])
       if (cancelled) return
+      const selected = stateRef.current.selectedCampaignId
+      const fallback = campaigns.find((c) => c.status === 'active') || campaigns[0]
       dispatch({
         type: 'HYDRATE',
         payload: {
@@ -376,6 +460,10 @@ export function BdrSessionProvider({ children }) {
           history,
           meetings,
           metrics,
+          dialerConfig,
+          selectedCampaignId: campaigns.some((c) => c.id === selected)
+            ? selected
+            : fallback?.id || selected,
           permissions: getBdrPermissionsForUser(null, true),
         },
       })
@@ -431,53 +519,104 @@ export function BdrSessionProvider({ children }) {
     return () => window.clearInterval(id)
   }, [state.call.status])
 
-  // Connect after SEARCH_CONNECT_SECONDS while searching
+  // Dial loop, step 1: request an attempt (reserve a lead + ring it) for the current searching session.
+  const needsAttempt = state.call.status === 'searching' && !state.call.attempt
   useEffect(() => {
-    if (state.call.status !== 'searching') {
-      pickingLeadRef.current = false
+    const { call } = stateRef.current
+    if (!needsAttempt) return undefined
+    if (startingSessionRef.current === call.sessionId) return undefined
+    const sessionId = call.sessionId
+
+    if (call.mode === 'manual' && call.contactMethod === 'whatsapp') {
+      startingSessionRef.current = sessionId
+      dispatch({ type: 'CONNECT_LEAD', sessionId, lead: manualLeadFromPhone(call.manualPhone), attempt: null })
       return undefined
     }
-    if (!shouldConnectFromSearching(state.call.elapsedTime)) return undefined
-    if (pickingLeadRef.current) return undefined
-    pickingLeadRef.current = true
-    let cancelled = false
-    ;(async () => {
-      let lead
-      if (state.call.mode === 'manual') {
-        lead = {
-          id: `manual-${Date.now()}`,
-          phone: state.call.manualPhone,
-          name: 'Contato Manual',
-          company: 'Ligação Manual',
-          email: '',
-          address: '',
-          city: '',
-          state: '',
-          cep: '',
-          cnpj: '',
-          protocol: `M${Date.now()}`,
-          partnerName: 'Contato Manual',
-          partnerCpf: '',
-          identifier: 'Ligação Manual',
-          socialReason: 'Ligação Manual',
+
+    const delay = Math.max(0, call.nextDialAt - Date.now())
+    const timer = window.setTimeout(async () => {
+      startingSessionRef.current = sessionId
+      try {
+        const attempt =
+          call.mode === 'manual'
+            ? await bdrRepository.startManualAttempt(call.manualPhone, stateRef.current.selectedCampaignId)
+            : await bdrRepository.startAttempt(stateRef.current.selectedCampaignId)
+        const current = stateRef.current.call
+        if (current.status !== 'searching' || current.sessionId !== sessionId) {
+          void bdrRepository.hangupAttempt(attempt.id).catch(() => null)
+          return
         }
-      } else {
-        lead = await bdrRepository.pickNextLead(state.selectedCampaignId)
+        dispatch({ type: 'ATTEMPT_STARTED', sessionId, attempt })
+      } catch (error) {
+        const blocking = BLOCKING_DIAL_ERRORS.has(error?.code)
+        dispatch({
+          type: 'DIAL_ERROR',
+          sessionId,
+          error: {
+            code: error?.code || 'NETWORK',
+            message: blocking
+              ? error.message
+              : `Falha ao discar: ${error?.message || 'erro de rede'}`,
+          },
+        })
       }
-      if (cancelled) return
-      dispatch({ type: 'CONNECT_LEAD', lead })
-      pickingLeadRef.current = false
-    })()
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [needsAttempt, state.call.sessionId])
+
+  // Dial loop, step 2: follow the ringing attempt until the PABX reports a person on the line or an outcome.
+  const ringingAttemptId =
+    state.call.status === 'searching' && state.call.attempt?.status === 'ringing'
+      ? state.call.attempt.id
+      : null
+  useEffect(() => {
+    if (!ringingAttemptId) return undefined
+    const sessionId = stateRef.current.call.sessionId
+    let failures = 0
+    let stopped = false
+    const id = window.setInterval(async () => {
+      if (pollInFlightRef.current) return
+      pollInFlightRef.current = true
+      try {
+        const attempt = await bdrRepository.pollAttempt(ringingAttemptId)
+        failures = 0
+        if (stopped) return
+        if (attempt.status === 'answered') {
+          const call = stateRef.current.call
+          const lead = attempt.lead || manualLeadFromPhone(call.manualPhone || attempt.phone)
+          dispatch({ type: 'CONNECT_LEAD', sessionId, lead, attempt })
+        } else if (attempt.status === 'ended') {
+          dispatch({ type: 'ATTEMPT_ENDED', sessionId, attempt })
+        } else {
+          dispatch({ type: 'ATTEMPT_UPDATED', sessionId, attempt })
+        }
+      } catch (error) {
+        failures += 1
+        if (!stopped && failures >= MAX_POLL_FAILURES) {
+          void bdrRepository.hangupAttempt(ringingAttemptId).catch(() => null)
+          dispatch({
+            type: 'DIAL_ERROR',
+            sessionId,
+            error: { code: 'POLL_FAILED', message: `Conexão com a telefonia perdida: ${error?.message || ''}` },
+          })
+        }
+      } finally {
+        pollInFlightRef.current = false
+      }
+    }, ATTEMPT_POLL_MS)
     return () => {
-      cancelled = true
+      stopped = true
+      window.clearInterval(id)
     }
-  }, [
-    state.call.status,
-    state.call.elapsedTime,
-    state.call.mode,
-    state.call.manualPhone,
-    state.selectedCampaignId,
-  ])
+  }, [ringingAttemptId])
+
+  // Leaving Em atendimento (intervalo / indisponível) stops the dialer and releases the ringing lead.
+  useEffect(() => {
+    if (state.call.status !== 'searching' || state.operatorStatus === 'atendimento') return
+    const attemptId = state.call.attempt?.id
+    if (attemptId) void bdrRepository.hangupAttempt(attemptId).catch(() => null)
+    dispatch({ type: 'HANGUP_TO_IDLE' })
+  }, [state.operatorStatus, state.call.status, state.call.attempt?.id])
 
   const setOperatorStatus = useCallback((status) => {
     dispatch({ type: 'SET_OPERATOR_STATUS', status })
@@ -618,31 +757,83 @@ export function BdrSessionProvider({ children }) {
         address: lead?.address || '',
         city: lead?.city || '',
         state: lead?.state || '',
-        recordingUrl: `https://example.com/recordings/mock-${Date.now()}.mp3`,
+        attemptId: state.call.attempt?.id || null,
+        callbackAt: disposition === 'callback' ? meetingStartIso(callMeetings[0]) : null,
         meetingIds: callMeetings.map((m) => m.id),
         meetings: callMeetings,
       }
+      let savedRow
+      try {
+        savedRow = await bdrRepository.saveHistory(row)
+      } catch (error) {
+        return { ok: false, error: `Não foi possível salvar a ligação: ${error?.message || 'erro de rede'}` }
+      }
+      const historyId = savedRow?.id || row.id
       for (const meeting of callMeetings) {
-        const patch = { linkedHistoryId: row.id, callNotes: row.notes }
-        await bdrRepository.saveMeeting({ ...meeting, ...patch })
+        const patch = { linkedHistoryId: historyId, callId: savedRow?.id ?? null, callNotes: row.notes }
+        await bdrRepository.updateMeeting(meeting.id, patch).catch(() => null)
         dispatch({ type: 'UPDATE_MEETING', id: meeting.id, patch })
       }
-      const savedRow = await bdrRepository.saveHistory(row)
       dispatch({ type: 'PREPEND_HISTORY', row: savedRow || row })
       dispatch({ type: 'BUMP_CALL_METRICS' })
       // Live rule: always restart automatic searching
       dispatch({ type: 'RESET_AFTER_FINALIZE' })
-      return { ok: true, row, meetings: callMeetings }
+      void bdrRepository.listCampaigns().then(
+        (campaigns) => dispatch({ type: 'SET_CAMPAIGNS', campaigns }),
+        () => null,
+      )
+      return { ok: true, row: savedRow || row, meetings: callMeetings }
     },
     [state],
   )
 
   const hangupToIdle = useCallback(() => {
+    const attemptId = stateRef.current.call.attempt?.id
+    if (attemptId) void bdrRepository.hangupAttempt(attemptId).catch(() => null)
     dispatch({ type: 'HANGUP_TO_IDLE' })
   }, [])
 
+  /** Drops the phone line of a connected call; the attendance stays open for wrap-up notes. */
+  const hangupLine = useCallback(() => {
+    const { call } = stateRef.current
+    if (call.status === 'connected' && call.attempt?.id) {
+      void bdrRepository.hangupAttempt(call.attempt.id).catch(() => null)
+    }
+  }, [])
+
+  /** The connected party was not a person (carrier voicemail, fax...): log it and move on without wrap-up. */
+  const markNotHuman = useCallback(async (outcome = 'voicemail') => {
+    const { call } = stateRef.current
+    if (call.status !== 'connected' || !call.attempt?.id) return { ok: false }
+    try {
+      const attempt = await bdrRepository.markAttemptOutcome(call.attempt.id, outcome)
+      dispatch({ type: 'ATTEMPT_ENDED', sessionId: call.sessionId, attempt })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error?.message }
+    }
+  }, [])
+
   const disconnectSession = useCallback(() => {
+    const attemptId = stateRef.current.call.attempt?.id
+    if (attemptId) void bdrRepository.hangupAttempt(attemptId).catch(() => null)
     dispatch({ type: 'DISCONNECT_SESSION' })
+  }, [])
+
+  const clearDialError = useCallback(() => {
+    dispatch({ type: 'CLEAR_DIAL_ERROR' })
+  }, [])
+
+  const setExtension = useCallback(async (extension) => {
+    const config = await bdrRepository.setExtension(extension)
+    dispatch({ type: 'SET_DIALER_CONFIG', config })
+    return config
+  }, [])
+
+  const reloadCampaigns = useCallback(async () => {
+    const campaigns = await bdrRepository.listCampaigns()
+    dispatch({ type: 'SET_CAMPAIGNS', campaigns })
+    return campaigns
   }, [])
 
   const value = useMemo(() => {
@@ -655,7 +846,6 @@ export function BdrSessionProvider({ children }) {
       dialAllowed,
       scheduleAllowed,
       scriptCompleted,
-      searchConnectSeconds: SEARCH_CONNECT_SECONDS,
       autoIndisponivelMs: AUTO_INDISPONIVEL_MS,
       canTransitionOperator: (to) => canTransition(state.operatorStatus, to),
       getStatusButtonTitle: (buttonStatus) =>
@@ -677,13 +867,23 @@ export function BdrSessionProvider({ children }) {
       setNotes,
       finalizeAttendance,
       hangupToIdle,
+      hangupLine,
+      markNotHuman,
       disconnectSession,
+      clearDialError,
+      setExtension,
+      reloadCampaigns,
       prependMeeting,
       updateMeeting,
       removeMeeting,
       selectedCampaign: state.campaigns.find((c) => c.id === state.selectedCampaignId) || null,
     }
   }, [
+    hangupLine,
+    markNotHuman,
+    clearDialError,
+    setExtension,
+    reloadCampaigns,
     state,
     setOperatorStatus,
     selectCampaign,

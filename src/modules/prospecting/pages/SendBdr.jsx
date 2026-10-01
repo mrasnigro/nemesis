@@ -32,8 +32,13 @@ export default function ProspectSendBdrPage() {
 
       {lastSend ? (
         <div className="imp-toast">
-          Lote {lastSend.id} enviado com {lastSend.companies.length} contato(s) para a fila
-          “{lastSend.campaignHint}”.
+          {lastSend.importStatus === 'sent'
+            ? `${lastSend.importResult.inserted} contato(s) adicionados à fila da ${lastSend.campaignHint} (${lastSend.importResult.duplicates} já estavam na fila).`
+            : lastSend.importStatus === 'failed'
+              ? `Falha ao enviar ao discador: ${lastSend.importError}`
+              : lastSend.importStatus === 'no_campaign'
+                ? 'Selecione uma campanha no painel do discador antes de enviar.'
+                : `Enviando ${lastSend.companies.length} contato(s) ao discador…`}
         </div>
       ) : null}
 
@@ -82,7 +87,7 @@ export default function ProspectSendBdrPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Envios recentes</h2>
-              <p>Histórico desta sessão (mock).</p>
+              <p>Histórico desta sessão.</p>
             </div>
           </div>
           {sentQueue.length === 0 ? (

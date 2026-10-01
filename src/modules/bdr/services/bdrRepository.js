@@ -1,4 +1,5 @@
-import { SEED_DIAL_POOL, SEED_OBJECTION_CATEGORIES } from '../data/seeds.js'
+import { SEED_OBJECTION_CATEGORIES } from '../data/seeds.js'
+import { BdrApiError } from './bdrErrors.js'
 import { mockBdrRepository } from './mockBdrRepository.js'
 
 const BASE = '/platform-api'
@@ -22,7 +23,10 @@ async function request(path, options = {}) {
   if (response.status === 204) return null
   const body = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(body?.error?.message || `Request failed (${response.status})`)
+    throw new BdrApiError(body?.error?.message || `Request failed (${response.status})`, {
+      status: response.status,
+      code: body?.error?.code,
+    })
   }
   return body
 }
@@ -42,31 +46,80 @@ async function listAll(path) {
   return rows
 }
 
+function withRecordingUrl(row) {
+  if (!row) return row
+  return { ...row, recordingUrl: row.recordingUrl ? `${BASE}${row.recordingUrl}` : null }
+}
+
+function post(path, body) {
+  return request(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+}
+
 const apiBdrRepository = {
   async listCampaigns() {
     return listAll('/api/modules/bdr/campaigns')
   },
 
-  /** Campaign choice does not filter the dial pool. */
-  async listDialPool() {
-    return clone(SEED_DIAL_POOL)
+  async createCampaign(input) {
+    const payload = await post('/api/modules/bdr/campaigns', input)
+    return payload.data
   },
 
-  async pickNextLead() {
-    const lead = SEED_DIAL_POOL[Math.floor(Math.random() * SEED_DIAL_POOL.length)]
-    return clone(lead)
+  async importLeads(campaignId, leads, source = 'import') {
+    const payload = await post(`/api/modules/bdr/campaigns/${campaignId}/leads`, { leads, source })
+    return payload.data
+  },
+
+  async leadSummary(campaignId) {
+    const payload = await request(`/api/modules/bdr/campaigns/${campaignId}/leads/summary`)
+    return payload.data
+  },
+
+  async getDialerConfig() {
+    const payload = await request('/api/modules/bdr/dialer/config')
+    return payload.data
+  },
+
+  async setExtension(extension) {
+    const payload = await request('/api/modules/bdr/dialer/extension', {
+      method: 'PUT',
+      body: JSON.stringify({ extension }),
+    })
+    return payload.data
+  },
+
+  async startAttempt(campaignId) {
+    const payload = await post('/api/modules/bdr/dialer/attempts', { campaignId })
+    return payload.data
+  },
+
+  async startManualAttempt(phone, campaignId) {
+    const payload = await post('/api/modules/bdr/dialer/attempts/manual', { phone, campaignId })
+    return payload.data
+  },
+
+  async pollAttempt(attemptId) {
+    const payload = await request(`/api/modules/bdr/dialer/attempts/${attemptId}`)
+    return payload.data
+  },
+
+  async hangupAttempt(attemptId) {
+    const payload = await post(`/api/modules/bdr/dialer/attempts/${attemptId}/hangup`)
+    return payload.data
+  },
+
+  async markAttemptOutcome(attemptId, outcome) {
+    const payload = await post(`/api/modules/bdr/dialer/attempts/${attemptId}/outcome`, { outcome })
+    return payload.data
   },
 
   async listHistory() {
-    return listAll('/api/modules/bdr/calls')
+    return (await listAll('/api/modules/bdr/calls')).map(withRecordingUrl)
   },
 
   async saveHistory(row) {
-    const payload = await request('/api/modules/bdr/calls', {
-      method: 'POST',
-      body: JSON.stringify(row),
-    })
-    return payload.data
+    const payload = await post('/api/modules/bdr/calls', row)
+    return withRecordingUrl(payload.data)
   },
 
   async listMeetings() {
@@ -74,10 +127,7 @@ const apiBdrRepository = {
   },
 
   async saveMeeting(meeting) {
-    const payload = await request('/api/modules/bdr/meetings', {
-      method: 'POST',
-      body: JSON.stringify(meeting),
-    })
+    const payload = await post('/api/modules/bdr/meetings', meeting)
     return payload.data
   },
 

@@ -17,6 +17,10 @@ const schema = z.object({
   SEED_USERNAME: z.string().default('imp'),
   SEED_PASSWORD: z.string().default('imp'),
   SEED_NAME: z.string().default('IMP User'),
+  TELEPHONY_SECRET_KEY: z.string().min(32).optional(),
+  TELEPHONY_DEFAULT_PROVIDER: z.enum(['none', 'simulated']).default('none'),
+  PABX_TIMEZONE: z.string().default('America/Sao_Paulo'),
+  RECORDINGS_DIR: z.string().default('storage/recordings'),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -32,4 +36,5 @@ export const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   allowDevAuth: parsed.data.ALLOW_DEV_AUTH === 'true' && parsed.data.NODE_ENV !== 'production',
+  allowSimulatedTelephony: parsed.data.NODE_ENV !== 'production',
 }

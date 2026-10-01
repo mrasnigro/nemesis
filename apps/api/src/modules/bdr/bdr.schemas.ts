@@ -28,8 +28,61 @@ export const callWrite = z
     company: z.string().optional(),
     duration: z.number().int().nonnegative().optional(),
     durationSeconds: z.number().int().nonnegative().optional(),
+    attemptId: z.string().max(26).nullable().optional(),
+    qualificationId: z.string().max(64).nullable().optional(),
+    callbackAt: z.string().datetime({ offset: true }).nullable().optional(),
   })
   .passthrough()
+
+const leadRow = z
+  .object({
+    phone: z.string().trim().min(1).max(40),
+    company: z.string().trim().max(200).optional(),
+    name: z.string().trim().max(200).optional(),
+  })
+  .passthrough()
+
+export const leadImport = z.object({
+  source: z.enum(['import', 'prospecting', 'manual']).default('import'),
+  leads: z.array(leadRow).min(1).max(5000),
+})
+
+export const attemptStart = z.object({
+  campaignId: z.string().min(1).max(26),
+})
+
+export const manualAttemptStart = z.object({
+  phone: z.string().trim().min(1).max(40),
+  campaignId: z.string().max(26).nullable().optional(),
+})
+
+export const attemptOutcome = z.object({
+  outcome: z.enum(['voicemail', 'no_answer', 'busy', 'failed']),
+})
+
+export const attemptListQuery = pageQuery.extend({
+  campaignId: z.string().optional(),
+  leadId: z.string().optional(),
+  outcome: z.string().max(32).optional(),
+})
+
+export const extensionWrite = z.object({
+  extension: z.string().trim().min(1).max(40).regex(/^[\w.@-]+$/),
+})
+
+export const telephonySettingsWrite = z.object({
+  provider: z.enum(['none', 'simulated', 'falevono']).optional(),
+  baseUrl: z.string().url().nullable().optional(),
+  apiToken: z.string().min(1).max(200).optional(),
+  apiKey: z.string().min(1).max(200).optional(),
+  deviceId: z.string().trim().min(1).max(40).nullable().optional(),
+  dialPrefix: z.string().regex(/^\d{0,8}$/).optional(),
+  ringTimeoutSeconds: z.number().int().min(10).max(120).optional(),
+  maxAttempts: z.number().int().min(1).max(20).optional(),
+  retryBusyMinutes: z.number().int().min(1).max(10080).optional(),
+  retryNoAnswerMinutes: z.number().int().min(1).max(10080).optional(),
+  retryVoicemailMinutes: z.number().int().min(1).max(10080).optional(),
+})
 
 export const meetingListQuery = pageQuery
 

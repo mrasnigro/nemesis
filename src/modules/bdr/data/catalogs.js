@@ -24,8 +24,25 @@ export const CURRENT_STATUS_TITLE = 'Status atual'
 /** Auto-force atendimento → indisponivel (live demo quirk, ~5s) */
 export const AUTO_INDISPONIVEL_MS = 5000
 
-/** Simulated connect delay (live: elapsedTime >= 3) */
-export const SEARCH_CONNECT_SECONDS = 3
+/** How often the console asks the API for the state of the ringing attempt. */
+export const ATTEMPT_POLL_MS = 1500
+
+/** Pause between an unanswered attempt and the next automatic dial. */
+export const NEXT_DIAL_DELAY_MS = 1500
+
+export const DIAL_OUTCOME_LABELS = {
+  answered: 'Atendida',
+  busy: 'Ocupado',
+  no_answer: 'Não atendida',
+  voicemail: 'Caixa postal',
+  failed: 'Falha',
+  cancelled: 'Cancelada',
+  abandoned: 'Abandonada',
+}
+
+export function dialOutcomeLabel(outcome) {
+  return DIAL_OUTCOME_LABELS[outcome] || outcome || '—'
+}
 
 export const DISPOSITIONS = [
   { id: 'interested', label: 'Em negociação whatsApp', color: 'green' },

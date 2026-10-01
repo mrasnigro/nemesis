@@ -11,21 +11,10 @@ export default function CallHistoryDetail({ row, onClose }) {
   const diagnosisLines = formatDiagnosisSummary(row.diagnosis || {})
   const meetings = row.meetings || []
 
-  const playRecording = () => {
-    window.alert(
-      row.recordingUrl
-        ? `Simulação: reproduzir gravação\n${row.recordingUrl}`
-        : 'Nenhuma gravação disponível (mock).',
-    )
-  }
-
-  const downloadRecording = () => {
-    window.alert(
-      row.recordingUrl
-        ? `Simulação: download da gravação\n${row.recordingUrl}`
-        : 'Nenhuma gravação disponível (mock).',
-    )
-  }
+  const recordingNote =
+    row.recordingStatus === 'pending'
+      ? 'Gravação sendo copiada da central telefônica…'
+      : 'Nenhuma gravação disponível para esta ligação.'
 
   return (
     <aside className="bdr-history-detail" aria-label="Detalhes da chamada">
@@ -144,13 +133,21 @@ export default function CallHistoryDetail({ row, onClose }) {
         </section>
       ) : null}
 
+      <section className="bdr-history-detail__block">
+        <h4>Gravação</h4>
+        {row.recordingUrl ? (
+          <audio className="bdr-recording-player" controls preload="none" src={row.recordingUrl} />
+        ) : (
+          <p>{recordingNote}</p>
+        )}
+      </section>
+
       <div className="bdr-history-detail__actions">
-        <button type="button" onClick={playRecording}>
-          Ouvir gravação
-        </button>
-        <button type="button" onClick={downloadRecording}>
-          Baixar gravação
-        </button>
+        {row.recordingUrl ? (
+          <a className="bdr-history-detail__link" href={`${row.recordingUrl}?download=1`}>
+            Baixar gravação
+          </a>
+        ) : null}
         {row.phone ? (
           <a className="bdr-history-detail__link" href={`tel:${row.phone.replace(/\D/g, '')}`}>
             Contato

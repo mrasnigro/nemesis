@@ -6,7 +6,13 @@ import { pool } from '../src/core/db.js'
 import { seedEvaluationTemplates } from '../../../src/modules/training-ai/data/evaluationTemplates.js'
 import { seedPersonas } from '../../../src/modules/training-ai/data/personas.js'
 import { seedScenarios } from '../../../src/modules/training-ai/data/scenarios.js'
-import { SEED_CAMPAIGNS, SEED_HISTORY, SEED_MEETINGS } from '../../../src/modules/bdr/data/seeds.js'
+import {
+  SEED_CAMPAIGNS,
+  SEED_DIAL_POOL,
+  SEED_HISTORY,
+  SEED_MEETINGS,
+} from '../../../src/modules/bdr/data/seeds.js'
+import { importLeads } from '../src/modules/bdr/leads.repository.js'
 
 async function main() {
   const username = config.SEED_USERNAME.trim().toLowerCase()
@@ -142,7 +148,22 @@ async function main() {
   }
 
   await seedBdr(customerId, userId)
+  await seedDialQueue(customerId)
   await pool.end()
+}
+
+/** Gives every empty active campaign the demo leads so the dialer has something to call locally. */
+async function seedDialQueue(customerId: string) {
+  const [campaigns] = await pool.query<RowDataPacket[]>(
+    `SELECT c.id FROM bdr_campaigns c
+     WHERE c.customer_id = :customerId AND c.status = 'active' AND c.deleted_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM bdr_leads l WHERE l.campaign_id = c.id)`,
+    { customerId },
+  )
+  for (const campaign of campaigns) {
+    const result = await importLeads(customerId, String(campaign.id), SEED_DIAL_POOL, 'import')
+    console.log(`seeded ${result.inserted} dial leads into campaign ${campaign.id}`)
+  }
 }
 
 async function seedBdr(customerId: string, userId: string) {

@@ -12,6 +12,7 @@ import ObjectionPanel from '../components/ObjectionPanel.jsx'
 import QualificationForm from '../components/QualificationForm.jsx'
 import SalesScript from '../components/SalesScript.jsx'
 import DiscagemCallHistory from '../components/DiscagemCallHistory.jsx'
+import DialAttemptsLog from '../components/DialAttemptsLog.jsx'
 import EndCallModal from '../components/EndCallModal.jsx'
 import ScheduleMeetingModal from '../components/ScheduleMeetingModal.jsx'
 import { useBdrSession } from '../hooks/useBdrSession.js'
@@ -36,9 +37,14 @@ export default function BdrDiscagemPage() {
     scheduleAllowed,
     startAutomatic,
     hangupToIdle,
+    hangupLine,
+    markNotHuman,
     disconnectSession,
     activeTab,
     scriptCompleted,
+    dialError,
+    clearDialError,
+    recentAttempts,
   } = useBdrSession()
 
   useEffect(() => {
@@ -58,12 +64,20 @@ export default function BdrDiscagemPage() {
   const connected = call.status === 'connected'
   const openSchedule = () => setScheduleOpen(true)
 
+  const canMarkVoicemail = connected && Boolean(call.attempt?.id)
+
   function openEndCall() {
     if (call.status === 'connected') {
+      hangupLine()
       setEndCallOpen(true)
       return
     }
     hangupToIdle()
+  }
+
+  function retryDial() {
+    clearDialError()
+    startAutomatic()
   }
 
   function handleVoltar() {
@@ -101,7 +115,26 @@ export default function BdrDiscagemPage() {
         </article>
       ) : null}
 
-      <ManualDialForm open={showManualModal} onClose={closeManualModal} />
+      {dialError && call.status === 'idle' ? (
+        <article className="bdr-section__card bdr-discagem__dial-error" role="alert">
+          <p>{dialError.message}</p>
+          {dialError.code === 'NO_EXTENSION' || dialError.code === 'TELEPHONY_NOT_CONFIGURED' ? (
+            <Link to="/modules/bdr" className="bdr-section__cta">
+              Configurar no painel
+            </Link>
+          ) : mode === 'manual' ? (
+            <button type="button" className="bdr-section__cta" onClick={clearDialError}>
+              Nova ligação manual
+            </button>
+          ) : dialAllowed ? (
+            <button type="button" className="bdr-section__cta" onClick={retryDial}>
+              Tentar novamente
+            </button>
+          ) : null}
+        </article>
+      ) : null}
+
+      <ManualDialForm open={showManualModal && !dialError} onClose={closeManualModal} />
 
       {inCall ? (
         <div className="bdr-discagem__stack">
@@ -142,6 +175,16 @@ export default function BdrDiscagemPage() {
               <IconClock className="bdr-discagem__cta-icon" />
               Agendar Reunião
             </button>
+            {canMarkVoicemail ? (
+              <button
+                type="button"
+                className="bdr-discagem__schedule"
+                title="Atendeu uma caixa postal: registra a tentativa e segue para o próximo lead"
+                onClick={() => void markNotHuman('voicemail')}
+              >
+                Caixa postal
+              </button>
+            ) : null}
             <button
               type="button"
               className="bdr-discagem__hangup"
@@ -156,6 +199,8 @@ export default function BdrDiscagemPage() {
           <DiscagemCallHistory rows={sessionHistory} />
         </div>
       ) : null}
+
+      <DialAttemptsLog rows={recentAttempts} />
 
       <ScheduleMeetingModal open={scheduleOpen} onClose={() => setScheduleOpen(false)} />
       <EndCallModal

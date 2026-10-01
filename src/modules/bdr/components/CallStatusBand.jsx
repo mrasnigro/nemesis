@@ -12,6 +12,19 @@ export default function CallStatusBand() {
   const searching = call.status === 'searching'
   const connected = call.status === 'connected'
   const phone = call.currentLead?.phone || call.manualPhone || ''
+  const ringing = searching && call.attempt?.status === 'ringing'
+  const ringingLead = call.attempt?.lead
+  const ringingPhone = ringingLead?.phone || call.manualPhone || call.attempt?.phone || ''
+  const label = connected
+    ? 'Falando'
+    : ringing
+      ? `Chamando${ringingLead?.attempts > 1 ? ` · tentativa ${ringingLead.attempts}` : ''}`
+      : 'Buscando próximo lead'
+  const detail = connected
+    ? phone || '...'
+    : ringing
+      ? [ringingPhone, ringingLead?.company].filter(Boolean).join(' · ')
+      : '...'
 
   return (
     <div
@@ -25,12 +38,8 @@ export default function CallStatusBand() {
           <IconPhone className="bdr-call-band__phone-svg" />
         </span>
         <div>
-          <p className="bdr-call-band__label">
-            {searching ? 'Aguardando ligação' : 'Falando'}
-          </p>
-          <p className="bdr-call-band__phone">
-            {connected && phone ? phone : '...'}
-          </p>
+          <p className="bdr-call-band__label">{label}</p>
+          <p className="bdr-call-band__phone">{detail}</p>
         </div>
       </div>
       <div className="bdr-call-band__right">

@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/core/migrate.ts",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "telephony": "tsx scripts/telephony.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

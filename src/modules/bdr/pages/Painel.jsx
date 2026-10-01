@@ -1,4 +1,5 @@
 import CampaignList from '../components/CampaignList.jsx'
+import DialerSetupPanel from '../components/DialerSetupPanel.jsx'
 import MetricCards from '../components/MetricCards.jsx'
 import OperatorStatusBar from '../components/OperatorStatusBar.jsx'
 import QuickActions from '../components/QuickActions.jsx'
@@ -13,7 +14,10 @@ export default function BdrPainelPage() {
           <OperatorStatusBar />
           <CampaignList />
         </div>
-        <QuickActions />
+        <div className="bdr-home__side">
+          <QuickActions />
+          <DialerSetupPanel />
+        </div>
       </div>
     </section>
   )

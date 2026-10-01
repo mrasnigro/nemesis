@@ -72,20 +72,7 @@ export default function BdrHistoricoPage() {
 
   const playRecording = (row, e) => {
     e.stopPropagation()
-    window.alert(
-      row.recordingUrl
-        ? `Simulação: reproduzir gravação\n${row.recordingUrl}`
-        : 'Nenhuma gravação disponível (mock).',
-    )
-  }
-
-  const downloadRecording = (row, e) => {
-    e.stopPropagation()
-    window.alert(
-      row.recordingUrl
-        ? `Simulação: download\n${row.recordingUrl}`
-        : 'Nenhuma gravação disponível (mock).',
-    )
+    setSelectedId(row.id)
   }
 
   return (
@@ -172,20 +159,26 @@ export default function BdrHistoricoPage() {
                     </a>
                     <button
                       type="button"
-                      title="Ouvir gravação"
+                      title={row.recordingUrl ? 'Ouvir gravação' : 'Sem gravação'}
                       aria-label="Ouvir gravação"
+                      disabled={!row.recordingUrl}
                       onClick={(e) => playRecording(row, e)}
                     >
                       <ActionIcon name="play" />
                     </button>
-                    <button
-                      type="button"
-                      title="Baixar gravação"
-                      aria-label="Baixar gravação"
-                      onClick={(e) => downloadRecording(row, e)}
-                    >
-                      <ActionIcon name="download" />
-                    </button>
+                    {row.recordingUrl ? (
+                      <a
+                        href={`${row.recordingUrl}?download=1`}
+                        title="Baixar gravação"
+                        aria-label="Baixar gravação"
+                      >
+                        <ActionIcon name="download" />
+                      </a>
+                    ) : (
+                      <button type="button" title="Sem gravação" aria-label="Baixar gravação" disabled>
+                        <ActionIcon name="download" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
