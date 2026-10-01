@@ -5,6 +5,7 @@ import { config } from './core/config.js'
 import { pingDatabase } from './core/db.js'
 import { errorHandler } from './core/http.js'
 import { authRouter } from './modules/auth/auth.routes.js'
+import { bdrRouter } from './modules/bdr/bdr.routes.js'
 import { trainingAiRouter } from './modules/training-ai/training-ai.routes.js'
 
 const app = express()
@@ -40,6 +41,7 @@ app.get('/health', async (_req, res) => {
 
 app.use('/api/auth', authRouter)
 app.use('/api/modules/training-ai', trainingAiRouter)
+app.use('/api/modules/bdr', bdrRouter)
 
 app.use(errorHandler)
 

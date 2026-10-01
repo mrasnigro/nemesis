@@ -30,7 +30,7 @@ import {
   validateManualStart,
 } from '../services/callSessionMachine.js'
 import { getBdrPermissionsForUser } from '../services/bdrPermissions.js'
-import { mockBdrRepository } from '../services/mockBdrRepository.js'
+import { bdrRepository } from '../services/bdrRepository.js'
 import {
   canTransition,
   isDialAllowed,
@@ -363,10 +363,10 @@ export function BdrSessionProvider({ children }) {
     let cancelled = false
     ;(async () => {
       const [campaigns, history, meetings, metrics] = await Promise.all([
-        mockBdrRepository.listCampaigns(),
-        mockBdrRepository.listHistory(),
-        mockBdrRepository.listMeetings(),
-        mockBdrRepository.getMetrics(),
+        bdrRepository.listCampaigns(),
+        bdrRepository.listHistory(),
+        bdrRepository.listMeetings(),
+        bdrRepository.getMetrics(),
       ])
       if (cancelled) return
       dispatch({
@@ -462,7 +462,7 @@ export function BdrSessionProvider({ children }) {
           socialReason: 'Ligação Manual',
         }
       } else {
-        lead = await mockBdrRepository.pickNextLead(state.selectedCampaignId)
+        lead = await bdrRepository.pickNextLead(state.selectedCampaignId)
       }
       if (cancelled) return
       dispatch({ type: 'CONNECT_LEAD', lead })
@@ -542,19 +542,19 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'SET_NOTES', notes })
   }, [])
 
-  const prependMeeting = useCallback((meeting) => {
-    dispatch({ type: 'PREPEND_MEETING', meeting })
-    void mockBdrRepository.saveMeeting(meeting)
+  const prependMeeting = useCallback(async (meeting) => {
+    const saved = await bdrRepository.saveMeeting(meeting)
+    dispatch({ type: 'PREPEND_MEETING', meeting: saved || meeting })
   }, [])
 
   const updateMeeting = useCallback((id, patch) => {
     dispatch({ type: 'UPDATE_MEETING', id, patch })
-    void mockBdrRepository.updateMeeting(id, patch)
+    void bdrRepository.updateMeeting(id, patch)
   }, [])
 
   const removeMeeting = useCallback((id) => {
     dispatch({ type: 'REMOVE_MEETING', id })
-    void mockBdrRepository.removeMeeting(id)
+    void bdrRepository.removeMeeting(id)
   }, [])
 
   const finalizeAttendance = useCallback(
@@ -624,11 +624,11 @@ export function BdrSessionProvider({ children }) {
       }
       for (const meeting of callMeetings) {
         const patch = { linkedHistoryId: row.id, callNotes: row.notes }
-        await mockBdrRepository.saveMeeting({ ...meeting, ...patch })
+        await bdrRepository.saveMeeting({ ...meeting, ...patch })
         dispatch({ type: 'UPDATE_MEETING', id: meeting.id, patch })
       }
-      await mockBdrRepository.saveHistory(row)
-      dispatch({ type: 'PREPEND_HISTORY', row })
+      const savedRow = await bdrRepository.saveHistory(row)
+      dispatch({ type: 'PREPEND_HISTORY', row: savedRow || row })
       dispatch({ type: 'BUMP_CALL_METRICS' })
       // Live rule: always restart automatic searching
       dispatch({ type: 'RESET_AFTER_FINALIZE' })

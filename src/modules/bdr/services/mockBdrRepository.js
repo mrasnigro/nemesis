@@ -43,6 +43,7 @@ export const mockBdrRepository = {
 
   async saveHistory(row) {
     history = [row, ...history]
+    return clone(row)
   },
 
   async listMeetings() {
@@ -51,6 +52,7 @@ export const mockBdrRepository = {
 
   async saveMeeting(meeting) {
     meetings = [meeting, ...meetings.filter((m) => m.id !== meeting.id)]
+    return clone(meeting)
   },
 
   async updateMeeting(id, patch) {
