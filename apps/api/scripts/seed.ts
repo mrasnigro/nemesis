@@ -7,14 +7,6 @@ import { pool } from '../src/core/db.js'
 import { seedEvaluationTemplates } from '../../web/src/modules/training-ai/data/evaluationTemplates.js'
 import { seedPersonas } from '../../web/src/modules/training-ai/data/personas.js'
 import { seedScenarios } from '../../web/src/modules/training-ai/data/scenarios.js'
-import {
-  SEED_CAMPAIGNS,
-  SEED_DIAL_POOL,
-  SEED_HISTORY,
-  SEED_MEETINGS,
-} from '../../web/src/modules/bdr/data/seeds.js'
-import { importLeads } from '../src/modules/bdr/leads.repository.js'
-
 type SeedCustomer = { slug: string; name: string; plan: CustomerPlan; status: CustomerStatus; modules: readonly ModuleId[] }
 type SeedUser = {
   username: string
@@ -132,7 +124,7 @@ async function main() {
     modules: ['training-ai', 'bdr', 'prospecting'],
   })
 
-  const userId = await ensureUser({
+  await ensureUser({
     username,
     password: config.SEED_PASSWORD,
     name: config.SEED_NAME,
@@ -255,108 +247,8 @@ async function main() {
   )
   }
 
-  await seedBdr(customerId, userId)
-  await seedDialQueue(customerId)
+  // BDR has no demo data: campaigns, leads, calls and meetings are created through the app.
   await pool.end()
-}
-
-/** Gives every empty active campaign the demo leads so the dialer has something to call locally. */
-async function seedDialQueue(customerId: string) {
-  const [campaigns] = await pool.query<RowDataPacket[]>(
-    `SELECT c.id FROM bdr_campaigns c
-     WHERE c.customer_id = :customerId AND c.status = 'active' AND c.deleted_at IS NULL
-       AND NOT EXISTS (SELECT 1 FROM bdr_leads l WHERE l.campaign_id = c.id)`,
-    { customerId },
-  )
-  for (const campaign of campaigns) {
-    const result = await importLeads(customerId, String(campaign.id), SEED_DIAL_POOL, 'import')
-    console.log(`seeded ${result.inserted} dial leads into campaign ${campaign.id}`)
-  }
-}
-
-async function seedBdr(customerId: string, userId: string) {
-  const [counts] = await pool.query<RowDataPacket[]>(
-    'SELECT COUNT(*) AS total FROM bdr_campaigns WHERE customer_id = :customerId',
-    { customerId },
-  )
-  if (Number(counts[0]?.total ?? 0) > 0) {
-    console.log('dialer catalog already present')
-    return
-  }
-
-  const now = new Date()
-  const campaignIds = new Map<string, string>()
-  for (const campaign of SEED_CAMPAIGNS) {
-    const id = ulid()
-    campaignIds.set(campaign.id, id)
-    await pool.query(
-      `INSERT INTO bdr_campaigns
-        (id, customer_id, name, status, lead_count, completed_count, campaign_json, created_at, updated_at)
-       VALUES
-        (:id, :customerId, :name, :status, :leads, :completed, :campaignJson, :now, :now)`,
-      {
-        id,
-        customerId,
-        name: campaign.name,
-        status: campaign.status,
-        leads: campaign.leads,
-        completed: campaign.completed,
-        campaignJson: JSON.stringify({ ...campaign, id }),
-        now,
-      },
-    )
-  }
-
-  const meetingIds = new Map<string, string>()
-  for (const meeting of SEED_MEETINGS) {
-    const id = ulid()
-    meetingIds.set(meeting.id, id)
-    const startsAt = new Date(`${meeting.date}T${meeting.time}:00`)
-    await pool.query(
-      `INSERT INTO bdr_meetings
-        (id, customer_id, lead_name, company, starts_at, meeting_json, created_at, updated_at)
-       VALUES
-        (:id, :customerId, :leadName, :company, :startsAt, :meetingJson, :now, :now)`,
-      {
-        id,
-        customerId,
-        leadName: meeting.leadName,
-        company: meeting.company,
-        startsAt,
-        meetingJson: JSON.stringify({ ...meeting, id }),
-        now,
-      },
-    )
-  }
-
-  for (const [index, call] of SEED_HISTORY.entries()) {
-    const id = ulid()
-    const campaignId = call.campaignId ? campaignIds.get(call.campaignId) ?? null : null
-    const meetingIdList = (call.meetingIds || []).map((meetingId) => meetingIds.get(meetingId) || meetingId)
-    const startedAt = new Date(now.getTime() - index * 60 * 60 * 1000)
-    await pool.query(
-      `INSERT INTO bdr_calls
-        (id, customer_id, user_id, campaign_id, phone, lead_name, company, mode, call_status, duration_seconds, call_json, started_at, created_at)
-       VALUES
-        (:id, :customerId, :userId, :campaignId, :phone, :leadName, :company, :mode, :callStatus, :duration, :callJson, :startedAt, :startedAt)`,
-      {
-        id,
-        customerId,
-        userId,
-        campaignId,
-        phone: call.phone,
-        leadName: call.leadName,
-        company: call.company,
-        mode: call.mode,
-        callStatus: call.callStatus,
-        duration: call.duration,
-        callJson: JSON.stringify({ ...call, id, campaignId, meetingIds: meetingIdList, durationSeconds: call.duration }),
-        startedAt,
-      },
-    )
-  }
-
-  console.log(`seeded ${SEED_CAMPAIGNS.length} campaigns, ${SEED_HISTORY.length} calls, ${SEED_MEETINGS.length} meetings`)
 }
 
 main().catch((error) => {

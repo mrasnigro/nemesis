@@ -5,15 +5,15 @@ export const campaignListQuery = pageQuery.extend({
   status: z.enum(['active', 'paused']).optional(),
 })
 
-export const campaignWrite = z
-  .object({
-    name: z.string().trim().min(1).max(200),
-    status: z.enum(['active', 'paused']).optional(),
-  })
-  .passthrough()
+/** Counters (leads, completed, progress) are derived from the lead queue and cannot be written. */
+export const campaignWrite = z.object({
+  name: z.string().trim().min(1).max(200),
+  status: z.enum(['active', 'paused']).optional(),
+})
 
 export const callListQuery = pageQuery.extend({
   campaignId: z.string().optional(),
+  qualificationId: z.string().trim().max(64).optional(),
   mode: z.enum(['automatic', 'manual']).optional(),
   callStatus: z.string().trim().max(64).optional(),
 })
@@ -31,6 +31,7 @@ export const callWrite = z
     attemptId: z.string().max(26).nullable().optional(),
     qualificationId: z.string().max(64).nullable().optional(),
     callbackAt: z.string().datetime({ offset: true }).nullable().optional(),
+    meetingIds: z.array(z.string().max(26)).max(20).optional(),
   })
   .passthrough()
 

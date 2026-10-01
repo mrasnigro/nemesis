@@ -325,17 +325,26 @@ export async function markAttemptOutcome(user: AuthUser, attemptId: string, outc
   return present(customerId, (await loadAttempt(customerId, attempt.id))!)
 }
 
+/**
+ * Checks that an attempt can become a saved call. Runs before the call row is inserted so a rejected save leaves
+ * no orphan call behind.
+ */
+export async function attemptReadyForCall(user: AuthUser, attemptId: string) {
+  const attempt = await ownAttempt(user, attemptId)
+  if (attempt.callId) throw new AppError(409, 'ATTEMPT_ALREADY_SAVED', 'This attempt already has a saved call')
+  if (attempt.status !== 'answered') throw new AppError(409, 'ATTEMPT_NOT_ANSWERED', 'Attempt was not answered')
+  return attempt
+}
+
 /** Links the saved call to its attempt, closes the attempt, settles the lead, and queues the recording download. */
 export async function finalizeAttemptForCall(
   user: AuthUser,
-  attemptId: string,
+  attempt: Attempt,
   callId: string,
   disposition: string | null,
   callbackAt: Date | null,
 ) {
   const customerId = user.customerId!
-  const attempt = await ownAttempt(user, attemptId)
-  if (attempt.status === 'ringing') throw new AppError(409, 'ATTEMPT_NOT_ANSWERED', 'Attempt was not answered')
   const provider = await resolveProvider(customerId)
   if (provider && !attempt.endedAt) await provider.hangup(target(attempt)).catch(() => null)
   const now = new Date()

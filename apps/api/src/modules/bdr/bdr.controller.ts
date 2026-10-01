@@ -11,7 +11,9 @@ import {
   insertMeeting,
   listCalls,
   listCampaigns,
+  linkMeetingsToCall,
   listMeetings,
+  meetingsByCall,
   updateMeeting,
 } from './bdr.repository.js'
 import {
@@ -31,6 +33,7 @@ import {
   telephonySettingsWrite,
 } from './bdr.schemas.js'
 import {
+  attemptReadyForCall,
   finalizeAttemptForCall,
   getDialerConfig,
   hangupAttempt,
@@ -54,8 +57,11 @@ function customerId(req: Request) {
   return id
 }
 
-function requireAdmin(req: Request) {
-  if (req.user?.role !== 'admin') throw new AppError(403, 'FORBIDDEN', 'Administrator only')
+/** Telephony credentials belong to the customer; only its administrators may read or change them. */
+function requireCustomerAdmin(req: Request) {
+  if (req.user?.profile !== 'customer_admin') {
+    throw new AppError(403, 'FORBIDDEN', 'Only the customer administrator can manage telephony')
+  }
 }
 
 type CallRow = Record<string, unknown> & { id: string }
@@ -72,6 +78,17 @@ async function withRecordings<T extends CallRow>(customer: string, rows: T[]) {
       recordingStatus,
       recordingUrl: recordingStatus === 'stored' ? `/api/modules/bdr/calls/${row.id}/recording` : null,
     }
+  })
+}
+
+async function withMeetings<T extends CallRow>(customer: string, rows: T[]) {
+  const grouped = await meetingsByCall(
+    customer,
+    rows.map((row) => row.id),
+  )
+  return rows.map((row) => {
+    const meetings = grouped.get(row.id) ?? []
+    return { ...row, meetings, meetingIds: meetings.map((meeting) => meeting.id) }
   })
 }
 
@@ -107,7 +124,7 @@ export async function listCallsController(req: Request, res: Response) {
   const query = callListQuery.parse(req.query)
   const result = await listCalls(customer, query)
   res.json({
-    data: await withRecordings(customer, result.rows),
+    data: await withRecordings(customer, await withMeetings(customer, result.rows)),
     page: pageMeta(query.page, query.pageSize, result.total),
   })
 }
@@ -116,27 +133,31 @@ export async function getCallController(req: Request, res: Response) {
   const customer = customerId(req)
   const row = await getCall(customer, req.params.callId)
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Call not found')
-  const [withRecording] = await withRecordings(customer, [row])
-  res.json({ data: withRecording })
+  const [enriched] = await withRecordings(customer, await withMeetings(customer, [row]))
+  res.json({ data: enriched })
 }
 
 export async function createCallController(req: Request, res: Response) {
   const customer = customerId(req)
   const body = callWrite.parse(req.body)
-  const { recordingUrl: _ignored, ...stored } = body as typeof body & { recordingUrl?: unknown }
-  const row = await insertCall(customer, req.user!.id, stored)
+  const attempt = body.attemptId ? await attemptReadyForCall(req.user!, body.attemptId) : null
+  const row = await insertCall(customer, req.user!.id, body, {
+    attemptId: attempt?.id ?? null,
+    leadId: attempt?.leadId ?? null,
+  })
   if (!row) throw new AppError(500, 'INTERNAL', 'Call was not saved')
-  if (body.attemptId) {
+  await linkMeetingsToCall(customer, row.id, body.meetingIds ?? [])
+  if (attempt) {
     await finalizeAttemptForCall(
       req.user!,
-      body.attemptId,
+      attempt,
       row.id,
       body.qualificationId ?? null,
       body.callbackAt ? new Date(body.callbackAt) : null,
     )
   }
-  const [withRecording] = await withRecordings(customer, [row])
-  res.status(201).json({ data: withRecording })
+  const [enriched] = await withRecordings(customer, await withMeetings(customer, [row]))
+  res.status(201).json({ data: enriched })
 }
 
 export async function callRecordingController(req: Request, res: Response) {
@@ -151,21 +172,47 @@ export async function callRecordingController(req: Request, res: Response) {
   res.sendFile(recordingAbsolutePath(recording.path))
 }
 
+type MeetingRow = Record<string, unknown> & { callId: string | null }
+
+/** A meeting plays the recording of the call it was booked in. */
+async function withMeetingRecordings<T extends MeetingRow>(customer: string, rows: T[]) {
+  const statuses = await recordingStatusByCall(
+    customer,
+    rows.flatMap((row) => (row.callId ? [row.callId] : [])),
+  )
+  return rows.map((row) => ({
+    ...row,
+    recordingUrl:
+      row.callId && statuses.get(row.callId) === 'stored'
+        ? `/api/modules/bdr/calls/${row.callId}/recording`
+        : null,
+  }))
+}
+
 export async function listMeetingsController(req: Request, res: Response) {
+  const customer = customerId(req)
   const query = meetingListQuery.parse(req.query)
-  const result = await listMeetings(customerId(req), query)
-  res.json({ data: result.rows, page: pageMeta(query.page, query.pageSize, result.total) })
+  const result = await listMeetings(customer, query)
+  res.json({
+    data: await withMeetingRecordings(customer, result.rows),
+    page: pageMeta(query.page, query.pageSize, result.total),
+  })
 }
 
 export async function createMeetingController(req: Request, res: Response) {
-  const row = await insertMeeting(customerId(req), meetingWrite.parse(req.body))
-  res.status(201).json({ data: row })
+  const customer = customerId(req)
+  const row = await insertMeeting(customer, meetingWrite.parse(req.body))
+  if (!row) throw new AppError(500, 'INTERNAL', 'Meeting was not saved')
+  const [enriched] = await withMeetingRecordings(customer, [row])
+  res.status(201).json({ data: enriched })
 }
 
 export async function updateMeetingController(req: Request, res: Response) {
-  const row = await updateMeeting(customerId(req), req.params.meetingId, meetingPatch.parse(req.body))
+  const customer = customerId(req)
+  const row = await updateMeeting(customer, req.params.meetingId, meetingPatch.parse(req.body))
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Meeting not found')
-  res.json({ data: row })
+  const [enriched] = await withMeetingRecordings(customer, [row])
+  res.json({ data: enriched })
 }
 
 export async function deleteMeetingController(req: Request, res: Response) {
@@ -224,11 +271,11 @@ export async function listAttemptsController(req: Request, res: Response) {
 }
 
 export async function getTelephonySettingsController(req: Request, res: Response) {
-  requireAdmin(req)
+  requireCustomerAdmin(req)
   res.json({ data: await getTelephonySettings(customerId(req)) })
 }
 
 export async function saveTelephonySettingsController(req: Request, res: Response) {
-  requireAdmin(req)
+  requireCustomerAdmin(req)
   res.json({ data: await saveTelephonySettings(customerId(req), telephonySettingsWrite.parse(req.body)) })
 }

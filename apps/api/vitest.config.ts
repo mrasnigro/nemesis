@@ -13,6 +13,7 @@ const testEnv: Record<string, string> = {
   ALLOW_DEV_AUTH: 'false',
   LOGIN_RATE_LIMIT_MAX: '1000',
   TELEPHONY_DEFAULT_PROVIDER: 'simulated',
+  TELEPHONY_SECRET_KEY: 'test-only-telephony-secret-key-0123456789',
 }
 
 // Only the MySQL connection may come from the outer environment (CI service containers);
