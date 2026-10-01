@@ -7,6 +7,19 @@ import { config } from './config.js'
 
 const migrationsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../migrations')
 
+/**
+ * Files were renumbered and renamed by module. Databases that applied them under the old name
+ * keep their history: the recorded name is rewritten before anything else runs.
+ */
+export const RENAMED_MIGRATIONS: Record<string, string> = {
+  '001_identity.sql': '001_platform_identity.sql',
+  '005_tenancy_access.sql': '002_platform_tenancy.sql',
+  '002_training.sql': '003_training_init.sql',
+  '003_bdr.sql': '004_bdr_core.sql',
+  '004_bdr_dialer.sql': '005_bdr_dialer.sql',
+  '007_drop_unused_columns.sql': '007_bdr_drop_unused.sql',
+}
+
 /** Applies every migrations/*.sql not yet recorded in schema_migrations, in filename order. */
 export async function runMigrations(log: (message: string) => void = console.log): Promise<string[]> {
   const connection = await mysql.createConnection({
@@ -28,8 +41,13 @@ export async function runMigrations(log: (message: string) => void = console.log
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `)
 
-    const appliedRows = await connection.query<RowDataPacket[]>('SELECT id FROM schema_migrations')
-    const applied = new Set(appliedRows[0].map((row) => String(row.id)))
+    // No new name equals an old one, so each rename is independent.
+    for (const [from, to] of Object.entries(RENAMED_MIGRATIONS)) {
+      await connection.query('UPDATE schema_migrations SET id = ? WHERE id = ?', [to, from])
+    }
+    const applied = new Set(
+      (await connection.query<RowDataPacket[]>('SELECT id FROM schema_migrations'))[0].map((row) => String(row.id)),
+    )
     const files = (await readdir(migrationsDir)).filter((name) => name.endsWith('.sql')).sort()
     const newlyApplied: string[] = []
 

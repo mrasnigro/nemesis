@@ -24,7 +24,7 @@ MySQL 8.4                              docker-compose.yml (imp, imp_webinar, imp
 ```text
 imp-platform/
 ├── apps/web/                    IMP shell (@imp/web)
-├── apps/api/                    Platform API (@imp/api): migrations 001–005, Vitest suites
+├── apps/api/                    Platform API (@imp/api): migrations 001–007, Vitest suites
 ├── packages/shared/             @imp/shared: module ids, roles, profiles, effectiveModuleIds()
 ├── services/webinar/            Separate product: frontend, backend, deployment. Own lockfile
 ├── infra/mysql/init/            Creates imp_webinar and imp_test on a fresh MySQL volume

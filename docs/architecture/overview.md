@@ -96,7 +96,7 @@ Internal source stays in `src/`. Module folders stay `modules/`, matching the re
 | React component file | PascalCase | `Catalog.jsx`, `Painel.jsx` |
 | React context, hook, layout | PascalCase or `use` prefix | `TrainingAiContext.jsx`, `useAuth.js` |
 | Backend module file | `<module>.<role>.ts` | `training-ai.repository.ts` |
-| SQL migration | `NNN_<topic>.sql` | `005_tenancy_access.sql` |
+| SQL migration | `NNN_<module>_<topic>.sql` | `005_bdr_dialer.sql` |
 | SQL table | snake_case, module prefix | `training_scenarios`, `bdr_dial_attempts` |
 | JSON field | camelCase | `funnelStage`, `customerId` |
 | Env var, web | `VITE_<NAME>` | `VITE_TRAINING_AI_DATA` |

@@ -11,7 +11,7 @@ npm run db:migrate        # from the repository root; applies every file not yet
 ## Rules
 
 1. **Never edit an applied file.** The runner skips it, so an edit would leave existing databases different from new ones. Add the next number instead.
-2. **One purpose per file**, named `NNN_what_it_does.sql` (three digits, snake_case, no gaps).
+2. **One purpose per file**, named `NNN_<module>_<topic>.sql` (three digits, no gaps; `platform`, `training`, `bdr`, ...). The module prefix matches the table prefix, so a module's history is one `ls *_bdr_*` away.
 3. A file that changes data (backfills, counters) says so in a comment at the top.
 4. MySQL commits DDL immediately, so a failed file can leave a partial change. Keep DDL statements idempotent where the engine allows (`IF NOT EXISTS`) and small enough to fix by hand.
 
@@ -31,13 +31,13 @@ npm run db:migrate        # from the repository root; applies every file not yet
 
 | File | Owns |
 | --- | --- |
-| `001_identity.sql` | `customers`, `users`, `user_modules` |
-| `002_training.sql` | `training_personas`, `training_templates`, `training_scenarios`, `training_sessions` |
-| `003_bdr.sql` | `bdr_campaigns`, `bdr_calls`, `bdr_meetings` (the CRM records) |
-| `004_bdr_dialer.sql` | `bdr_leads`, `bdr_dial_attempts`, `bdr_telephony_settings`, `bdr_operator_extensions` (the auto-dial engine) |
-| `005_tenancy_access.sql` | `customer_modules`, `audit_logs`; slug, plan and status on `customers`; profile, status and session version on `users` |
+| `001_platform_identity.sql` | `customers`, `users`, `user_modules` |
+| `002_platform_tenancy.sql` | `customer_modules`, `audit_logs`; slug, plan and status on `customers`; profile, status and session version on `users` |
+| `003_training_init.sql` | `training_personas`, `training_templates`, `training_scenarios`, `training_sessions` |
+| `004_bdr_core.sql` | `bdr_campaigns`, `bdr_calls`, `bdr_meetings` (the CRM records) |
+| `005_bdr_dialer.sql` | `bdr_leads`, `bdr_dial_attempts`, `bdr_telephony_settings`, `bdr_operator_extensions` (the auto-dial engine) |
 | `006_bdr_calls_link.sql` | Links `bdr_calls` to attempt and lead, promotes qualification and callback to columns, links meetings through `call_id`, drops `bdr_campaigns.campaign_json` |
-| `007_drop_unused_columns.sql` | Drops `bdr_dial_attempts.provider_json` |
+| `007_bdr_drop_unused.sql` | Drops `bdr_dial_attempts.provider_json` |
 
 ## How BDR tables relate
 
@@ -56,3 +56,7 @@ bdr_campaigns 1─┬─* bdr_leads 1─* bdr_dial_attempts *─1 users (operato
 ## Seed data
 
 `npm run seed -w @imp/api` creates development customers, users and the Treinamento IA catalog. It never creates BDR rows and, in production, creates only the platform administrator.
+
+## History
+
+The files were renumbered by module once (`001_identity` → `001_platform_identity`, `002_training` → `003_training_init`, `003_bdr` → `004_bdr_core`, `004_bdr_dialer` → `005_bdr_dialer`, `005_tenancy_access` → `002_platform_tenancy`, `007_drop_unused_columns` → `007_bdr_drop_unused`). `RENAMED_MIGRATIONS` in `src/core/migrate.ts` rewrites the recorded names in existing databases, so none of them re-runs. Do not extend that map for new files.

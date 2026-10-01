@@ -34,7 +34,7 @@ async function ensureCustomer(customer: SeedCustomer, preferredId?: string): Pro
     )
     console.log(`seeded customer ${customer.slug}`)
   } else {
-    // Rows created before migration 005 carry a placeholder slug (their lowercased id).
+    // Rows created before migration 002_platform_tenancy carry a placeholder slug (their lowercased id).
     await pool.query(
       `UPDATE customers SET slug = :slug, plan = :plan, status = :status, updated_at = :now
        WHERE id = :id AND slug = LOWER(id)`,
