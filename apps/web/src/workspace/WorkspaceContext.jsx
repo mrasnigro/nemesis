@@ -1,92 +1,32 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import {
-  canAccessModule as checkModuleAccess,
-  fetchWorkspaceAccess,
-} from '../data/access'
-import { subscribeAdminStore } from '../data/admin/store'
+import { modules } from '../modules'
 
 const WorkspaceContext = createContext(null)
 
-const EMPTY_ACCESS = {
-  customer: null,
-  user: null,
-  moduleIds: [],
-  modules: [],
-}
-
+/**
+ * Customer workspace derived from the session. The API already resolved effective access
+ * (customer contract ∩ user grant), so the shell only reads `user.modules`.
+ */
 export function WorkspaceProvider({ children }) {
-  const { user: authUser, isAuthenticated } = useAuth()
-  const [access, setAccess] = useState(EMPTY_ACCESS)
-  const [isLoading, setIsLoading] = useState(false)
-  const [storeVersion, setStoreVersion] = useState(0)
-
-  useEffect(() => {
-    return subscribeAdminStore(() => setStoreVersion((value) => value + 1))
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadAccess() {
-      if (!isAuthenticated || !authUser || authUser.role !== 'imp') {
-        setAccess((current) => (current === EMPTY_ACCESS ? current : EMPTY_ACCESS))
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-
-      try {
-        const nextAccess = await fetchWorkspaceAccess(authUser.username)
-        if (!cancelled) {
-          setAccess(nextAccess)
-        }
-      } catch {
-        if (!cancelled) {
-          setAccess(EMPTY_ACCESS)
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadAccess()
-
-    return () => {
-      cancelled = true
-    }
-  }, [authUser, isAuthenticated, storeVersion])
+  const { user, isLoading, refreshSession } = useAuth()
 
   const value = useMemo(() => {
-    function hasModuleAccess(moduleId) {
-      if (!access.customer || !access.user) return false
-      return checkModuleAccess(access.customer.id, access.user.id, moduleId)
-    }
-
-    async function refreshAccess() {
-      if (!authUser || authUser.role !== 'imp') {
-        setAccess(EMPTY_ACCESS)
-        return EMPTY_ACCESS
-      }
-
-      const nextAccess = await fetchWorkspaceAccess(authUser.username)
-      setAccess(nextAccess)
-      return nextAccess
-    }
+    const isCustomerUser = user?.role === 'imp' && Boolean(user.customer)
+    const moduleIds = isCustomerUser ? user.modules : []
 
     return {
-      currentCustomer: access.customer,
-      currentUser: access.user,
-      availableModules: access.modules,
-      availableModuleIds: access.moduleIds,
+      currentCustomer: isCustomerUser ? user.customer : null,
+      currentUser: isCustomerUser
+        ? { id: user.id, name: user.name, email: user.email, profile: user.profile }
+        : null,
+      availableModules: modules.filter((module) => moduleIds.includes(module.id)),
+      availableModuleIds: moduleIds,
       isLoading,
-      hasModuleAccess,
-      refreshAccess,
+      hasModuleAccess: (moduleId) => moduleIds.includes(moduleId),
+      refreshAccess: refreshSession,
     }
-  }, [access, authUser, isLoading])
+  }, [user, isLoading, refreshSession])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

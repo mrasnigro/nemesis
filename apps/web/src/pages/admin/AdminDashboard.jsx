@@ -6,8 +6,9 @@ import {
 } from '../../components/admin'
 import MetricCard from '../../components/MetricCard'
 import Panel from '../../components/Panel'
-import { getAdminOverviewMetrics, getRecentActivity } from '../../data/admin'
+import { buildAdminOverviewMetrics } from '../../data/admin'
 import { useAdminStore } from '../../hooks/useAdminStore'
+import AdminLoadState from './AdminLoadState'
 import './admin-shared.css'
 
 const WORKFLOW = [
@@ -32,15 +33,24 @@ const WORKFLOW = [
   {
     step: '4',
     title: 'Validar no IMP',
-    description: 'Login bdr/bdr e conferir launcher/BDR.',
+    description: 'Entrar com o novo usuário e conferir o launcher.',
     to: '/login',
   },
 ]
 
 export default function AdminDashboard() {
-  const { customers } = useAdminStore()
-  const metrics = getAdminOverviewMetrics()
-  const recent = getRecentActivity(5)
+  return (
+    <AdminLoadState>
+      <AdminOverview />
+    </AdminLoadState>
+  )
+}
+
+function AdminOverview() {
+  const snapshot = useAdminStore()
+  const { customers } = snapshot
+  const metrics = buildAdminOverviewMetrics(snapshot)
+  const recent = snapshot.logs.slice(0, 5)
 
   return (
     <section className="admin-page">
@@ -90,7 +100,7 @@ export default function AdminDashboard() {
               </Link>
               <Link to="/admin/logs" className="admin-quick-link">
                 <strong>Logs</strong>
-                <span>Auditoria das ações do demo</span>
+                <span>Auditoria das ações administrativas</span>
               </Link>
             </div>
           </Panel>

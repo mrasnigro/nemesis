@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Layout from '../components/Layout'
+import { loadAdminData, resetAdminStore } from '../data/admin/store'
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Overview', end: true, icon: 'admin' },
@@ -40,6 +42,11 @@ const ROUTE_META = {
 export default function AdminLayout() {
   const { pathname } = useLocation()
   const meta = ROUTE_META[pathname] ?? ROUTE_META['/admin']
+
+  useEffect(() => {
+    loadAdminData()
+    return () => resetAdminStore()
+  }, [])
 
   return (
     <Layout

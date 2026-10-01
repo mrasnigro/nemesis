@@ -14,28 +14,35 @@ export default function AssignmentMatrix({
   onChange,
 }) {
   const [assignments, setAssignments] = useState(() => toMap(initialAssignments))
+  const [pending, setPending] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setAssignments(toMap(initialAssignments))
   }, [initialAssignments])
 
-  function toggle(customerId, moduleId) {
-    setAssignments((prev) => {
-      const next = { ...prev }
-      const current = new Set(next[customerId] ?? [])
-      if (current.has(moduleId)) {
-        current.delete(moduleId)
-      } else {
-        current.add(moduleId)
-      }
-      next[customerId] = current
+  async function toggle(customerId, moduleId) {
+    const previous = assignments[customerId] ?? new Set()
+    const current = new Set(previous)
+    if (current.has(moduleId)) {
+      current.delete(moduleId)
+    } else {
+      current.add(moduleId)
+    }
 
-      if (onChange) {
-        onChange(customerId, [...current])
-      }
+    setAssignments((prev) => ({ ...prev, [customerId]: current }))
+    setError('')
+    if (!onChange) return
 
-      return next
-    })
+    setPending(customerId)
+    try {
+      await onChange(customerId, [...current])
+    } catch (err) {
+      setAssignments((prev) => ({ ...prev, [customerId]: previous }))
+      setError(err?.message || 'Não foi possível salvar a alteração.')
+    } finally {
+      setPending(null)
+    }
   }
 
   return (
@@ -66,6 +73,7 @@ export default function AssignmentMatrix({
                       <input
                         type="checkbox"
                         checked={Boolean(checked)}
+                        disabled={pending === customer.id}
                         onChange={() => toggle(customer.id, module.id)}
                         aria-label={`${module.title} para ${customer.name}`}
                       />
@@ -78,8 +86,9 @@ export default function AssignmentMatrix({
           ))}
         </tbody>
       </table>
+      {error ? <p className="form-modal__error">{error}</p> : null}
       <p className="assignment-matrix__hint">
-        Alterações usam mock API (PUT /customers/:id/modules). Pronto para backend real.
+        Remover um módulo do contrato também o remove dos usuários desse cliente.
       </p>
     </div>
   )

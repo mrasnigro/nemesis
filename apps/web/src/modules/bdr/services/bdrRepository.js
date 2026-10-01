@@ -1,8 +1,7 @@
+import { PLATFORM_API_BASE, PlatformApiError, platformRequest } from '../../../core/api/platformClient.js'
 import { SEED_OBJECTION_CATEGORIES } from '../data/seeds.js'
 import { BdrApiError } from './bdrErrors.js'
 import { mockBdrRepository } from './mockBdrRepository.js'
-
-const BASE = '/platform-api'
 
 export const bdrDataMode = import.meta.env.VITE_BDR_DATA === 'api' ? 'api' : 'mock'
 
@@ -11,24 +10,14 @@ function clone(value) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Dev-User': 'imp',
-      ...(options.headers || {}),
-    },
-    ...options,
-  })
-  if (response.status === 204) return null
-  const body = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new BdrApiError(body?.error?.message || `Request failed (${response.status})`, {
-      status: response.status,
-      code: body?.error?.code,
-    })
+  try {
+    return await platformRequest(path, options)
+  } catch (error) {
+    if (error instanceof PlatformApiError) {
+      throw new BdrApiError(error.message, { status: error.status, code: error.code })
+    }
+    throw error
   }
-  return body
 }
 
 async function listAll(path) {
@@ -48,11 +37,11 @@ async function listAll(path) {
 
 function withRecordingUrl(row) {
   if (!row) return row
-  return { ...row, recordingUrl: row.recordingUrl ? `${BASE}${row.recordingUrl}` : null }
+  return { ...row, recordingUrl: row.recordingUrl ? `${PLATFORM_API_BASE}${row.recordingUrl}` : null }
 }
 
 function post(path, body) {
-  return request(path, { method: 'POST', body: JSON.stringify(body ?? {}) })
+  return request(path, { method: 'POST', body: body ?? {} })
 }
 
 const apiBdrRepository = {
@@ -83,7 +72,7 @@ const apiBdrRepository = {
   async setExtension(extension) {
     const payload = await request('/api/modules/bdr/dialer/extension', {
       method: 'PUT',
-      body: JSON.stringify({ extension }),
+      body: { extension },
     })
     return payload.data
   },
@@ -134,7 +123,7 @@ const apiBdrRepository = {
   async updateMeeting(id, patch) {
     const payload = await request(`/api/modules/bdr/meetings/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(patch),
+      body: patch,
     })
     return payload.data
   },

@@ -7,6 +7,7 @@ export default function FormModal({
   onClose,
   onSubmit,
   submitLabel = 'Salvar',
+  submitting = false,
   children,
 }) {
   if (!open) return null
@@ -41,8 +42,8 @@ export default function FormModal({
             <button type="button" className="form-modal__btn" onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className="form-modal__btn form-modal__btn--primary">
-              {submitLabel}
+            <button type="submit" className="form-modal__btn form-modal__btn--primary" disabled={submitting}>
+              {submitting ? 'Salvando...' : submitLabel}
             </button>
           </footer>
         </form>

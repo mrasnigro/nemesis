@@ -5,7 +5,6 @@
 
 const ENV_KEY = 'VITE_WEBINAR_URL'
 const API_ENV_KEY = 'VITE_WEBINAR_API_URL'
-const HANDOFF_KEY_ENV = 'VITE_IMP_HANDOFF_SHARED_KEY'
 
 export function getWebinarServiceUrl() {
   const raw = import.meta.env[ENV_KEY]
@@ -24,13 +23,6 @@ export function getWebinarApiUrl() {
   }
   // Dev / merged-app default: proxied path (M1)
   return '/webinar-api'
-}
-
-/** Dev shared key — must match Webinar `IMP_HANDOFF_SHARED_KEY`. */
-export function getImpHandoffSharedKey() {
-  const raw = import.meta.env[HANDOFF_KEY_ENV]
-  if (typeof raw === 'string' && raw.trim()) return raw.trim()
-  return 'imp-dev-handoff-key'
 }
 
 export function isWebinarServiceConfigured() {
@@ -90,7 +82,6 @@ export const webinarConfig = {
   openMode: 'in_app',
   getServiceUrl: getWebinarServiceUrl,
   getApiUrl: getWebinarApiUrl,
-  getHandoffSharedKey: getImpHandoffSharedKey,
   isConfigured: isWebinarServiceConfigured,
   buildLaunchUrl: buildWebinarLaunchUrl,
   buildAppPathUrl: buildWebinarAppPathUrl,

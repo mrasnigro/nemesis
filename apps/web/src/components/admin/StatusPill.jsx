@@ -13,7 +13,7 @@ const LABELS = {
   'coming-soon': 'Em breve',
   info: 'Info',
   warning: 'Alerta',
-  admin: 'Admin',
+  admin: 'Admin IMP',
   imp: 'IMP',
   Enterprise: 'Enterprise',
   Growth: 'Growth',

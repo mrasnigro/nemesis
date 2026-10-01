@@ -2,7 +2,7 @@
  * In-app auth bridge: IMP user → Webinar JWT via handoff endpoints (M2).
  */
 
-import { getImpHandoffSharedKey } from '../config/webinarConfig.js'
+import { registerImpHandoff } from './impHandoff.js'
 import { webinarApiFetch } from './webinarApi.js'
 
 const STORAGE_KEY = 'imp_webinar_session_v1'
@@ -77,25 +77,12 @@ export async function bridgeImpUserToWebinar(impUser) {
     throw new Error('Usuário IMP ausente para bridge')
   }
 
-  const registered = await webinarApiFetch('/auth/imp-handoff/register', {
-    method: 'POST',
-    headers: {
-      'X-IMP-Handoff-Key': getImpHandoffSharedKey(),
-    },
-    body: {
-      username: impUser.username,
-      name: impUser.name || impUser.username,
-      role: impUser.role || 'imp',
-      profile: impUser.profile,
-      returnTo:
-        typeof window !== 'undefined'
-          ? `${window.location.origin}/modules/webinar/app`
-          : undefined,
-    },
+  const registered = await registerImpHandoff({
+    returnTo: typeof window !== 'undefined' ? `${window.location.origin}/modules/webinar/app` : undefined,
   })
 
-  if (!registered?.code) {
-    throw new Error('Handoff register não retornou code')
+  if (!registered.ok || !registered.code) {
+    throw new Error(registered.detail || 'Não foi possível iniciar a sessão do Webinar')
   }
 
   const exchanged = await webinarApiFetch('/auth/imp-handoff/exchange', {

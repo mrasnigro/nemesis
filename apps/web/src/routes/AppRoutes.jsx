@@ -87,7 +87,9 @@ import ModuleAccessRoute from './ModuleAccessRoute'
 import ProtectedRoute from './ProtectedRoute'
 
 function HomeRedirect() {
-  const { isAuthenticated, user, getHomeForRole } = useAuth()
+  const { isAuthenticated, isLoading, user, getHomeForRole } = useAuth()
+
+  if (isLoading) return null
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

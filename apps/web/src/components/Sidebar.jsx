@@ -73,6 +73,12 @@ function NavIcon({ name }) {
   return <span className="sidebar__icon">{icons[name] ?? icons.modules}</span>
 }
 
+const PROFILE_WORKSPACE = {
+  customer_admin: 'Workspace Gestor',
+  sdr_bdr: 'Workspace SDR/BDR',
+  closer: 'Workspace Closer',
+}
+
 export default function Sidebar({ items = [], featureItems = [], featureTitle }) {
   const { user } = useAuth()
   const mainItems = items.filter((item) => !item.section)
@@ -85,11 +91,7 @@ export default function Sidebar({ items = [], featureItems = [], featureTitle })
         <div>
           <strong>CRM IMP</strong>
           <p>
-            {user?.role === 'admin'
-              ? 'Painel Admin'
-              : user?.profile === 'sdr'
-                ? 'Workspace SDR'
-                : 'Workspace BDR'}
+            {user?.role === 'admin' ? 'Painel Admin' : (PROFILE_WORKSPACE[user?.profile] ?? 'Workspace')}
           </p>
         </div>
       </div>

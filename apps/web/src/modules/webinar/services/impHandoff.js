@@ -1,14 +1,11 @@
 /**
- * IMP → Webinar handoff mint (Phase C stub).
- * Registers a one-time code on the Webinar API, then opens the FE with ?imp_handoff=.
+ * IMP → Webinar handoff.
+ * The platform API mints the one-time code server-side (it holds the shared key and takes the
+ * identity from the session); the browser only receives the code and opens the Webinar FE with it.
  */
 
-import {
-  buildWebinarLaunchUrl,
-  getWebinarApiUrl,
-  getImpHandoffSharedKey,
-  isWebinarServiceConfigured,
-} from '../config/webinarConfig.js'
+import { platformRequest } from '../../../core/api/platformClient.js'
+import { buildWebinarLaunchUrl, isWebinarServiceConfigured } from '../config/webinarConfig.js'
 import { launchWebinarService } from './webinarLauncher.js'
 
 /**
@@ -18,56 +15,28 @@ import { launchWebinarService } from './webinarLauncher.js'
  *   role?: string,
  *   profile?: string,
  *   returnTo?: string,
- *   workspaceId?: string,
  * }} ImpHandoffUser
  */
 
 /**
- * @param {ImpHandoffUser} user
+ * @param {{ returnTo?: string }} [options]
  * @returns {Promise<{ ok: boolean, code?: string, reason?: string, detail?: string }>}
  */
-export async function registerImpHandoff(user) {
-  const apiBase = getWebinarApiUrl()
-  if (!apiBase) {
-    return { ok: false, reason: 'missing_api_url' }
-  }
-
+export async function registerImpHandoff(options = {}) {
   try {
-    const response = await fetch(`${apiBase}/auth/imp-handoff/register`, {
+    const payload = await platformRequest('/api/modules/webinar/handoff', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-IMP-Handoff-Key': getImpHandoffSharedKey(),
-      },
-      body: JSON.stringify({
-        username: user.username,
-        name: user.name || user.username,
-        role: user.role || 'imp',
-        profile: user.profile,
-        returnTo: user.returnTo,
-        workspaceId: user.workspaceId,
-      }),
+      body: { returnTo: options.returnTo },
     })
-
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      return {
-        ok: false,
-        reason: 'register_failed',
-        detail: data.error || `HTTP ${response.status}`,
-      }
-    }
-
-    if (!data.code) {
+    if (!payload?.data?.code) {
       return { ok: false, reason: 'register_failed', detail: 'Resposta sem code' }
     }
-
-    return { ok: true, code: data.code }
+    return { ok: true, code: payload.data.code }
   } catch (error) {
     return {
       ok: false,
-      reason: 'network_error',
-      detail: error instanceof Error ? error.message : 'network',
+      reason: error?.code === 'NETWORK_ERROR' ? 'network_error' : 'register_failed',
+      detail: error?.message,
     }
   }
 }
@@ -92,12 +61,10 @@ export async function launchWebinarWithImpSession(user, options = {}) {
     })
   }
 
-  const registered = await registerImpHandoff({
-    ...user,
-    returnTo:
-      user.returnTo ||
-      (typeof window !== 'undefined' ? `${window.location.origin}/modules/webinar` : undefined),
-  })
+  const returnTo =
+    user.returnTo ||
+    (typeof window !== 'undefined' ? `${window.location.origin}/modules/webinar` : undefined)
+  const registered = await registerImpHandoff({ returnTo })
 
   if (!registered.ok || !registered.code) {
     const fallback = launchWebinarService({ returnTo: user.returnTo })
@@ -109,12 +76,7 @@ export async function launchWebinarWithImpSession(user, options = {}) {
     }
   }
 
-  const opened = launchWebinarService({
-    handoffCode: registered.code,
-    returnTo:
-      user.returnTo ||
-      (typeof window !== 'undefined' ? `${window.location.origin}/modules/webinar` : undefined),
-  })
+  const opened = launchWebinarService({ handoffCode: registered.code, returnTo })
 
   return {
     ...opened,

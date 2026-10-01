@@ -28,13 +28,7 @@ export async function openSidecarMediaRoom(input) {
 
   let handoffCode
   if (input.user?.username) {
-    const registered = await registerImpHandoff({
-      username: input.user.username,
-      name: input.user.name,
-      role: input.user.role,
-      profile: input.user.profile,
-      returnTo: input.returnTo,
-    })
+    const registered = await registerImpHandoff({ returnTo: input.returnTo })
     if (registered.ok) handoffCode = registered.code
   }
 
