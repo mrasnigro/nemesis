@@ -1,55 +1,120 @@
 import { z } from 'zod'
 import { pageQuery } from '../../core/list.js'
+import { totalWeight, type Template } from './rubric.js'
 
 const difficulty = z.enum(['beginner', 'intermediate', 'advanced'])
 const personaStatus = z.enum(['active', 'paused', 'inactive', 'draft'])
+
+const text = (max: number) => z.string().trim().max(max).default('')
+const required = (max: number) => z.string().trim().min(1).max(max)
+const list = (itemMax: number, maxItems: number) => z.array(z.string().trim().min(1).max(itemMax)).max(maxItems).default([])
 
 export const personaListQuery = pageQuery.extend({
   status: personaStatus.optional(),
   difficulty: difficulty.optional(),
 })
 
-export const personaWrite = z
-  .object({
-    name: z.string().trim().min(1).max(200),
-    status: personaStatus.optional(),
-    industry: z.string().trim().max(120).optional(),
-    difficulty: difficulty.optional(),
-  })
-  .passthrough()
+export const personaWrite = z.object({
+  name: required(200),
+  role: required(200),
+  company: text(200),
+  industry: required(120),
+  location: text(200),
+  language: text(16).transform((value) => value || 'pt-BR'),
+  negotiatorType: text(80),
+  tone: text(120),
+  behavior: required(2000),
+  difficulty: difficulty.default('beginner'),
+  mood: text(500),
+  openingLine: text(1000),
+  personalDetails: list(300, 20),
+  objections: list(300, 20).refine((items) => items.length > 0, 'Informe ao menos uma objeção'),
+  priorities: list(300, 20),
+  beliefs: list(300, 20),
+  problemAwareness: text(1000),
+  solutionAwareness: text(1000),
+  salesModel: z.enum(['b2b', 'b2c']).default('b2b'),
+  companyInfo: text(2000),
+  trainingObjective: required(1000),
+  status: personaStatus.default('active'),
+  traits: list(60, 3),
+  interactionMode: z.enum(['text', 'voice', 'both']).default('text'),
+  voiceRef: text(64),
+  scenarioContext: text(2000),
+})
 
 export const scenarioListQuery = pageQuery.extend({
   difficulty: difficulty.optional(),
   funnelStage: z.string().trim().max(120).optional(),
 })
 
-export const scenarioWrite = z
-  .object({
-    title: z.string().trim().min(1).max(200),
-    difficulty: difficulty,
-    funnelStage: z.string().trim().max(120).optional(),
-    personaId: z.string().min(1),
-    evaluationTemplateId: z.string().min(1),
-  })
-  .passthrough()
+export const scenarioWrite = z.object({
+  title: required(200),
+  description: required(2000),
+  industry: required(120),
+  segment: text(120),
+  objective: required(1000),
+  difficulty,
+  durationMin: z.number().int().min(1).max(240).default(10),
+  funnelStage: text(120),
+  focus: list(120, 20),
+  personaId: z.string().min(1),
+  evaluationTemplateId: z.string().min(1),
+  sellerInstructions: required(4000),
+  scriptHints: list(300, 20),
+})
 
 export const templateListQuery = pageQuery
 
+const criterionWrite = z.object({
+  id: required(64),
+  name: required(200),
+  weight: z.number().int().min(1).max(100),
+  yesNoQuestion: required(500),
+  active: z.boolean().default(true),
+  passRule: z.object({
+    type: z.enum(['keywords', 'avoid_keywords']),
+    keywords: z.array(z.string().trim().min(1).max(120)).min(1).max(40),
+  }),
+})
+
+const sectionWrite = z.object({
+  id: required(64),
+  name: required(200),
+  description: text(500),
+  criteria: z.array(criterionWrite).min(1).max(30),
+})
+
 export const templateWrite = z
   .object({
-    title: z.string().trim().min(1).max(200),
-    contactType: z.string().trim().max(120).optional(),
+    title: required(200),
+    description: required(2000),
+    contactType: text(120),
+    status: z.enum(['published', 'draft']).default('draft'),
+    sections: z.array(sectionWrite).min(1).max(20),
   })
-  .passthrough()
+  .superRefine((value, context) => {
+    const ids = value.sections.flatMap((section) => section.criteria.map((criterion) => criterion.id))
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({ code: 'custom', path: ['sections'], message: 'Os ids dos critérios devem ser únicos' })
+    }
+    const total = totalWeight(value as unknown as Template)
+    if (total !== 100) {
+      context.addIssue({ code: 'custom', path: ['sections'], message: `A soma dos pesos deve ser 100 (atual: ${total})` })
+    }
+  })
 
 export const sessionListQuery = pageQuery.extend({
   scenarioId: z.string().optional(),
+  status: z.enum(['in_progress', 'completed']).optional(),
 })
 
-export const sessionWrite = z.object({
+export const sessionStart = z.object({
   scenarioId: z.string().min(1),
-  personaId: z.string().optional(),
-  status: z.enum(['in_progress', 'completed']).default('completed'),
-  score: z.number().nullable().optional(),
-  report: z.record(z.unknown()).optional(),
+  personaId: z.string().min(1).optional(),
+  mediaMode: z.enum(['text', 'voice']).default('text'),
+})
+
+export const messageWrite = z.object({
+  text: z.string().trim().min(1).max(2000),
 })

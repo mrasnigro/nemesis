@@ -30,6 +30,14 @@ const schema = z.object({
   TELEPHONY_DEFAULT_PROVIDER: z.enum(['none', 'simulated']).default('none'),
   PABX_TIMEZONE: z.string().default('America/Sao_Paulo'),
   RECORDINGS_DIR: z.string().default('storage/recordings'),
+  /** Treinamento IA. `builtin` is a rule-based stand-in and is refused in production; `openai` is any OpenAI-compatible chat API. */
+  TRAINING_AI_PROVIDER: z.enum(['builtin', 'openai']).default('builtin'),
+  TRAINING_AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  TRAINING_AI_API_KEY: z.string().min(1).optional(),
+  TRAINING_AI_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  TRAINING_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+  /** Trainee messages allowed in one session. */
+  TRAINING_AI_MAX_TURNS: z.coerce.number().int().min(1).max(200).default(40),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -46,6 +54,7 @@ export const config = {
     .filter(Boolean),
   allowDevAuth: parsed.data.ALLOW_DEV_AUTH === 'true' && parsed.data.NODE_ENV !== 'production',
   allowSimulatedTelephony: parsed.data.NODE_ENV !== 'production',
+  allowBuiltinTrainingAi: parsed.data.NODE_ENV !== 'production',
   trustProxy: parseTrustProxy(parsed.data.TRUST_PROXY),
 }
 

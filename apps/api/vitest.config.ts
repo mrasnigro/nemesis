@@ -14,6 +14,7 @@ const testEnv: Record<string, string> = {
   LOGIN_RATE_LIMIT_MAX: '1000',
   TELEPHONY_DEFAULT_PROVIDER: 'simulated',
   TELEPHONY_SECRET_KEY: 'test-only-telephony-secret-key-0123456789',
+  TRAINING_AI_PROVIDER: 'builtin',
 }
 
 // Only the MySQL connection may come from the outer environment (CI service containers);
@@ -23,7 +24,7 @@ const overridable = new Set(['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD'])
 for (const [key, value] of Object.entries(testEnv)) {
   process.env[key] = overridable.has(key) ? (process.env[key] ?? value) : (process.env[`TEST_${key}`] ?? value)
 }
-for (const key of ['WEBINAR_API_URL', 'WEBINAR_HANDOFF_SHARED_KEY', 'TRUST_PROXY']) {
+for (const key of ['WEBINAR_API_URL', 'WEBINAR_HANDOFF_SHARED_KEY', 'TRUST_PROXY', 'TRAINING_AI_API_KEY', 'TRAINING_AI_BASE_URL', 'TRAINING_AI_MAX_TURNS']) {
   delete process.env[key]
 }
 

@@ -38,6 +38,7 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `005_bdr_dialer.sql` | `bdr_leads`, `bdr_dial_attempts`, `bdr_telephony_settings`, `bdr_operator_extensions` (the auto-dial engine) |
 | `006_bdr_calls_link.sql` | Links `bdr_calls` to attempt and lead, promotes qualification and callback to columns, links meetings through `call_id`, drops `bdr_campaigns.campaign_json` |
 | `007_bdr_drop_unused.sql` | Drops `bdr_dial_attempts.provider_json` |
+| `008_training_sessions_flow.sql` | Adds `persona_id`, `media_mode`, `ai_provider`, `judge_source` to `training_sessions`; creates `training_session_messages` (one row per message, unique `(session_id, seq)`); moves transcripts that older sessions kept inside `session_json` into that table |
 
 ## How BDR tables relate
 
@@ -55,7 +56,7 @@ bdr_campaigns 1─┬─* bdr_leads 1─* bdr_dial_attempts *─1 users (operato
 
 ## Seed data
 
-`npm run seed -w @imp/api` creates development customers, users and the Treinamento IA catalog. It never creates BDR rows and, in production, creates only the platform administrator.
+`npm run seed -w @imp/api` creates development customers, users and the Treinamento IA starter catalog (the same one the customer administrator installs from the module). It never creates BDR rows and, in production, creates only the platform administrator.
 
 ## History
 
