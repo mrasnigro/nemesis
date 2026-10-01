@@ -39,6 +39,7 @@ import webrtcRoutes from './routes/webrtcRoutes.js';
 import * as authController from './controllers/authController.js';
 import * as impHandoffController from './controllers/impHandoffController.js';
 import { authMiddleware } from './middleware/authMiddleware.js';
+import { pool } from './db/index.js';
 
 
 
@@ -97,27 +98,27 @@ app.use(express.raw({ type: 'application/octet-stream', limit: '50mb' }));
 console.log("✅ Middleware configured.");
 
 // Log todas as requisições
+const SENSITIVE_BODY_KEY = /pass|token|secret|code|key/i;
+
 app.use((req, _res, next) => {
   console.log(`📨 [${req.method}] ${req.path}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`   Body:`, JSON.stringify(req.body).substring(0, 200));
+  if (process.env.NODE_ENV !== 'production' && req.body && Object.keys(req.body).length > 0) {
+    const redacted = JSON.stringify(req.body, (key, value) =>
+      key && SENSITIVE_BODY_KEY.test(key) ? '[redacted]' : value,
+    );
+    console.log(`   Body:`, redacted.substring(0, 200));
   }
   next();
 });
 
-// Health Check com diagnóstico
 app.get('/health', async (_req, res) => {
   try {
-    res.json({ 
-      status: 'ok', 
+    await pool.query('SELECT 1');
+    res.json({
+      status: 'ok',
       version: 'M100.82',
       timestamp: new Date().toISOString(),
       database: 'connected',
-      node_env: process.env.NODE_ENV,
-      port: port,
-      db_host: process.env.DB_HOST,
-      db_name: process.env.DB_NAME,
-      db_user: process.env.DB_USER
     });
   } catch (error: any) {
     res.status(503).json({ 

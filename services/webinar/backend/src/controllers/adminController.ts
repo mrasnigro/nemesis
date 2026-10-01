@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../db/index.js';
 import { users, plans, webinars, clientSubscriptions } from '../db/schema.js';
 import { eq, sql } from 'drizzle-orm';
+import { hashPassword, withoutPassword } from '../utils/password.js';
 
 export async function getStats(_req: Request, res: Response): Promise<void> {
   try {
@@ -85,10 +86,10 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     const [created] = await db.insert(users).values({
       name,
       email,
-      passwordHash: password,
+      passwordHash: await hashPassword(String(password)),
       role: role || 'client',
       isActive: 1
-    }).returning({ id: users.id });
+    }).$returningId();
 
     const insertedId = created.id;
     
@@ -104,8 +105,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
             planId: trialPlan[0].id,
             status: 'active',
             paymentStatus: 'pending',
-            startedAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias de validade
+            startedAt: new Date(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias de validade
           });
         }
       } catch (subError) {
@@ -115,7 +116,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     }
 
     const newUser = await db.select().from(users).where(eq(users.id, insertedId)).limit(1);
-    res.status(201).json(newUser[0]);
+    res.status(201).json(withoutPassword(newUser[0]));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -130,12 +131,12 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     const updates: any = {};
     if (name) updates.name = name;
     if (email) updates.email = email;
-    if (password) updates.passwordHash = password;
+    if (password) updates.passwordHash = await hashPassword(String(password));
     if (role) updates.role = role;
 
     await db.update(users).set(updates).where(eq(users.id, userIdNum));
     const updated = await db.select().from(users).where(eq(users.id, userIdNum)).limit(1);
-    res.status(200).json(updated[0]);
+    res.status(200).json(withoutPassword(updated[0]));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

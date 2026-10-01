@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db, toSqliteDate, fromSqliteDate } from '../db/index.js';
+import { db, toDbDate, fromDbDate } from '../db/index.js';
 import { webinars, chatMessages } from '../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 
@@ -24,11 +24,11 @@ export async function createWebinar(req: Request, res: Response): Promise<void> 
       clientId: parseInt(String(clientId), 10),
       title,
       description: description || null,
-      scheduledDate: toSqliteDate(scheduledDate) || new Date().toISOString(),
+      scheduledDate: toDbDate(scheduledDate) || new Date(),
       durationMinutes: parseInt(durationMinutes),
       isRecurring: isRecurring ? 1 : 0,
       recurrencePattern: recurrencePattern || null,
-      recurrenceEndDate: toSqliteDate(recurrenceEndDate),
+      recurrenceEndDate: toDbDate(recurrenceEndDate),
       timezone: timezone || 'America/Sao_Paulo',
       presenterName: presenterName || null,
       presenterBio: presenterBio || null,
@@ -36,9 +36,11 @@ export async function createWebinar(req: Request, res: Response): Promise<void> 
       registrationPageColor: registrationPageColor || '#007bff',
       maxParticipants: parseInt(maxParticipants) || 0,
       status: status || 'draft',
-    }).returning();
+    }).$returningId();
 
-    const newWebinar = inserted[0];
+    const [newWebinar] = inserted[0]
+      ? await db.select().from(webinars).where(eq(webinars.id, inserted[0].id)).limit(1)
+      : [];
     if (!newWebinar) {
       res.status(500).json({ error: 'Falha ao criar webinar' });
       return;
@@ -96,11 +98,11 @@ export async function updateWebinar(req: Request, res: Response): Promise<void> 
     const updates: any = {};
     if (title) updates.title = title;
     if (description !== undefined) updates.description = description;
-    if (scheduledDate) updates.scheduledDate = toSqliteDate(scheduledDate);
+    if (scheduledDate) updates.scheduledDate = toDbDate(scheduledDate);
     if (durationMinutes) updates.durationMinutes = parseInt(durationMinutes);
     if (isRecurring !== undefined) updates.isRecurring = isRecurring ? 1 : 0;
     if (recurrencePattern !== undefined) updates.recurrencePattern = recurrencePattern;
-    if (recurrenceEndDate !== undefined) updates.recurrenceEndDate = toSqliteDate(recurrenceEndDate);
+    if (recurrenceEndDate !== undefined) updates.recurrenceEndDate = toDbDate(recurrenceEndDate);
     if (timezone) updates.timezone = timezone;
     if (presenterName !== undefined) updates.presenterName = presenterName;
     if (presenterBio !== undefined) updates.presenterBio = presenterBio;
@@ -245,9 +247,11 @@ export async function postStudioChat(req: Request, res: Response): Promise<void>
       senderName: finalUserName,
       message: message,
       timestampSeconds: Math.floor(Date.now() / 1000),
-    }).returning();
+    }).$returningId();
 
-    const msg = inserted[0];
+    const [msg] = inserted[0]
+      ? await db.select().from(chatMessages).where(eq(chatMessages.id, inserted[0].id)).limit(1)
+      : [];
     if (!msg) {
       res.status(500).json({ error: 'Falha ao salvar mensagem' });
       return;

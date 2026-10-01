@@ -46,3 +46,8 @@ apps/api/storage
 *.njsproj
 *.sln
 *.sw?
+
+# Local SQLite files (Webinar now runs on MySQL imp_webinar)
+*.db
+*.sqlite
+*.sqlite3

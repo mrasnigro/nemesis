@@ -1,30 +1,7 @@
 import express, { Request, Response } from 'express';
-import { getLibsqlClient } from '../db/index.js';
+import { getConnection } from '../db/index.js';
 
 const router = express.Router();
-
-async function getConnection() {
-  const client = getLibsqlClient();
-  return {
-    async execute(sql: string, args: unknown[] = []) {
-      const result = await client.execute({ sql, args: args as any[] });
-      const isSelect = /^\s*select/i.test(sql);
-      if (isSelect) {
-        return [result.rows, []];
-      }
-      return [
-        {
-          insertId: Number(result.lastInsertRowid || 0),
-          affectedRows: Number(result.rowsAffected || 0),
-        },
-        [],
-      ];
-    },
-    async end() {
-      /* shared client */
-    },
-  };
-}
 
 // 1. Obter todos os leads de um webinar
 router.get('/webinars/:webinarId/leads', async (req: Request, res: Response): Promise<any> => {

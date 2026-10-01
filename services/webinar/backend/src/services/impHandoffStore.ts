@@ -1,7 +1,10 @@
 /**
- * In-memory one-time IMP → Webinar handoff codes (dev / Phase C stub).
- * Replace with Redis/DB when IMP has a real auth API.
+ * In-memory one-time IMP → Webinar handoff codes.
+ * Codes are minted by the IMP platform API (server-to-server, shared key) and live for 2 minutes.
+ * Single process only — move to Redis/DB before running more than one Webinar API instance.
  */
+
+import { randomBytes, timingSafeEqual } from 'crypto'
 
 export type ImpHandoffRecord = {
   code: string
@@ -19,20 +22,21 @@ export type ImpHandoffRecord = {
 const store = new Map<string, ImpHandoffRecord>()
 
 const DEFAULT_TTL_MS = 2 * 60 * 1000
+const MAX_TTL_MS = 5 * 60 * 1000
+const DEV_FALLBACK_KEY = 'imp-dev-handoff-key'
 
 export function createHandoffCode(): string {
-  const rand = Math.random().toString(36).slice(2, 10)
-  return `imp_ho_${Date.now().toString(36)}_${rand}`
+  return `imp_ho_${randomBytes(24).toString('base64url')}`
 }
 
 export function saveHandoff(
   input: Omit<ImpHandoffRecord, 'code' | 'expiresAt' | 'consumed'> & {
-    code?: string
     ttlMs?: number
   },
 ): ImpHandoffRecord {
   pruneExpired()
-  const code = input.code || createHandoffCode()
+  const code = createHandoffCode()
+  const ttl = Math.min(input.ttlMs ?? DEFAULT_TTL_MS, MAX_TTL_MS)
   const record: ImpHandoffRecord = {
     code,
     username: input.username,
@@ -42,7 +46,7 @@ export function saveHandoff(
     email: input.email,
     returnTo: input.returnTo,
     workspaceId: input.workspaceId,
-    expiresAt: Date.now() + (input.ttlMs ?? DEFAULT_TTL_MS),
+    expiresAt: Date.now() + ttl,
     consumed: false,
   }
   store.set(code, record)
@@ -53,15 +57,8 @@ export function consumeHandoff(code: string): ImpHandoffRecord | null {
   pruneExpired()
   const record = store.get(code)
   if (!record) return null
-  if (record.consumed) return null
-  if (record.expiresAt < Date.now()) {
-    store.delete(code)
-    return null
-  }
-  record.consumed = true
-  store.set(code, record)
-  // single-use: delete after consume mark
   store.delete(code)
+  if (record.consumed || record.expiresAt < Date.now()) return null
   return { ...record, consumed: true }
 }
 
@@ -74,16 +71,17 @@ function pruneExpired() {
   }
 }
 
-export function getHandoffSharedKey(): string {
-  return (
-    process.env.IMP_HANDOFF_SHARED_KEY ||
-    process.env.VITE_IMP_HANDOFF_SHARED_KEY ||
-    'imp-dev-handoff-key'
-  )
+/** Production requires IMP_HANDOFF_SHARED_KEY; the well-known dev key is only accepted outside production. */
+export function getHandoffSharedKey(): string | null {
+  const configured = process.env.IMP_HANDOFF_SHARED_KEY?.trim()
+  if (configured) return configured
+  return process.env.NODE_ENV === 'production' ? null : DEV_FALLBACK_KEY
 }
 
 export function assertHandoffSharedKey(headerValue: string | undefined): boolean {
   const expected = getHandoffSharedKey()
   if (!headerValue || !expected) return false
-  return headerValue === expected
+  const a = Buffer.from(headerValue)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }

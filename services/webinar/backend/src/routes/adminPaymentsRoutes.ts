@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { db } from '../db/index.js';
+import { affectedRows, db } from '../db/index.js';
 import { clientSubscriptions, users, plans } from '../db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 
@@ -87,8 +87,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
 
     const finalStatus = paymentStatus || status || 'pending';
     const finalExpiresAt = expiresAt ? new Date(expiresAt) : new Date(new Date().setMonth(new Date().getMonth() + 1));
-    const startedAtIso = startedAt ? new Date(startedAt).toISOString() : new Date().toISOString();
-    const expiresAtIso = finalExpiresAt.toISOString();
+    const startedAtDate = startedAt ? new Date(startedAt) : new Date();
 
     const [created] = await db.insert(clientSubscriptions).values({
       clientId: parseInt(clientId),
@@ -97,9 +96,9 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
       paymentStatus: finalStatus,
       paymentMethod: paymentMethod || null,
       autoRenewal: autoRenewal !== undefined ? (autoRenewal ? 1 : 0) : 1,
-      startedAt: startedAtIso,
-      expiresAt: expiresAtIso,
-    }).returning({ id: clientSubscriptions.id });
+      startedAt: startedAtDate,
+      expiresAt: finalExpiresAt,
+    }).$returningId();
 
     const newPaymentId = created.id;
 
@@ -115,8 +114,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         paymentStatus: 'pending',
         paymentMethod: null,
         autoRenewal: autoRenewal !== undefined ? (autoRenewal ? 1 : 0) : 1,
-        startedAt: expiresAtIso,
-        expiresAt: nextExpiry.toISOString(),
+        startedAt: finalExpiresAt,
+        expiresAt: nextExpiry,
       });
     }
 
@@ -150,7 +149,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
 
     const updateResult = await db.update(clientSubscriptions).set(updates).where(eq(clientSubscriptions.id, paymentId));
 
-    if ((updateResult as any).rowsAffected === 0) {
+    if (affectedRows(updateResult) === 0) {
       return res.status(404).json({ error: 'Pagamento (assinatura) não encontrado' });
     }
 
@@ -172,8 +171,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
           paymentStatus: 'pending',
           paymentMethod: null,
           autoRenewal: sub.autoRenewal,
-          startedAt: sub.expiresAt || new Date().toISOString(),
-          expiresAt: nextExpiry.toISOString(),
+          startedAt: sub.expiresAt || new Date(),
+          expiresAt: nextExpiry,
         });
 
         // Nota: O plano do cliente é gerenciado via client_subscriptions, não há campo planId em users.
@@ -197,7 +196,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
 
     const deleteResult = await db.delete(clientSubscriptions).where(eq(clientSubscriptions.id, paymentId));
 
-    if ((deleteResult as any).rowsAffected === 0) {
+    if (affectedRows(deleteResult) === 0) {
       return res.status(404).json({ error: 'Pagamento (assinatura) não encontrado' });
     }
 

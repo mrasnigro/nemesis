@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db, fromSqliteDate } from '../db/index.js';
+import { db, fromDbDate } from '../db/index.js';
 import { users, webinars, clientSubscriptions, plans } from '../db/schema.js';
 import { eq, sql, and, gte } from 'drizzle-orm';
 
@@ -40,7 +40,7 @@ export const getClientStats = async (req: Request, res: Response): Promise<void>
         maxParticipants = plan[0].maxParticipants || 0;
       }
       subscriptionStatus = currentSubscription.status || 'inactive';
-      nextRenewal = fromSqliteDate(currentSubscription.expiresAt as any)?.split('T')[0] || null;
+      nextRenewal = fromDbDate(currentSubscription.expiresAt as any)?.split('T')[0] || null;
     }
 
     // Count watched webinars (assuming 'attended' status in leads table)
@@ -53,7 +53,7 @@ export const getClientStats = async (req: Request, res: Response): Promise<void>
     // Count upcoming webinars
     const upcomingWebinarsResult = await db.select({ count: sql<number>`count(*)` })
       .from(webinars)
-      .where(and(eq(webinars.clientId, Number(clientId)), gte(webinars.scheduledDate, new Date().toISOString())));
+      .where(and(eq(webinars.clientId, Number(clientId)), gte(webinars.scheduledDate, new Date())));
     const upcomingWebinars = upcomingWebinarsResult[0]?.count || 0;
 
     const stats = {
@@ -88,7 +88,7 @@ export const getClientWebinars = async (req: Request, res: Response): Promise<vo
       id: String(webinar.id),
       title: webinar.title,
       description: webinar.description,
-      date: fromSqliteDate(webinar.scheduledDate as any),
+      date: fromDbDate(webinar.scheduledDate as any),
       instructor: webinar.presenterName || 'N/A',
       status: webinar.status,
       duration: webinar.durationMinutes || 0,
@@ -140,7 +140,7 @@ export const getClientSubscription = async (req: Request, res: Response): Promis
       price: typeof plan.price === 'number' ? plan.price : parseFloat(String(plan.price)),
       status: subscription.status,
       billingCycle: 'monthly',
-      currentPeriodEnd: fromSqliteDate(subscription.expiresAt as any),
+      currentPeriodEnd: fromDbDate(subscription.expiresAt as any),
       features: plan.features ? String(plan.features).split('\n') : [],
     };
 

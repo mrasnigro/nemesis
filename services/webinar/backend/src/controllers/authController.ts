@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js';
+import { hashPassword, verifyPassword } from '../utils/password.js';
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
@@ -19,14 +20,13 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Inserção sem hash para simplificar por enquanto (conforme banco atual)
     const [created] = await db.insert(users).values({
       email,
       name,
-      passwordHash: password,
+      passwordHash: await hashPassword(String(password)),
       role: 'client',
       isActive: 1
-    } as any).returning({ id: users.id });
+    } as any).$returningId();
 
     const userId = created.id;
 
@@ -41,8 +41,8 @@ export async function register(req: Request, res: Response): Promise<void> {
           planId: trialPlan[0].id,
           status: 'active',
           paymentStatus: 'paid', // Trial inicial marcado como pago
-          startedAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 dias
+          startedAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
         });
       }
     } catch (subError) {
@@ -77,21 +77,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Comparação de senha - suporta texto plano e hash bcrypt
-    let isPasswordCorrect = false;
-    if (userRecord.passwordHash === password) {
-      isPasswordCorrect = true;
-    } else {
-      try {
-        const bcrypt = await import('bcryptjs');
-        isPasswordCorrect = await bcrypt.default.compare(password, userRecord.passwordHash);
-      } catch (err) {
-        console.warn('Bcrypt comparison failed, falling back to plaintext check');
-        isPasswordCorrect = userRecord.passwordHash === password;
-      }
-    }
-
-    if (!isPasswordCorrect) {
+    if (!(await verifyPassword(String(password), userRecord.passwordHash))) {
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }

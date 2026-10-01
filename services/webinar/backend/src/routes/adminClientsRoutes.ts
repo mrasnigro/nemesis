@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
-import { db } from '../db/index.js';
+import { affectedRows, db } from '../db/index.js';
 import { users, clientSubscriptions, plans } from '../db/schema.js';
 import { eq, sql, and } from 'drizzle-orm';
+import { hashPassword, UNUSABLE_PASSWORD_HASH } from '../utils/password.js';
 
 const router = express.Router();
 
@@ -88,7 +89,7 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const { name, email, password, plan, planId } = req.body;
 
     // Aceitar tanto 'password' quanto um padrão (para compatibilidade)
-    const pwd = password || 'defaultPassword123';
+    const passwordHash = password ? await hashPassword(String(password)) : UNUSABLE_PASSWORD_HASH;
     let pId = planId ? parseInt(planId) : (plan && !isNaN(parseInt(plan)) ? parseInt(plan) : null);
     
     // Se pId ainda for nulo (caso 'plan' seja uma string como 'Trial'), tentamos buscar pelo nome
@@ -111,10 +112,10 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
     const [created] = await db.insert(users).values({
       name,
       email,
-      passwordHash: pwd,
+      passwordHash,
       role: 'client',
       isActive: 1,
-    }).returning({ id: users.id });
+    }).$returningId();
 
     const newClientId = created.id;
 
@@ -132,8 +133,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         clientId: newClientId,
         planId: trialPlan.id,
         status: 'active',
-        startedAt: today.toISOString(),
-        expiresAt: today.toISOString(),
+        startedAt: today,
+        expiresAt: today,
         paymentStatus: 'paid',
       });
 
@@ -143,8 +144,8 @@ router.post('/', async (req: Request, res: Response): Promise<any> => {
         clientId: newClientId,
         planId: basicPlan.id,
         status: 'active',
-        startedAt: today.toISOString(),
-        expiresAt: nextMonth.toISOString(),
+        startedAt: today,
+        expiresAt: nextMonth,
         paymentStatus: 'pending',
       });
       console.log(`[BACKEND] Novo Cliente ${newClientId}: Criado Trial Pago (ID ${trialPlan.id}) e Básico Pendente (ID ${basicPlan.id})`);
@@ -170,7 +171,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
     const updates: any = {};
     if (name) updates.name = name;
     if (email) updates.email = email;
-    if (password) updates.passwordHash = password;
+    if (password) updates.passwordHash = await hashPassword(String(password));
     if (isActive !== undefined) updates.isActive = isActive ? 1 : 0;
 
     if (Object.keys(updates).length > 0) {
@@ -198,8 +199,8 @@ router.put('/:id', async (req: Request, res: Response): Promise<any> => {
           clientId: clientId,
           planId: parseInt(planId),
           status: subscriptionStatus || 'active',
-          startedAt: new Date().toISOString(),
-          expiresAt: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+          startedAt: new Date(),
+          expiresAt: new Date(new Date().setDate(new Date().getDate() + 30)),
           paymentStatus: 'paid',
         });
       }
@@ -249,7 +250,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<any> => {
     // Then delete the user
     const deleteResult = await db.delete(users).where(and(eq(users.id, clientId), eq(users.role, 'client')));
 
-    if ((deleteResult as any).rowsAffected === 0) {
+    if (affectedRows(deleteResult) === 0) {
       return res.status(404).json({ error: 'Cliente não encontrado' });
     }
 

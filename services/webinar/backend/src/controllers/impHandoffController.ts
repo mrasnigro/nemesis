@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { users } from '../db/schema.js'
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.js'
+import { UNUSABLE_PASSWORD_HASH } from '../utils/password.js'
 import {
   assertHandoffSharedKey,
   consumeHandoff,
@@ -50,11 +51,11 @@ async function resolveOrCreateUser(input: {
       .values({
         email: input.email,
         name: input.name,
-        passwordHash: `imp-handoff:${Date.now()}`,
+        passwordHash: UNUSABLE_PASSWORD_HASH,
         role: input.role,
         isActive: 1,
       })
-      .returning({ id: users.id })
+      .$returningId()
 
     const userId = Number(inserted[0]?.id)
     if (!userId) throw new Error('insert users failed')
@@ -87,7 +88,8 @@ export async function registerImpHandoff(req: Request, res: Response): Promise<v
     const body = req.body || {}
     const username = String(body.username || '').trim().toLowerCase()
     const name = String(body.name || username || 'IMP User').trim()
-    const role = body.role === 'admin' ? 'admin' : 'imp'
+    // Handoffs only ever sign in customer users; Webinar platform admins log in directly.
+    const role = 'imp' as const
     const profile = body.profile ? String(body.profile) : undefined
     const returnTo = body.returnTo ? String(body.returnTo) : undefined
     const workspaceId = body.workspaceId ? String(body.workspaceId) : undefined

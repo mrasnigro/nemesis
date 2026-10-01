@@ -1,21 +1,14 @@
-import { db, lastInsertId, toSqliteDate } from './index.js'
+import { db, lastInsertId, toDbDate } from './index.js'
 
-export { db, lastInsertId, toSqliteDate }
+export { db, lastInsertId, toDbDate }
 
-/**
- * Execute a drizzle insert that supports `.returning({ id })`.
- */
+/** Execute a drizzle MySQL insert and return the auto-increment id of the new row. */
 export async function insertReturningId(
-  // drizzle insert builder with .returning
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   builder: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  idColumn: any,
 ): Promise<number> {
-  if (builder && typeof builder.returning === 'function') {
-    const rows = await builder.returning({ id: idColumn })
-    if (Array.isArray(rows) && rows[0]?.id != null) return Number(rows[0].id)
+  if (builder && typeof builder.$returningId === 'function') {
+    return lastInsertId(await builder.$returningId())
   }
-  const result = await builder
-  return lastInsertId(result)
+  return lastInsertId(await builder)
 }
