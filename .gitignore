@@ -7,8 +7,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 /dist
-/docs
 /.builds
+/docs
+# Local reference media. Markdown under docs/ is part of the project.
+/docs/**/*.png
+/docs/**/*.jpg
+/docs/**/*.jpeg
+/docs/**/*.mp4
+/docs/**/*.docx
+/docs/**/*.zip
 node_modules
 dist
 dist-ssr

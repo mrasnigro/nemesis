@@ -1,41 +1,46 @@
-# React + Vite
+# IMP Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+IMP is the commercial workspace shell for AI-assisted sales operations. One login opens the modules a customer is entitled to: Treinamento IA, Discagem Automática, Prospecção, Radar de Tendências, VSL, and Webinar.
 
-Currently, two official plugins are available:
+The shell is a React + Vite app at the repository root. Webinar is a separate Node service under `services/webinar` (Express, TypeScript, MySQL). The platform API for the other modules is specified and not built yet.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Documentation
 
-## React Compiler
+| Topic | Document |
+| --- | --- |
+| How the system fits together | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| Frontend structure and names | [docs/frontend/structure.md](docs/frontend/structure.md) |
+| Backend structure and names | [docs/backend/structure.md](docs/backend/structure.md) |
+| Platform API contract | [docs/api/README.md](docs/api/README.md) |
+| Webinar API (running today) | [docs/api/webinar.md](docs/api/webinar.md) |
+| Current project map | [docs/status/project-map.md](docs/status/project-map.md) |
+| Prototype status | [docs/status/prototype-status.md](docs/status/prototype-status.md) |
+| Later removals | [docs/status/removal-register.md](docs/status/removal-register.md) |
+| Document index | [docs/README.md](docs/README.md) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Older notes in `docs/` (handover, demo validation, Webinar integration) describe earlier milestones. The files above are the structure standard for ongoing work.
 
-## Expanding the Oxlint configuration
+## Repository
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```text
+imp-platform/
+├── src/                  # IMP shell (React + Vite)
+├── services/webinar/     # Webinar frontend, backend, and database
+├── docs/                 # Architecture, structure, and API docs
+├── index.html
+├── package.json          # Shell scripts: dev, build, lint, preview
+└── vite.config.js
+```
 
+When `apps/api` is added, the shell moves once to `apps/web`. Until then, `src/` stays the frontend source folder. See the architecture overview.
 
-# IMP AI Platform
+## Run the shell
 
-A scalable React-based modular platform designed for AI-powered business operations.
+```bash
+npm install
+npm run dev
+```
 
-## Current Modules
+## Run Webinar
 
-- AI Training
-- Automatic Dialing
-- Prospecting & Customer Service
-- Trend Radar
-- Webinar
-- VSL
-
-## Architecture
-
-React + React Router
-
-Features:
-- Role-based authentication
-- Modular navigation
-- Expandable module registry
-- Protected routes
-- SaaS-ready structure
+From `services/webinar/`, follow [services/webinar/README.md](services/webinar/README.md). The shell proxies `/webinar-api` to that backend in development (`vite.config.js`).

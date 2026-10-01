@@ -82,12 +82,12 @@ export default function TrainingScenarioFormPage() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
     setErrors([])
 
-    const result = isEdit ? updateScenario(scenarioId, form) : createScenario(form)
+    const result = isEdit ? await updateScenario(scenarioId, form) : await createScenario(form)
     setSaving(false)
 
     if (!result.ok) {

@@ -116,11 +116,11 @@ export default function TrainingPersonaFormPage() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  function save(publishStatus) {
+  async function save(publishStatus) {
     setSaving(true)
     setErrors([])
     const payload = { ...form, status: publishStatus || form.status }
-    const result = isEdit ? updatePersona(personaId, payload) : createPersona(payload)
+    const result = isEdit ? await updatePersona(personaId, payload) : await createPersona(payload)
     setSaving(false)
     if (!result.ok) {
       setErrors(result.errors || [result.error || 'Não foi possível salvar.'])

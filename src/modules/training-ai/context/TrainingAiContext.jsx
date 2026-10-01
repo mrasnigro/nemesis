@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../../auth/AuthContext'
 import { useWorkspace } from '../../../workspace/WorkspaceContext'
 import {
@@ -31,6 +31,7 @@ import {
   getTrainingPermissionsForUser,
   hasTrainingPermission,
 } from '../services/trainingPermissions.js'
+import { trainingApi, trainingDataMode } from '../services/api/client.js'
 
 const TrainingAiContext = createContext(null)
 
@@ -96,11 +97,14 @@ export function TrainingAiProvider({ children }) {
     [user, hasModuleAccess],
   )
 
-  const [personas, setPersonas] = useState(() => structuredClone(seedPersonas))
-  const [scenarios, setScenarios] = useState(() => structuredClone(seedScenarios))
+  const useApi = trainingDataMode === 'api'
+  const [personas, setPersonas] = useState(() => (useApi ? [] : structuredClone(seedPersonas)))
+  const [scenarios, setScenarios] = useState(() => (useApi ? [] : structuredClone(seedScenarios)))
   const [evaluationTemplates, setEvaluationTemplates] = useState(() =>
-    structuredClone(seedEvaluationTemplates),
+    useApi ? [] : structuredClone(seedEvaluationTemplates),
   )
+  const [catalogReady, setCatalogReady] = useState(!useApi)
+  const [catalogError, setCatalogError] = useState(null)
   const [session, setSession] = useState(null)
   const [messages, setMessages] = useState([])
   const [turnIndex, setTurnIndex] = useState(0)
@@ -112,6 +116,46 @@ export function TrainingAiProvider({ children }) {
   const [history, setHistory] = useState([])
   const [showConversation, setShowConversation] = useState(true)
   const [draftPersonaId, setDraftPersonaId] = useState(null)
+
+  useEffect(() => {
+    if (!useApi) return undefined
+    let cancelled = false
+
+    async function loadCatalog() {
+      try {
+        const [nextPersonas, nextScenarios, nextTemplates, sessions] = await Promise.all([
+          trainingApi.listPersonas(),
+          trainingApi.listScenarios(),
+          trainingApi.listTemplates(),
+          trainingApi.listSessions(),
+        ])
+        if (cancelled) return
+        setPersonas(nextPersonas)
+        setScenarios(nextScenarios)
+        setEvaluationTemplates(nextTemplates)
+        setHistory(
+          sessions
+            .filter((item) => item.report)
+            .map((item) => ({
+              ...item.report,
+              sessionId: item.id,
+              scenarioId: item.scenarioId,
+              score: item.score ?? item.report.score,
+            })),
+        )
+        setCatalogReady(true)
+      } catch (error) {
+        if (cancelled) return
+        setCatalogError(error.message || 'Não foi possível carregar o treinamento.')
+        setCatalogReady(true)
+      }
+    }
+
+    loadCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [useApi])
 
   const findPersona = useCallback(
     (personaId) => personas.find((item) => item.id === personaId) || null,
@@ -163,13 +207,23 @@ export function TrainingAiProvider({ children }) {
   )
 
   const createPersona = useCallback(
-    (input) => {
+    async (input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar personas.' }
       }
       const normalized = normalizePersonaInput(input)
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
+      }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.createPersona(normalized.persona)
+          const persona = payload.data
+          setPersonas((prev) => [persona, ...prev])
+          return { ok: true, persona }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
       }
       const persona = {
         id: `per_${Date.now()}`,
@@ -178,11 +232,11 @@ export function TrainingAiProvider({ children }) {
       setPersonas((prev) => [persona, ...prev])
       return { ok: true, persona }
     },
-    [permissions],
+    [permissions, useApi],
   )
 
   const updatePersona = useCallback(
-    (personaId, input) => {
+    async (personaId, input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar personas.' }
       }
@@ -204,15 +258,28 @@ export function TrainingAiProvider({ children }) {
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
       }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.updatePersona(personaId, {
+            ...normalized.persona,
+            id: personaId,
+          })
+          const persona = payload.data
+          setPersonas((prev) => prev.map((item) => (item.id === personaId ? persona : item)))
+          return { ok: true, persona }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
+      }
       const persona = { ...existing, ...normalized.persona, id: personaId }
       setPersonas((prev) => prev.map((item) => (item.id === personaId ? persona : item)))
       return { ok: true, persona }
     },
-    [findPersona, permissions],
+    [findPersona, permissions, useApi],
   )
 
   const createScenario = useCallback(
-    (input) => {
+    async (input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
       }
@@ -223,6 +290,16 @@ export function TrainingAiProvider({ children }) {
       if (!findPersona(normalized.scenario.personaId)) {
         return { ok: false, errors: ['Persona vinculada não encontrada.'] }
       }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.createScenario(normalized.scenario)
+          const scenario = payload.data
+          setScenarios((prev) => [scenario, ...prev])
+          return { ok: true, scenario }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
+      }
       const scenario = {
         id: `scn_${Date.now()}`,
         ...normalized.scenario,
@@ -230,11 +307,11 @@ export function TrainingAiProvider({ children }) {
       setScenarios((prev) => [scenario, ...prev])
       return { ok: true, scenario }
     },
-    [findPersona, findTemplate, permissions],
+    [findPersona, findTemplate, permissions, useApi],
   )
 
   const updateScenario = useCallback(
-    (scenarioId, input) => {
+    async (scenarioId, input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
       }
@@ -262,21 +339,44 @@ export function TrainingAiProvider({ children }) {
       if (!findPersona(normalized.scenario.personaId)) {
         return { ok: false, errors: ['Persona vinculada não encontrada.'] }
       }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.updateScenario(scenarioId, {
+            ...normalized.scenario,
+            id: scenarioId,
+          })
+          const scenario = payload.data
+          setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
+          return { ok: true, scenario }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
+      }
       const scenario = { ...existing, ...normalized.scenario, id: scenarioId }
       setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
       return { ok: true, scenario }
     },
-    [findPersona, findScenario, findTemplate, permissions],
+    [findPersona, findScenario, findTemplate, permissions, useApi],
   )
 
   const createTemplate = useCallback(
-    (input) => {
+    async (input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar templates.' }
       }
       const normalized = normalizeTemplateInput(input)
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
+      }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.createTemplate(normalized.template)
+          const template = payload.data
+          setEvaluationTemplates((prev) => [template, ...prev])
+          return { ok: true, template }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
       }
       const template = {
         id: `tpl_${Date.now()}`,
@@ -285,11 +385,11 @@ export function TrainingAiProvider({ children }) {
       setEvaluationTemplates((prev) => [template, ...prev])
       return { ok: true, template }
     },
-    [permissions],
+    [permissions, useApi],
   )
 
   const updateTemplate = useCallback(
-    (templateId, input) => {
+    async (templateId, input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) {
         return { ok: false, error: 'Sem permissão para gerenciar templates.' }
       }
@@ -300,13 +400,28 @@ export function TrainingAiProvider({ children }) {
       if (!normalized.ok) {
         return { ok: false, errors: normalized.errors }
       }
+      if (useApi) {
+        try {
+          const payload = await trainingApi.updateTemplate(templateId, {
+            ...normalized.template,
+            id: templateId,
+          })
+          const template = payload.data
+          setEvaluationTemplates((prev) =>
+            prev.map((item) => (item.id === templateId ? template : item)),
+          )
+          return { ok: true, template }
+        } catch (error) {
+          return { ok: false, error: error.message }
+        }
+      }
       const template = { ...existing, ...normalized.template, id: templateId }
       setEvaluationTemplates((prev) =>
         prev.map((item) => (item.id === templateId ? template : item)),
       )
       return { ok: true, template }
     },
-    [findTemplate, permissions],
+    [findTemplate, permissions, useApi],
   )
 
   const getScenariosForTemplate = useCallback(
@@ -511,10 +626,22 @@ export function TrainingAiProvider({ children }) {
         templateLookup: findTemplate,
       })
 
+      let storedReport = report
+      if (useApi) {
+        const saved = await trainingApi.createSession({
+          scenarioId: selectedScenario.id,
+          personaId: selectedPersona?.id,
+          status: 'completed',
+          score: report.score ?? null,
+          report,
+        })
+        storedReport = { ...report, sessionId: saved.data.id }
+      }
+
       setSession(completedSession)
       setAnswers(report.answers)
-      setEvaluation(report)
-      setHistory((prev) => [report, ...prev])
+      setEvaluation(storedReport)
+      setHistory((prev) => [storedReport, ...prev])
       setShowConversation(true)
       setPhase('finished')
       return true
@@ -526,6 +653,7 @@ export function TrainingAiProvider({ children }) {
   }, [
     findTemplate,
     isJudging,
+    useApi,
     messages,
     phase,
     selectedPersona,
@@ -605,6 +733,8 @@ export function TrainingAiProvider({ children }) {
 
   const value = {
     permissions,
+    catalogReady,
+    catalogError,
     metrics: computeMetrics(history, scenarios),
     scenarios,
     personas,

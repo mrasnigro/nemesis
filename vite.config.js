@@ -35,6 +35,12 @@ export default defineConfig(({ mode }) => {
       host: true,
       allowedHosts: ['rebel-uptown-economist.ngrok-free.dev'],
       proxy: {
+        '/platform-api': {
+          target: process.env.VITE_PLATFORM_API_PROXY_TARGET || 'http://127.0.0.1:4000',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (p) => p.replace(/^\/platform-api/, ''),
+        },
         '/webinar-api': {
           target: process.env.VITE_WEBINAR_PROXY_TARGET || 'http://127.0.0.1:3001',
           changeOrigin: true,

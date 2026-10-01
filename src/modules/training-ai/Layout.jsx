@@ -1,5 +1,5 @@
 import ModuleWorkspaceLayout from '../../layouts/ModuleWorkspaceLayout.jsx'
-import { TrainingAiProvider } from './context/TrainingAiContext.jsx'
+import { TrainingAiProvider, useTrainingAi } from './context/TrainingAiContext.jsx'
 import './styles/training-ai.css'
 
 const NAV = [
@@ -10,15 +10,40 @@ const NAV = [
   { id: 'history', label: 'Insights', to: '/modules/training-ai/historico' },
 ]
 
+function TrainingWorkspace() {
+  const { catalogReady, catalogError } = useTrainingAi()
+
+  if (!catalogReady) {
+    return (
+      <section className="imp-module">
+        <p>Carregando treinamento...</p>
+      </section>
+    )
+  }
+
+  if (catalogError) {
+    return (
+      <section className="imp-module">
+        <h2>Treinamento IA</h2>
+        <p>{catalogError}</p>
+      </section>
+    )
+  }
+
+  return (
+    <ModuleWorkspaceLayout
+      title="Treinamento IA"
+      badge="IA"
+      basePath="/modules/training-ai"
+      nav={NAV}
+    />
+  )
+}
+
 export default function TrainingAiLayout() {
   return (
     <TrainingAiProvider>
-      <ModuleWorkspaceLayout
-        title="Treinamento IA"
-        badge="IA"
-        basePath="/modules/training-ai"
-        nav={NAV}
-      />
+      <TrainingWorkspace />
     </TrainingAiProvider>
   )
 }

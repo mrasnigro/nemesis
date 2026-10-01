@@ -140,12 +140,12 @@ export default function TrainingTemplateFormPage() {
     })
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
     setErrors([])
 
-    const result = isEdit ? updateTemplate(templateId, form) : createTemplate(form)
+    const result = isEdit ? await updateTemplate(templateId, form) : await createTemplate(form)
     setSaving(false)
 
     if (!result.ok) {
