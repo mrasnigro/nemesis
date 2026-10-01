@@ -1,6 +1,5 @@
 /**
- * Voice UI stubs — no STT/TTS/audio pipeline (report R4 / R3b).
- * Sentiment and timeline are heuristic overlays for Insights composition.
+ * Voice practice helpers. Sentiment is a keyword estimate shown next to each message, not a model output.
  */
 
 export const VOICE_OPTIONS = [
@@ -34,17 +33,7 @@ export function estimateMessageSentiment(message = {}) {
   return { id: 'neutral', label: 'Neutro', tone: 'muted' }
 }
 
-function hashBars(seed, count = 48) {
-  let x = seed || 1
-  const bars = []
-  for (let i = 0; i < count; i += 1) {
-    x = (x * 1103515245 + 12345) & 0x7fffffff
-    bars.push(18 + (x % 72))
-  }
-  return bars
-}
-
-/** Build playhead timeline from chat messages (text sessions act as pseudo-audio). */
+/** Timeline of a conversation: each message placed at its real offset from the first one. */
 export function buildSessionTimeline(messages = []) {
   const items = Array.isArray(messages) ? messages : []
   const times = items
@@ -74,12 +63,8 @@ export function buildSessionTimeline(messages = []) {
     }
   })
 
-  const seed =
-    items.reduce((sum, m) => sum + String(m.text || '').length, 0) + items.length * 17
-
   return {
     durationSec,
-    bars: hashBars(seed || 42),
     markers,
   }
 }

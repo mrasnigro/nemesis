@@ -1,10 +1,9 @@
 /**
  * Avatar provider contract for Training IA's persona call stage.
  *
- * Implementations must be swappable without changing Simulation.jsx
- * or PersonaCallStage — same shape used by services/ai/provider.js.
+ * Implementations are swappable without changing Simulation.jsx or PersonaCallStage.
  *
- * Current: mock (timing-only, no real video/lip-sync).
+ * Providers: browser (speech synthesis), mock (silent timing fallback).
  * Future: HeyGen / D-ID adapter with the same shape (needs credentials).
  */
 

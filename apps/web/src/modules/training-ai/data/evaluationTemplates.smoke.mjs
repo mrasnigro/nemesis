@@ -1,5 +1,6 @@
 /**
- * Smoke checks for evaluation template model + pass rules.
+ * Smoke checks for the playbook (evaluation template) form model.
+ * Scoring itself lives on the server (apps/api/tests/training.test.ts).
  * Run: node src/modules/training-ai/data/evaluationTemplates.smoke.mjs
  */
 import assert from 'node:assert/strict'
@@ -7,25 +8,12 @@ import {
   assertTemplateWeights,
   createEmptyTemplateDraft,
   flattenCriteria,
+  getEvaluationTemplate,
   normalizeTemplateInput,
-  seedEvaluationTemplates,
+  publishedTemplates,
+  scenariosUsingTemplate,
   totalTemplateWeight,
 } from './evaluationTemplates.js'
-import { buildFreeTextAnswers, evaluateCriterionPassRule } from '../services/conversation.js'
-import { buildSessionEvaluation, evaluateRubric } from '../services/scoring.js'
-import { resolveScenarioBundle } from './seeds.js'
-import { seedScenarios } from './scenarios.js'
-
-for (const template of seedEvaluationTemplates) {
-  assert.ok(template.title)
-  assert.ok(template.description)
-  assert.equal(assertTemplateWeights(template), true, `${template.id} must sum 100`)
-  for (const criterion of flattenCriteria(template)) {
-    assert.ok(criterion.passRule?.type)
-    assert.ok(criterion.passRule.keywords?.length)
-    assert.ok(criterion.yesNoQuestion)
-  }
-}
 
 const draft = createEmptyTemplateDraft()
 assert.ok(draft.sections.length >= 1)
@@ -35,7 +23,7 @@ assert.equal(bad.ok, false)
 
 const good = normalizeTemplateInput({
   title: 'Rubrica teste',
-  description: 'Template custom mock',
+  description: 'Playbook de teste',
   contactType: 'custom',
   sections: [
     {
@@ -61,55 +49,24 @@ const good = normalizeTemplateInput({
 })
 assert.equal(good.ok, true)
 assert.equal(totalTemplateWeight(good.template), 100)
+assert.equal(assertTemplateWeights(good.template), true)
 
-const corpusPass = 'bom dia, sou da imp'
-assert.equal(
-  evaluateCriterionPassRule(good.template.sections[0].criteria[0], corpusPass),
-  true,
-)
-assert.equal(
-  evaluateCriterionPassRule(good.template.sections[0].criteria[1], corpusPass),
-  true,
-)
-assert.equal(
-  evaluateCriterionPassRule(
-    good.template.sections[0].criteria[1],
-    'compre agora com desconto imediato',
-  ),
-  false,
-)
+const criteria = flattenCriteria(good.template)
+assert.equal(criteria.length, 2)
+assert.deepEqual(criteria[0].passRule, { type: 'keywords', keywords: ['bom dia', 'olá'] })
+assert.deepEqual(criteria[1].passRule.keywords, ['compre agora', 'desconto imediato'])
 
-const liveTemplate = { id: 'tpl_live', ...good.template }
-const answers = buildFreeTextAnswers({
-  template: liveTemplate,
-  userMessages: [{ text: 'Bom dia, posso ter um momento?' }],
+const unbalanced = normalizeTemplateInput({
+  ...good.template,
+  sections: [{ ...good.template.sections[0], criteria: [{ ...good.template.sections[0].criteria[0], weight: 10 }] }],
 })
-assert.equal(answers[0].rubricImpact[liveTemplate.sections[0].criteria[0].id], true)
+assert.equal(unbalanced.ok, false, 'weights must add up to 100')
 
-const rubric = evaluateRubric(liveTemplate, answers)
-assert.ok(rubric.score >= 40)
-
-const scenario = seedScenarios[0]
-const report = buildSessionEvaluation({
-  session: { id: 'sess_tpl', scenarioId: scenario.id, mode: 'free' },
-  scenario: { ...scenario, evaluationTemplateId: liveTemplate.id },
-  persona: { id: 'per_x', name: 'Teste' },
-  template: liveTemplate,
-  messages: [
-    { role: 'ai', text: 'Alô?' },
-    { role: 'user', text: 'Bom dia, sou da IMP.' },
-  ],
-  mode: 'free',
-})
-assert.equal(report.templateId, 'tpl_live')
-assert.equal(report.templateTitle, 'Rubrica teste')
-
-const bundle = resolveScenarioBundle(
-  'scn_001',
-  undefined,
-  undefined,
-  (id) => (id === 'tpl_cold_call' ? seedEvaluationTemplates[0] : null),
-)
-assert.ok(bundle.template)
+const live = { id: 'tpl_live', ...good.template }
+assert.equal(getEvaluationTemplate('tpl_live', [live]).title, 'Rubrica teste')
+assert.equal(getEvaluationTemplate('missing'), null)
+assert.equal(good.template.status, 'draft', 'new playbooks start as drafts')
+assert.equal(publishedTemplates([live, { id: 'p', status: 'published' }]).length, 1)
+assert.equal(scenariosUsingTemplate('tpl_live', [{ evaluationTemplateId: 'tpl_live' }, { evaluationTemplateId: 'x' }]).length, 1)
 
 console.log('training-ai evaluationTemplates smoke: OK')

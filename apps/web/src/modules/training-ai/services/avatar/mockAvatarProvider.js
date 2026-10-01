@@ -1,7 +1,6 @@
 /**
- * Mock avatar provider — timing-only stub for the persona call stage.
- * No real video, TTS, or lip-sync. speak() just resolves after an
- * estimated speaking duration so PersonaCallStage can animate + caption.
+ * Silent avatar provider: no voice and no video. speak() resolves after an estimated speaking duration so
+ * PersonaCallStage can still animate and caption. Fallback when the browser has no speech synthesis.
  */
 
 import { assertAvatarProvider } from './provider.js'
@@ -36,7 +35,7 @@ let sessionCounter = 0
 export function createMockAvatarProvider() {
   const provider = {
     id: 'mock',
-    label: 'Mock (sem vídeo real)',
+    label: 'Sem voz (apenas tempo de fala)',
 
     startSession({ persona } = {}) {
       sessionCounter += 1

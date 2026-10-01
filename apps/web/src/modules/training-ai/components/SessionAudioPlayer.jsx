@@ -6,8 +6,8 @@ import {
 } from '../utils/voiceSession.js'
 
 /**
- * Insights session “player” scaffold — visual only (report §3.4 / R4).
- * Seek updates UI + scrolls transcript; no real audio decode.
+ * Conversation timeline for the Insights report: one marker per message, positioned by its real timestamp.
+ * Clicking a marker scrolls the transcript to that message. No audio is stored or played.
  */
 export default function SessionAudioPlayer({
   messages = [],
@@ -74,7 +74,7 @@ export default function SessionAudioPlayer({
           type="button"
           className="imp-btn imp-btn--ghost training-ai__session-player-play"
           onClick={() => setPlaying((value) => !value)}
-          aria-label={playing ? 'Pausar prévia da timeline' : 'Reproduzir prévia da timeline'}
+          aria-label={playing ? 'Pausar a linha do tempo' : 'Percorrer a linha do tempo'}
         >
           {playing ? '❚❚' : '▶'}
         </button>
@@ -83,7 +83,7 @@ export default function SessionAudioPlayer({
             {formatPlayhead(playhead)} / {formatPlayhead(timeline.durationSec)}
           </strong>
           <span className="training-ai__meta">
-            Player de sessão · stub visual (sem áudio / STT)
+            Linha do tempo da conversa
           </span>
         </div>
       </div>
@@ -95,7 +95,7 @@ export default function SessionAudioPlayer({
         aria-valuemin={0}
         aria-valuemax={timeline.durationSec}
         aria-valuenow={Math.round(playhead)}
-        aria-label="Timeline da sessão"
+        aria-label="Linha do tempo da sessão"
         onClick={handleWaveClick}
         onKeyDown={(event) => {
           if (event.key === 'ArrowRight') {
@@ -105,17 +105,6 @@ export default function SessionAudioPlayer({
           }
         }}
       >
-        <div className="training-ai__waveform-bars" aria-hidden="true">
-          {timeline.bars.map((height, index) => (
-            <span
-              key={`bar_${index}`}
-              style={{ height: `${height}%` }}
-              className={
-                (index / timeline.bars.length) * 100 <= progressPct ? 'is-played' : ''
-              }
-            />
-          ))}
-        </div>
         <div
           className="training-ai__waveform-progress"
           style={{ width: `${progressPct}%` }}
@@ -142,7 +131,7 @@ export default function SessionAudioPlayer({
         </div>
       </div>
 
-      <ul className="training-ai__sentiment-legend" aria-label="Marcadores de sentimento">
+      <ul className="training-ai__sentiment-legend" aria-label="Sentimento estimado por fala">
         <li>
           <span className="training-ai__sentiment-dot training-ai__sentiment-dot--green" />{' '}
           Positivo

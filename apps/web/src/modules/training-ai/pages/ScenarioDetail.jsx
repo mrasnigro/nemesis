@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import DeleteAction from '../components/DeleteAction.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -11,6 +12,7 @@ export default function TrainingScenarioDetailPage() {
     getEvaluationTemplate,
     canManage,
     canSimulate,
+    deleteScenario,
   } = useTrainingAi()
 
   const scenario = getScenario(scenarioId)
@@ -60,6 +62,13 @@ export default function TrainingScenarioDetailPage() {
             >
               Editar cenário
             </Link>
+          ) : null}
+          {canManage ? (
+            <DeleteAction
+              confirmText={`Excluir o cenário "${scenario.title}"? Essa ação não pode ser desfeita.`}
+              onDelete={() => deleteScenario(scenario.id)}
+              onDeleted={() => navigate('/modules/training-ai/cenarios')}
+            />
           ) : null}
           <button
             type="button"

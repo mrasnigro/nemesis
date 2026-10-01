@@ -5,6 +5,7 @@ import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { getAvatarEngine } from '../services/avatar/index.js'
+import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
 
 function formatTime(iso) {
   if (!iso) return ''
@@ -58,15 +59,22 @@ export default function TrainingSimulationPage() {
     practiceMediaMode,
     sendMessage,
     finishSession,
+    isStarting,
     isGeneratingReply,
     isJudging,
     evaluation,
+    aiReady,
+    aiUnavailableReason,
   } = useTrainingAi()
 
   const [draft, setDraft] = useState('')
   const [finishHint, setFinishHint] = useState('')
   const [listening, setListening] = useState(false)
+  const [voiceNotice, setVoiceNotice] = useState('')
+  const [startError, setStartError] = useState('')
   const [busyHint, setBusyHint] = useState('')
+  const draftRef = useRef('')
+  const sttSupported = isSpeechRecognitionSupported()
   const [speakingLocal, setSpeakingLocal] = useState(false)
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
@@ -129,9 +137,9 @@ export default function TrainingSimulationPage() {
     startSimulation,
   ])
 
-  // Drive the persona call stage: whenever a new AI line lands while in
-  // voice mode, have the (mock, for now) avatar engine "speak" it so the
-  // stage can animate + caption in sync.
+  // Drive the persona call stage: whenever a new AI line lands while in voice mode, the avatar engine
+  // speaks it (browser voice, or silent timing where the browser cannot speak) so the stage can animate
+  // and caption in sync.
   useEffect(() => {
     if (phase !== 'running' || practiceMediaMode !== 'voice') return
     const lastMessage = messages[messages.length - 1]
@@ -140,6 +148,7 @@ export default function TrainingSimulationPage() {
     lastSpokenMessageIdRef.current = lastMessage.id
 
     let cancelled = false
+    setListening(false) // the microphone would pick up the persona's own voice
     setCaption(lastMessage.text || '')
     setSpeakingLocal(true)
     getAvatarEngine()
@@ -158,18 +167,46 @@ export default function TrainingSimulationPage() {
     if (phase !== 'running') {
       setCaption('')
       setSpeakingLocal(false)
+      setListening(false)
       setShowTranscript(false)
       lastSpokenMessageIdRef.current = null
+      getAvatarEngine().stopSession()
     }
   }, [phase])
+
+  // Leaving the page must silence the persona.
+  useEffect(() => () => getAvatarEngine().stopSession(), [])
+
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
+
+  // Dictation: while the microphone is on, the recognised speech fills the answer box. The trainee reviews
+  // it and sends it, as with typed text.
+  const personaLanguage = selectedPersona?.language || 'pt-BR'
+  useEffect(() => {
+    if (!listening) return undefined
+    if (!sttSupported) {
+      setListening(false)
+      setVoiceNotice('Este navegador não reconhece voz. Use o Chrome ou o Edge, ou digite a resposta.')
+      return undefined
+    }
+    setVoiceNotice('')
+    const recognizer = createSpeechRecognizer({
+      lang: personaLanguage,
+      onText: (text) => setDraft(text),
+      onEnd: () => setListening(false),
+      onError: (message) => setVoiceNotice(message),
+    })
+    recognizer.start(draftRef.current)
+    return () => recognizer.stop()
+  }, [listening, personaLanguage, sttSupported])
 
   useEffect(() => {
     if (phase === 'finished' && evaluation?.sessionId) {
       navigate(`/modules/training-ai/relatorio/sessao/${evaluation.sessionId}`, { replace: true })
-    } else if (phase === 'finished') {
-      navigate(`/modules/training-ai/relatorio/${scenarioId}`, { replace: true })
     }
-  }, [evaluation, navigate, phase, scenarioId])
+  }, [evaluation, navigate, phase])
 
   const scenario =
     selectedScenario || scenarios.find((item) => item.id === scenarioId) || null
@@ -180,22 +217,29 @@ export default function TrainingSimulationPage() {
     event.preventDefault()
     if (isGeneratingReply || isJudging) return
     setBusyHint('')
-    const ok = await sendMessage(draft)
-    if (ok) {
+    setListening(false)
+    const result = await sendMessage(draft)
+    if (result.ok) {
       setDraft('')
       setFinishHint('')
-    } else {
-      setBusyHint('Não foi possível gerar a resposta do agente. Tente de novo.')
+    } else if (result.error) {
+      setBusyHint(result.error) // the text stays in the box so nothing is lost
     }
   }
 
   async function handleFinish() {
     if (isGeneratingReply || isJudging) return
     setBusyHint('')
-    const ok = await finishSession()
-    if (!ok) {
-      setFinishHint('Envie ao menos uma resposta antes de encerrar o treino.')
-    }
+    setFinishHint('')
+    setListening(false)
+    const result = await finishSession()
+    if (!result.ok && result.error) setFinishHint(result.error)
+  }
+
+  async function handleBegin() {
+    setStartError('')
+    const result = await beginConversation()
+    if (!result.ok && result.error) setStartError(result.error)
   }
 
   if (bootError) {
@@ -242,7 +286,7 @@ export default function TrainingSimulationPage() {
       : phase === 'briefing'
         ? 'Briefing'
         : practiceMediaMode === 'voice'
-          ? 'Conversa · Voz (avatar mock)'
+          ? 'Conversa por voz'
           : 'Conversa por texto'
 
   const callState = isGeneratingReply
@@ -311,7 +355,7 @@ export default function TrainingSimulationPage() {
                 Escolha o agente com quem você vai praticar a conversa.
               </p>
               <div className="training-ai__persona-picker">
-                {personas.map((item) => {
+                {personas.filter((item) => item.status === 'active').map((item) => {
                   const selected = (draftPersonaId || scenario.personaId) === item.id
                   const linked = item.id === linkedDefaultId
                   return (
@@ -378,23 +422,29 @@ export default function TrainingSimulationPage() {
               <dl className="training-ai__briefing-block">
                 <dt>Modo de mídia</dt>
                 <dd>
-                  Escolha Texto ou Voz (chrome stub). O motor permanece texto até STT/TTS; ao
-                  final o playbook gera score na Central de Insights.
+                  Escolha Texto ou Voz. Na voz, o agente fala as respostas e você pode ditar as suas;
+                  ao final o playbook gera o score na Central de Insights.
                 </dd>
               </dl>
               <VoicePracticeChrome
                 mediaMode={practiceMediaMode}
                 onMediaModeChange={setPracticeMediaMode}
                 listening={false}
-                onListeningChange={() => {}}
+                showMic={false}
+                sttSupported={sttSupported}
               />
+              {!aiReady ? (
+                <p className="training-ai__composer-hint">{aiUnavailableReason}</p>
+              ) : null}
+              {startError ? <p className="training-ai__composer-hint">{startError}</p> : null}
               <button
                 type="button"
                 className="imp-btn imp-btn--primary"
-                onClick={beginConversation}
+                onClick={handleBegin}
+                disabled={isStarting || !aiReady}
                 style={{ marginTop: '1rem' }}
               >
-                Iniciar conversa
+                {isStarting ? 'Iniciando…' : 'Iniciar conversa'}
               </button>
             </div>
           ) : null}
@@ -411,6 +461,7 @@ export default function TrainingSimulationPage() {
                   onFinish={handleFinish}
                   showTranscript={showTranscript}
                   onToggleTranscript={setShowTranscript}
+                  sttSupported={sttSupported}
                 />
               ) : (
                 <VoicePracticeChrome
@@ -418,8 +469,10 @@ export default function TrainingSimulationPage() {
                   onMediaModeChange={setPracticeMediaMode}
                   listening={listening}
                   onListeningChange={setListening}
+                  sttSupported={sttSupported}
                 />
               )}
+              {voiceNotice ? <p className="training-ai__composer-hint">{voiceNotice}</p> : null}
 
               {practiceMediaMode !== 'voice' || showTranscript ? (
                 <div className="imp-chat training-ai__chat-scroll">
@@ -441,7 +494,7 @@ export default function TrainingSimulationPage() {
                   {isGeneratingReply ? (
                     <div className="imp-chat__bubble imp-chat__bubble--ai training-ai__typing">
                       <span className="imp-chat__meta">{persona?.name || 'Agente'} · gerando…</span>
-                      Resposta em andamento (provider async)
+                      Preparando a resposta…
                     </div>
                   ) : null}
                 </div>
@@ -451,7 +504,7 @@ export default function TrainingSimulationPage() {
                 <label className="imp-field training-ai__composer-field">
                   <span>
                     {practiceMediaMode === 'voice'
-                      ? 'O que você falaria (texto até STT)'
+                      ? 'Sua fala (dite pelo microfone ou digite)'
                       : 'Sua resposta'}
                   </span>
                   <textarea
@@ -461,7 +514,9 @@ export default function TrainingSimulationPage() {
                     disabled={isGeneratingReply || isJudging}
                     placeholder={
                       practiceMediaMode === 'voice'
-                        ? 'Digite a fala que gravaria — áudio real ainda não conectado…'
+                        ? sttSupported
+                          ? 'Ative o microfone para ditar ou digite a sua fala…'
+                          : 'Digite a sua fala (ditado por voz indisponível neste navegador)…'
                         : 'Escreva como falaria com o cliente…'
                     }
                   />

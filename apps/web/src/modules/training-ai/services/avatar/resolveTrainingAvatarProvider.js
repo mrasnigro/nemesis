@@ -1,41 +1,31 @@
 /**
- * Resolve which Training IA avatar provider to load for the persona call stage.
- * Offline default and only implemented value today: mock (timing-only stub).
+ * Resolve which Training IA avatar provider drives the persona call stage.
  *
- * Future: heygen | d-id — same AvatarProvider surface, real video/lip-sync.
- * Do not set VITE_TRAINING_AVATAR_PROVIDER to those until a real adapter
- * exists and credentials are configured; unknown values fall back to mock.
+ * - `browser` (default when the browser can speak): real speech synthesis, no video.
+ * - `mock`: silent timing only. Used when speech is unavailable, or forced with VITE_TRAINING_AVATAR_PROVIDER=mock.
+ *
+ * Future: heygen | d-id behind the same AvatarProvider surface (needs credentials and an adapter).
  */
 
+import { createBrowserAvatarProvider, isBrowserSpeechSupported } from './browserAvatarProvider.js'
 import { createMockAvatarProvider } from './mockAvatarProvider.js'
 
-const KNOWN_IDS = ['mock']
-
-/**
- * @returns {'mock'}
- */
-export function readTrainingAvatarProviderId() {
+/** @returns {'browser'|'mock'} */
+export function readTrainingAvatarProviderId(scope = globalThis) {
   const raw = String(
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TRAINING_AVATAR_PROVIDER) ||
-      '',
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TRAINING_AVATAR_PROVIDER) || '',
   )
     .trim()
     .toLowerCase()
 
-  if (!raw || raw === 'mock') return 'mock'
-
-  if (!KNOWN_IDS.includes(raw)) {
-    console.warn(
-      `[training-ai] Unknown VITE_TRAINING_AVATAR_PROVIDER="${raw}" (no real provider implemented yet) — falling back to mock.`,
-    )
+  if (raw === 'mock') return 'mock'
+  if (raw && raw !== 'browser') {
+    console.warn(`[training-ai] Unknown VITE_TRAINING_AVATAR_PROVIDER="${raw}" — using the browser voice.`)
   }
-  return 'mock'
+  return isBrowserSpeechSupported(scope) ? 'browser' : 'mock'
 }
 
-/**
- * @returns {import('./provider.js').AvatarProvider}
- */
+/** @returns {import('./provider.js').AvatarProvider} */
 export function resolveTrainingAvatarProvider() {
-  readTrainingAvatarProviderId()
-  return createMockAvatarProvider()
+  return readTrainingAvatarProviderId() === 'browser' ? createBrowserAvatarProvider() : createMockAvatarProvider()
 }

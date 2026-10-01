@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SectionRadar from '../components/SectionRadar.jsx'
 import SessionAudioPlayer from '../components/SessionAudioPlayer.jsx'
@@ -19,6 +19,12 @@ function formatClock(iso) {
   }
 }
 
+const JUDGE_LABELS = {
+  openai: 'IA',
+  'openai+rules': 'IA com regras do playbook',
+  rules: 'regras do playbook',
+}
+
 export default function TrainingReportPage() {
   const { scenarioId, sessionId } = useParams()
   const {
@@ -28,18 +34,34 @@ export default function TrainingReportPage() {
     resetSimulation,
     showConversation,
     setShowConversation,
+    loadReport,
   } = useTrainingAi()
 
   const [activeMessageId, setActiveMessageId] = useState(null)
+  const [loaded, setLoaded] = useState({ id: null, report: null, error: '' })
 
-  const report =
-    (sessionId &&
-      ((evaluation?.sessionId === sessionId && evaluation) ||
-        history.find((item) => item.sessionId === sessionId))) ||
-    (scenarioId &&
-      ((evaluation?.scenarioId === scenarioId && evaluation) ||
-        history.find((item) => item.scenarioId === scenarioId))) ||
+  // /relatorio/sessao/:id opens that session; /relatorio/:scenarioId opens the latest one for the scenario.
+  const targetId =
+    sessionId ||
+    (evaluation?.scenarioId === scenarioId ? evaluation.sessionId : null) ||
+    history.find((item) => item.scenarioId === scenarioId)?.sessionId ||
     null
+  const justFinished = evaluation?.sessionId === targetId ? evaluation : null
+
+  useEffect(() => {
+    if (!targetId || justFinished || !canReport) return undefined
+    let cancelled = false
+    loadReport(targetId).then((result) => {
+      if (!cancelled) setLoaded({ id: targetId, report: result.report || null, error: result.error || '' })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [targetId, justFinished, canReport, loadReport])
+
+  const report = justFinished || (loaded.id === targetId ? loaded.report : null)
+  const loading = Boolean(targetId) && !report && loaded.id !== targetId
+  const loadError = loaded.id === targetId ? loaded.error : ''
 
   const handleSeekMessage = useCallback(
     (messageId) => {
@@ -65,12 +87,20 @@ export default function TrainingReportPage() {
     )
   }
 
+  if (loading) {
+    return (
+      <section className="imp-module">
+        <p>Carregando análise…</p>
+      </section>
+    )
+  }
+
   if (!report) {
     return (
       <section className="imp-module">
         <div className="training-ai__empty">
           <h3>Análise indisponível</h3>
-          <p>Não há relatório para esta sessão na navegação atual.</p>
+          <p>{loadError || 'Não encontramos um relatório para esta sessão.'}</p>
           <div className="imp-actions">
             <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--primary">
               Voltar aos insights
@@ -86,7 +116,8 @@ export default function TrainingReportPage() {
   const redoScenarioId = report.scenarioId
   const feedback = report.coachFeedback || []
   const nextSteps = report.nextSteps || []
-  const mediaLabel = report.mediaMode === 'voice' ? 'Voz (stub UI)' : 'Texto'
+  const mediaLabel = report.mediaMode === 'voice' ? 'Voz' : 'Texto'
+  const judgeLabel = JUDGE_LABELS[report.judgeSource] || null
 
   return (
     <section className="imp-module">
@@ -129,8 +160,7 @@ export default function TrainingReportPage() {
           <h2>{report.scenarioTitle}</h2>
           <p>
             Agente: {report.personaName} · Playbook: {report.templateTitle} · {mediaLabel}
-            {report.judgeSource ? ` · Judge: ${report.judgeSource}` : ''}
-            {report.sessionId ? ` · ${report.sessionId}` : ''}
+            {judgeLabel ? ` · Avaliação: ${judgeLabel}` : ''}
           </p>
         </div>
         <div className="training-ai__report-score">
@@ -143,10 +173,10 @@ export default function TrainingReportPage() {
       <div className="imp-panel training-ai__session-player-panel">
         <div className="imp-panel__header">
           <div>
-            <h2>Player da sessão</h2>
+            <h2>Linha do tempo</h2>
             <p>
-              Waveform + marcadores de sentimento (composicão do mockup Insights — sem áudio
-              real).
+              Uma marca por fala, no horário real da conversa. O sentimento é estimado por
+              palavras-chave.
             </p>
           </div>
         </div>
@@ -162,7 +192,7 @@ export default function TrainingReportPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Transcrição</h2>
-              <p>Diálogo com sentimento por turno · clique no marker do player para âncora.</p>
+              <p>Diálogo com sentimento estimado por fala · clique numa marca da linha do tempo para ir até ela.</p>
             </div>
           </div>
           {showConversation ? (
@@ -195,14 +225,14 @@ export default function TrainingReportPage() {
           ) : (
             <div className="training-ai__empty">
               <h3>Transcrição oculta</h3>
-              <p>Use “Ver conversa” ou os marcadores do player para abrir o diálogo.</p>
+              <p>Use “Ver conversa” ou as marcas da linha do tempo para abrir o diálogo.</p>
             </div>
           )}
 
           {feedback.length ? (
             <div className="training-ai__rubric training-ai__rubric--spaced">
               <h3 style={{ margin: '0 0 0.75rem', color: 'var(--text-h)', fontSize: '0.95rem' }}>
-                Coaching com âncora na fala (vídeo)
+                Coaching com âncora na fala
               </h3>
               <ul className="training-ai__list">
                 {feedback.map((item) => (
@@ -279,7 +309,7 @@ export default function TrainingReportPage() {
             <div className="imp-panel__header">
               <div>
                 <h2>Principais métricas</h2>
-                <p>Texto derivado · Ideal do mockup Insights</p>
+                <p>Calculadas a partir da transcrição</p>
               </div>
             </div>
             <ul className="training-ai__metric-checks">
@@ -300,7 +330,7 @@ export default function TrainingReportPage() {
               <li>
                 <span>Interrupções</span>
                 <strong>
-                  —<span className="training-ai__meta"> · Ideal: &lt; 3 (requer áudio)</span>
+                  —<span className="training-ai__meta"> · Não medido (requer áudio)</span>
                 </strong>
               </li>
               <li>

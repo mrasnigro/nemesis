@@ -5,9 +5,14 @@ export const TRAINING_PERMISSION_KEYS = [
   'training.manage',
 ]
 
-export function getTrainingPermissionsForUser(_user, hasModuleAccess = true) {
+/**
+ * Mirrors the API: everyone with the module can view, practice and read reports; only the customer
+ * administrator edits the catalog (personas, scenarios, playbooks). The server enforces the same rule.
+ */
+export function getTrainingPermissionsForUser(user, hasModuleAccess = true) {
   if (!hasModuleAccess) return []
-  return [...TRAINING_PERMISSION_KEYS]
+  const manager = user?.profile === 'customer_admin'
+  return TRAINING_PERMISSION_KEYS.filter((key) => key !== 'training.manage' || manager)
 }
 
 export function hasTrainingPermission(permissions, key) {

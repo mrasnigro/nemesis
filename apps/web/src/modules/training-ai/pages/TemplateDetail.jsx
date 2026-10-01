@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import DeleteAction from '../components/DeleteAction.jsx'
 import WeightRing from '../components/WeightRing.jsx'
 import {
   CONTACT_TYPE_OPTIONS,
@@ -22,7 +23,8 @@ function ruleLabel(passRule) {
 
 export default function TrainingTemplateDetailPage() {
   const { templateId } = useParams()
-  const { getEvaluationTemplate, getScenariosForTemplate, canManage } = useTrainingAi()
+  const navigate = useNavigate()
+  const { getEvaluationTemplate, getScenariosForTemplate, canManage, deleteTemplate } = useTrainingAi()
 
   const template = getEvaluationTemplate(templateId)
   const linkedScenarios = template ? getScenariosForTemplate(template.id) : []
@@ -66,6 +68,13 @@ export default function TrainingTemplateDetailPage() {
             >
               Editar playbook
             </Link>
+          ) : null}
+          {canManage ? (
+            <DeleteAction
+              confirmText={`Excluir o playbook "${template.title}"? Essa ação não pode ser desfeita.`}
+              onDelete={() => deleteTemplate(template.id)}
+              onDeleted={() => navigate('/modules/training-ai/templates')}
+            />
           ) : null}
         </div>
       </header>

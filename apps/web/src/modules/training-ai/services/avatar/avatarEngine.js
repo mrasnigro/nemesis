@@ -1,7 +1,6 @@
 /**
- * Avatar engine — orchestrates persona call-stage sessions via an AvatarProvider.
- * PersonaCallStage / Simulation stay outside this layer, same pattern as
- * services/ai/conversationEngine.js.
+ * Avatar engine: orchestrates persona call-stage sessions through an AvatarProvider.
+ * PersonaCallStage / Simulation stay outside this layer.
  */
 
 import { assertAvatarProvider, resolveProviderResponse } from './provider.js'
@@ -51,7 +50,7 @@ export function createAvatarEngine(options = {}) {
     },
 
     /**
-     * Have the persona "speak" a line. Resolves once the (mocked) speaking
+     * Have the persona "speak" a line. Resolves once the speaking
      * duration elapses so the UI can drive a speaking/caption state.
      * @param {object|null} persona
      * @param {string} text

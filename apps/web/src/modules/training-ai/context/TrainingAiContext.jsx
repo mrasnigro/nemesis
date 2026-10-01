@@ -1,92 +1,44 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../../auth/AuthContext'
 import { useWorkspace } from '../../../workspace/WorkspaceContext'
-import {
-  createEmptyPersonaDraft,
-  normalizePersonaInput,
-  seedPersonas,
-} from '../data/personas.js'
-import {
-  createEmptyScenarioDraft,
-  normalizeScenarioInput,
-  seedScenarios,
-  scenariosForPersona,
-} from '../data/scenarios.js'
+import { createEmptyPersonaDraft, normalizePersonaInput } from '../data/personas.js'
+import { createEmptyScenarioDraft, normalizeScenarioInput, scenariosForPersona } from '../data/scenarios.js'
 import {
   createEmptyTemplateDraft,
   createEmptyCriterionDraft,
   normalizeTemplateInput,
-  seedEvaluationTemplates,
   scenariosUsingTemplate,
   templateToFormState,
 } from '../data/evaluationTemplates.js'
-import {
-  createTrainingSession,
-  resolveScenarioBundle,
-  trainingMetricsSeed,
-} from '../data/seeds.js'
-import { getConversationEngine } from '../services/ai/index.js'
-import { buildSessionEvaluationAsync } from '../services/scoring.js'
-import {
-  getTrainingPermissionsForUser,
-  hasTrainingPermission,
-} from '../services/trainingPermissions.js'
-import { trainingApi, trainingDataMode } from '../services/api/client.js'
+import { getTrainingPermissionsForUser, hasTrainingPermission } from '../services/trainingPermissions.js'
+import { trainingApi } from '../services/api/client.js'
 
+/**
+ * Training IA state. Everything that matters is decided by the platform API: the persona's replies, the
+ * score and the stored transcript. This context only holds what the screens show and the steps the trainee
+ * goes through before the conversation starts (agent, briefing, text or voice).
+ */
 const TrainingAiContext = createContext(null)
 
-function computeMetrics(history, scenarios) {
-  if (!history.length) {
-    return {
-      ...trainingMetricsSeed,
-      pending: scenarios.length,
-    }
-  }
-  const avg = Math.round(
-    history.reduce((sum, item) => sum + (item.score || 0), 0) / history.length,
-  )
-  return {
-    completed: history.length,
-    avgScore: avg,
-    streakDays: Math.min(history.length, 7),
-    pending: Math.max(
-      0,
-      scenarios.length - new Set(history.map((h) => h.scenarioId)).size,
-    ),
-  }
+const EMPTY_METRICS = { completed: 0, avgScore: 0, pending: 0, streakDays: 0 }
+
+const NO_PERMISSION = {
+  persona: 'Sem permissão para gerenciar agentes.',
+  scenario: 'Sem permissão para gerenciar cenários.',
+  template: 'Sem permissão para gerenciar playbooks.',
 }
 
-async function completeSessionState({
-  session,
-  scenario,
-  persona,
-  messages,
-  answers = [],
-  mode = 'free',
-  templateLookup,
-}) {
-  const report = await buildSessionEvaluationAsync({
-    session,
-    scenario,
-    persona,
-    templateId: scenario.evaluationTemplateId,
-    templateLookup,
-    answers,
-    messages,
-    mode,
-  })
-  return {
-    report,
-    completedSession: {
-      ...session,
-      messages,
-      answers: report.answers,
-      evaluation: report,
-      completedAt: report.completedAt,
-      status: 'completed',
-      mode,
-    },
-  }
+function failure(error, fallback) {
+  return { ok: false, error: error?.message || fallback }
+}
+
+function mediaModeFor(persona) {
+  return persona?.interactionMode === 'voice' || persona?.interactionMode === 'both' ? 'voice' : 'text'
+}
+
+/** What the history screens list: the session summary from the API, keyed for the report links. */
+function toHistoryItem(session) {
+  return { ...session, sessionId: session.id }
 }
 
 export function TrainingAiProvider({ children }) {
@@ -97,224 +49,162 @@ export function TrainingAiProvider({ children }) {
     [user, hasModuleAccess],
   )
 
-  const useApi = trainingDataMode === 'api'
-  const [personas, setPersonas] = useState(() => (useApi ? [] : structuredClone(seedPersonas)))
-  const [scenarios, setScenarios] = useState(() => (useApi ? [] : structuredClone(seedScenarios)))
-  const [evaluationTemplates, setEvaluationTemplates] = useState(() =>
-    useApi ? [] : structuredClone(seedEvaluationTemplates),
-  )
-  const [catalogReady, setCatalogReady] = useState(!useApi)
+  const [personas, setPersonas] = useState([])
+  const [scenarios, setScenarios] = useState([])
+  const [evaluationTemplates, setEvaluationTemplates] = useState([])
+  const [history, setHistory] = useState([])
+  const [metrics, setMetrics] = useState(EMPTY_METRICS)
+  const [aiStatus, setAiStatus] = useState(null)
+  const [catalogReady, setCatalogReady] = useState(false)
   const [catalogError, setCatalogError] = useState(null)
+
   const [session, setSession] = useState(null)
   const [messages, setMessages] = useState([])
-  const [turnIndex, setTurnIndex] = useState(0)
-  const [answers, setAnswers] = useState([])
   const [phase, setPhase] = useState('idle') // idle | setup | briefing | running | finished
   const [evaluation, setEvaluation] = useState(null)
+  const [isStarting, setIsStarting] = useState(false)
   const [isGeneratingReply, setIsGeneratingReply] = useState(false)
   const [isJudging, setIsJudging] = useState(false)
-  const [history, setHistory] = useState([])
   const [showConversation, setShowConversation] = useState(true)
   const [draftPersonaId, setDraftPersonaId] = useState(null)
+  const busyRef = useRef(false)
+
+  const reloadCatalog = useCallback(async () => {
+    try {
+      const [nextPersonas, nextScenarios, nextTemplates, sessions, nextMetrics, status] = await Promise.all([
+        trainingApi.listPersonas(),
+        trainingApi.listScenarios(),
+        trainingApi.listTemplates(),
+        trainingApi.listSessions(),
+        trainingApi.getMetrics(),
+        trainingApi.getStatus(),
+      ])
+      setPersonas(nextPersonas)
+      setScenarios(nextScenarios)
+      setEvaluationTemplates(nextTemplates)
+      setHistory(sessions.map(toHistoryItem))
+      setMetrics(nextMetrics)
+      setAiStatus(status)
+      setCatalogError(null)
+    } catch (error) {
+      setCatalogError(error.message || 'Não foi possível carregar o treinamento.')
+    } finally {
+      setCatalogReady(true)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!useApi) return undefined
-    let cancelled = false
+    reloadCatalog()
+  }, [reloadCatalog])
 
-    async function loadCatalog() {
-      try {
-        const [nextPersonas, nextScenarios, nextTemplates, sessions] = await Promise.all([
-          trainingApi.listPersonas(),
-          trainingApi.listScenarios(),
-          trainingApi.listTemplates(),
-          trainingApi.listSessions(),
-        ])
-        if (cancelled) return
-        setPersonas(nextPersonas)
-        setScenarios(nextScenarios)
-        setEvaluationTemplates(nextTemplates)
-        setHistory(
-          sessions
-            .filter((item) => item.report)
-            .map((item) => ({
-              ...item.report,
-              sessionId: item.id,
-              scenarioId: item.scenarioId,
-              score: item.score ?? item.report.score,
-            })),
-        )
-        setCatalogReady(true)
-      } catch (error) {
-        if (cancelled) return
-        setCatalogError(error.message || 'Não foi possível carregar o treinamento.')
-        setCatalogReady(true)
-      }
+  const refreshProgress = useCallback(async () => {
+    try {
+      const [sessions, nextMetrics] = await Promise.all([trainingApi.listSessions(), trainingApi.getMetrics()])
+      setHistory(sessions.map(toHistoryItem))
+      setMetrics(nextMetrics)
+    } catch {
+      // The report is already saved; the lists refresh on the next load.
     }
+  }, [])
 
-    loadCatalog()
-    return () => {
-      cancelled = true
-    }
-  }, [useApi])
-
-  const findPersona = useCallback(
-    (personaId) => personas.find((item) => item.id === personaId) || null,
-    [personas],
-  )
-
-  const findScenario = useCallback(
-    (scenarioId) => scenarios.find((item) => item.id === scenarioId) || null,
-    [scenarios],
-  )
-
+  const findPersona = useCallback((id) => personas.find((item) => item.id === id) || null, [personas])
+  const findScenario = useCallback((id) => scenarios.find((item) => item.id === id) || null, [scenarios])
   const findTemplate = useCallback(
-    (templateId) =>
-      evaluationTemplates.find((item) => item.id === templateId) || null,
+    (id) => evaluationTemplates.find((item) => item.id === id) || null,
     [evaluationTemplates],
   )
 
-  const resolveBundle = useCallback(
-    (scenarioId, personaIdOverride) => {
-      const bundle = resolveScenarioBundle(
-        scenarioId,
-        findPersona,
-        findScenario,
-        findTemplate,
-      )
-      if (!bundle?.scenario) return null
-      if (personaIdOverride) {
-        const persona = findPersona(personaIdOverride)
-        return persona ? { ...bundle, persona } : bundle
-      }
-      return bundle
-    },
-    [findPersona, findScenario, findTemplate],
+  const selectedScenario = useMemo(
+    () => (session?.scenarioId ? findScenario(session.scenarioId) : null),
+    [findScenario, session],
+  )
+  const selectedPersona = useMemo(
+    () => (session?.personaId ? findPersona(session.personaId) : null),
+    [findPersona, session],
   )
 
-  const selectedScenario = useMemo(() => {
-    if (!session?.scenarioId) return null
-    return findScenario(session.scenarioId)
-  }, [findScenario, session])
-
-  const selectedPersona = useMemo(() => {
-    if (!session?.personaId) return null
-    return findPersona(session.personaId)
-  }, [findPersona, session])
-
-  const getScenariosForPersona = useCallback(
-    (personaId) => scenariosForPersona(personaId, scenarios),
+  const getScenariosForPersona = useCallback((personaId) => scenariosForPersona(personaId, scenarios), [scenarios])
+  const getScenariosForTemplate = useCallback(
+    (templateId) => scenariosUsingTemplate(templateId, scenarios),
     [scenarios],
   )
 
+  // ------------------------------------------------------------------ catalog (customer administrator)
+
   const createPersona = useCallback(
     async (input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar personas.' }
-      }
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.persona }
       const normalized = normalizePersonaInput(input)
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      try {
+        const payload = await trainingApi.createPersona(normalized.persona)
+        setPersonas((prev) => [payload.data, ...prev])
+        return { ok: true, persona: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o agente.')
       }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.createPersona(normalized.persona)
-          const persona = payload.data
-          setPersonas((prev) => [persona, ...prev])
-          return { ok: true, persona }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const persona = {
-        id: `per_${Date.now()}`,
-        ...normalized.persona,
-      }
-      setPersonas((prev) => [persona, ...prev])
-      return { ok: true, persona }
     },
-    [permissions, useApi],
+    [permissions],
   )
 
   const updatePersona = useCallback(
     async (personaId, input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar personas.' }
-      }
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.persona }
       const existing = findPersona(personaId)
-      if (!existing) return { ok: false, error: 'Persona não encontrada.' }
+      if (!existing) return { ok: false, error: 'Agente não encontrado.' }
 
       const normalized = normalizePersonaInput({
         ...existing,
         ...input,
-        objectionsText:
-          input.objectionsText != null
-            ? input.objectionsText
-            : (existing.objections || []).join('\n'),
-        prioritiesText:
-          input.prioritiesText != null
-            ? input.prioritiesText
-            : (existing.priorities || []).join('\n'),
+        objectionsText: input.objectionsText != null ? input.objectionsText : (existing.objections || []).join('\n'),
+        prioritiesText: input.prioritiesText != null ? input.prioritiesText : (existing.priorities || []).join('\n'),
       })
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      try {
+        const payload = await trainingApi.updatePersona(personaId, normalized.persona)
+        setPersonas((prev) => prev.map((item) => (item.id === personaId ? payload.data : item)))
+        return { ok: true, persona: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o agente.')
       }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.updatePersona(personaId, {
-            ...normalized.persona,
-            id: personaId,
-          })
-          const persona = payload.data
-          setPersonas((prev) => prev.map((item) => (item.id === personaId ? persona : item)))
-          return { ok: true, persona }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const persona = { ...existing, ...normalized.persona, id: personaId }
-      setPersonas((prev) => prev.map((item) => (item.id === personaId ? persona : item)))
-      return { ok: true, persona }
     },
-    [findPersona, permissions, useApi],
+    [findPersona, permissions],
+  )
+
+  const deletePersona = useCallback(
+    async (personaId) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.persona }
+      try {
+        await trainingApi.deletePersona(personaId)
+        setPersonas((prev) => prev.filter((item) => item.id !== personaId))
+        return { ok: true }
+      } catch (error) {
+        return failure(error, 'Não foi possível excluir o agente.')
+      }
+    },
+    [permissions],
   )
 
   const createScenario = useCallback(
     async (input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
-      }
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.scenario }
       const normalized = normalizeScenarioInput(input, { templateLookup: findTemplate })
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      if (!findPersona(normalized.scenario.personaId)) return { ok: false, errors: ['Agente vinculado não encontrado.'] }
+      try {
+        const payload = await trainingApi.createScenario(normalized.scenario)
+        setScenarios((prev) => [payload.data, ...prev])
+        return { ok: true, scenario: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o cenário.')
       }
-      if (!findPersona(normalized.scenario.personaId)) {
-        return { ok: false, errors: ['Persona vinculada não encontrada.'] }
-      }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.createScenario(normalized.scenario)
-          const scenario = payload.data
-          setScenarios((prev) => [scenario, ...prev])
-          return { ok: true, scenario }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const scenario = {
-        id: `scn_${Date.now()}`,
-        ...normalized.scenario,
-      }
-      setScenarios((prev) => [scenario, ...prev])
-      return { ok: true, scenario }
     },
-    [findPersona, findTemplate, permissions, useApi],
+    [findPersona, findTemplate, permissions],
   )
 
   const updateScenario = useCallback(
     async (scenarioId, input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar cenários.' }
-      }
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.scenario }
       const existing = findScenario(scenarioId)
       if (!existing) return { ok: false, error: 'Cenário não encontrado.' }
 
@@ -323,158 +213,125 @@ export function TrainingAiProvider({ children }) {
           ...existing,
           ...input,
           scriptHintsText:
-            input.scriptHintsText != null
-              ? input.scriptHintsText
-              : (existing.scriptHints || []).join('\n'),
-          focusText:
-            input.focusText != null
-              ? input.focusText
-              : (existing.focus || []).join('\n'),
+            input.scriptHintsText != null ? input.scriptHintsText : (existing.scriptHints || []).join('\n'),
+          focusText: input.focusText != null ? input.focusText : (existing.focus || []).join('\n'),
         },
         { templateLookup: findTemplate },
       )
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      if (!findPersona(normalized.scenario.personaId)) return { ok: false, errors: ['Agente vinculado não encontrado.'] }
+      try {
+        const payload = await trainingApi.updateScenario(scenarioId, normalized.scenario)
+        setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? payload.data : item)))
+        return { ok: true, scenario: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o cenário.')
       }
-      if (!findPersona(normalized.scenario.personaId)) {
-        return { ok: false, errors: ['Persona vinculada não encontrada.'] }
-      }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.updateScenario(scenarioId, {
-            ...normalized.scenario,
-            id: scenarioId,
-          })
-          const scenario = payload.data
-          setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
-          return { ok: true, scenario }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const scenario = { ...existing, ...normalized.scenario, id: scenarioId }
-      setScenarios((prev) => prev.map((item) => (item.id === scenarioId ? scenario : item)))
-      return { ok: true, scenario }
     },
-    [findPersona, findScenario, findTemplate, permissions, useApi],
+    [findPersona, findScenario, findTemplate, permissions],
+  )
+
+  const deleteScenario = useCallback(
+    async (scenarioId) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.scenario }
+      try {
+        await trainingApi.deleteScenario(scenarioId)
+        setScenarios((prev) => prev.filter((item) => item.id !== scenarioId))
+        return { ok: true }
+      } catch (error) {
+        return failure(error, 'Não foi possível excluir o cenário.')
+      }
+    },
+    [permissions],
   )
 
   const createTemplate = useCallback(
     async (input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar templates.' }
-      }
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.template }
       const normalized = normalizeTemplateInput(input)
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      try {
+        const payload = await trainingApi.createTemplate(normalized.template)
+        setEvaluationTemplates((prev) => [payload.data, ...prev])
+        return { ok: true, template: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o playbook.')
       }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.createTemplate(normalized.template)
-          const template = payload.data
-          setEvaluationTemplates((prev) => [template, ...prev])
-          return { ok: true, template }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const template = {
-        id: `tpl_${Date.now()}`,
-        ...normalized.template,
-      }
-      setEvaluationTemplates((prev) => [template, ...prev])
-      return { ok: true, template }
     },
-    [permissions, useApi],
+    [permissions],
   )
 
   const updateTemplate = useCallback(
     async (templateId, input) => {
-      if (!hasTrainingPermission(permissions, 'training.manage')) {
-        return { ok: false, error: 'Sem permissão para gerenciar templates.' }
-      }
-      const existing = findTemplate(templateId)
-      if (!existing) return { ok: false, error: 'Template não encontrado.' }
-
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.template }
+      if (!findTemplate(templateId)) return { ok: false, error: 'Playbook não encontrado.' }
       const normalized = normalizeTemplateInput(input)
-      if (!normalized.ok) {
-        return { ok: false, errors: normalized.errors }
+      if (!normalized.ok) return { ok: false, errors: normalized.errors }
+      try {
+        const payload = await trainingApi.updateTemplate(templateId, normalized.template)
+        setEvaluationTemplates((prev) => prev.map((item) => (item.id === templateId ? payload.data : item)))
+        return { ok: true, template: payload.data }
+      } catch (error) {
+        return failure(error, 'Não foi possível salvar o playbook.')
       }
-      if (useApi) {
-        try {
-          const payload = await trainingApi.updateTemplate(templateId, {
-            ...normalized.template,
-            id: templateId,
-          })
-          const template = payload.data
-          setEvaluationTemplates((prev) =>
-            prev.map((item) => (item.id === templateId ? template : item)),
-          )
-          return { ok: true, template }
-        } catch (error) {
-          return { ok: false, error: error.message }
-        }
-      }
-      const template = { ...existing, ...normalized.template, id: templateId }
-      setEvaluationTemplates((prev) =>
-        prev.map((item) => (item.id === templateId ? template : item)),
-      )
-      return { ok: true, template }
     },
-    [findTemplate, permissions, useApi],
+    [findTemplate, permissions],
   )
 
-  const getScenariosForTemplate = useCallback(
-    (templateId) => scenariosUsingTemplate(templateId, scenarios),
-    [scenarios],
+  const deleteTemplate = useCallback(
+    async (templateId) => {
+      if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.template }
+      try {
+        await trainingApi.deleteTemplate(templateId)
+        setEvaluationTemplates((prev) => prev.filter((item) => item.id !== templateId))
+        return { ok: true }
+      } catch (error) {
+        return failure(error, 'Não foi possível excluir o playbook.')
+      }
+    },
+    [permissions],
   )
 
+  const installStarterCatalog = useCallback(async () => {
+    if (!hasTrainingPermission(permissions, 'training.manage')) {
+      return { ok: false, error: 'Somente o administrador do cliente instala o catálogo inicial.' }
+    }
+    try {
+      const payload = await trainingApi.installStarterCatalog()
+      await reloadCatalog()
+      return { ok: true, installed: payload?.data }
+    } catch (error) {
+      return failure(error, 'Não foi possível instalar o catálogo inicial.')
+    }
+  }, [permissions, reloadCatalog])
+
+  // ------------------------------------------------------------------------- practice session
+
+  /** Sync: picks the scenario and opens the setup/briefing steps. The server session starts in `beginConversation`. */
   const startSimulation = useCallback(
     (scenarioId, options = {}) => {
       if (!hasTrainingPermission(permissions, 'training.simulate')) return null
-      const bundle = resolveBundle(scenarioId)
-      if (!bundle?.scenario) return null
+      const scenario = findScenario(scenarioId)
+      if (!scenario) return null
 
-      const personaOverride = options.personaId
-        ? findPersona(options.personaId)
-        : null
-      const skipSetup = Boolean(personaOverride)
+      const chosen = options.personaId ? findPersona(options.personaId) : null
+      if (options.personaId && !chosen) return null
+      const persona = chosen || findPersona(scenario.personaId)
 
-      const personaForSession = personaOverride || bundle.persona
-      if (!personaForSession && skipSetup) return null
-
-      try {
-        const nextSession = createTrainingSession({
-          scenario: bundle.scenario,
-          persona: personaForSession || { id: bundle.scenario.personaId },
-          mode: 'free',
-        })
-
-        const openingSource = personaForSession || bundle.persona
-        const engine = getConversationEngine()
-
-        setSession(nextSession)
-        setAnswers([])
-        setTurnIndex(0)
-        setEvaluation(null)
-        setShowConversation(true)
-        setDraftPersonaId(
-          personaOverride?.id || bundle.scenario.personaId || personas[0]?.id || null,
-        )
-        setPhase(skipSetup ? 'briefing' : 'setup')
-        setMessages([
-          engine.createOpeningMessage({
-            persona: openingSource,
-            scriptTurns: bundle.turns || [],
-          }),
-        ])
-        return bundle.scenario
-      } catch (error) {
-        console.error('[training-ai] startSimulation error', error)
-        return null
-      }
+      setSession({
+        id: null,
+        scenarioId: scenario.id,
+        personaId: persona?.id || scenario.personaId,
+        mediaMode: mediaModeFor(persona),
+      })
+      setMessages([])
+      setEvaluation(null)
+      setShowConversation(true)
+      setDraftPersonaId(persona?.id || scenario.personaId || null)
+      setPhase(chosen ? 'briefing' : 'setup')
+      return scenario
     },
-    [findPersona, permissions, personas, resolveBundle],
+    [findPersona, findScenario, permissions],
   )
 
   const selectPersonaForSession = useCallback(
@@ -482,251 +339,120 @@ export function TrainingAiProvider({ children }) {
       if (phase !== 'setup' || !session) return false
       const persona = findPersona(personaId)
       if (!persona) return false
-
-      const bundle = resolveBundle(session.scenarioId)
-      const engine = getConversationEngine()
-
       setDraftPersonaId(personaId)
-      setSession((prev) =>
-        prev
-          ? {
-              ...prev,
-              personaId: persona.id,
-            }
-          : prev,
-      )
-      setMessages([
-        engine.createOpeningMessage({
-          persona,
-          scriptTurns: bundle?.turns || [],
-        }),
-      ])
+      setSession((prev) => (prev ? { ...prev, personaId: persona.id, mediaMode: mediaModeFor(persona) } : prev))
       return true
     },
-    [findPersona, phase, resolveBundle, session],
+    [findPersona, phase, session],
   )
 
   const confirmPersonaSetup = useCallback(() => {
     if (phase !== 'setup' || !session) return false
-    const personaId = draftPersonaId || session.personaId
-    const persona = findPersona(personaId)
+    const persona = findPersona(draftPersonaId || session.personaId)
     if (!persona) return false
-
-    const bundle = resolveBundle(session.scenarioId)
-    const engine = getConversationEngine()
-
-    setSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            personaId: persona.id,
-            mediaMode:
-              persona.interactionMode === 'voice' || persona.interactionMode === 'both'
-                ? 'voice'
-                : 'text',
-          }
-        : prev,
-    )
-    setMessages([
-      engine.createOpeningMessage({
-        persona,
-        scriptTurns: bundle?.turns || [],
-      }),
-    ])
+    setSession((prev) => (prev ? { ...prev, personaId: persona.id, mediaMode: mediaModeFor(persona) } : prev))
     setPhase('briefing')
     return true
-  }, [draftPersonaId, findPersona, phase, resolveBundle, session])
+  }, [draftPersonaId, findPersona, phase, session])
 
-  const setPracticeMediaMode = useCallback(
-    (mediaMode) => {
-      const next = mediaMode === 'voice' ? 'voice' : 'text'
-      setSession((prev) => (prev ? { ...prev, mediaMode: next } : prev))
-    },
-    [],
-  )
+  const setPracticeMediaMode = useCallback((mediaMode) => {
+    const next = mediaMode === 'voice' ? 'voice' : 'text'
+    setSession((prev) => (prev ? { ...prev, mediaMode: next } : prev))
+  }, [])
 
-  const beginConversation = useCallback(() => {
-    if (phase !== 'briefing' || !session) return
-    setSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            mediaMode: prev.mediaMode === 'voice' ? 'voice' : 'text',
-          }
-        : prev,
-    )
-    setPhase('running')
+  /** Creates the session on the server and gets the persona's opening line. */
+  const beginConversation = useCallback(async () => {
+    if (phase !== 'briefing' || !session || busyRef.current) return { ok: false }
+    busyRef.current = true
+    setIsStarting(true)
+    try {
+      const started = await trainingApi.startSession({
+        scenarioId: session.scenarioId,
+        personaId: session.personaId,
+        mediaMode: session.mediaMode,
+      })
+      setSession((prev) => (prev ? { ...prev, id: started.id } : prev))
+      setMessages(started.messages || [])
+      setPhase('running')
+      return { ok: true }
+    } catch (error) {
+      return failure(error, 'Não foi possível iniciar a conversa.')
+    } finally {
+      busyRef.current = false
+      setIsStarting(false)
+    }
   }, [phase, session])
 
   const sendMessage = useCallback(
     async (rawText) => {
-      if (phase !== 'running' || !session || !selectedScenario || isGeneratingReply) {
-        return false
-      }
       const text = String(rawText || '').trim()
-      if (!text) return false
+      if (phase !== 'running' || !session?.id || !text || busyRef.current) return { ok: false }
+      busyRef.current = true
 
-      const bundle = resolveBundle(selectedScenario.id)
-      const userCount = messages.filter((m) => m.role === 'user').length
-      const engine = getConversationEngine()
-      const userMessage = engine.createUserMessage(text)
-      const pendingMessages = [...messages, userMessage]
-      setMessages(pendingMessages)
+      // Shown at once; replaced by the stored messages when the server answers, dropped if it fails.
+      const pendingId = `pending_${Date.now()}`
+      setMessages((prev) => [
+        ...prev,
+        { id: pendingId, role: 'user', speaker: 'Você', text, timestamp: new Date().toISOString() },
+      ])
       setIsGeneratingReply(true)
-
       try {
-        const aiMessage = await engine.generateReplyMessageAsync({
-          persona: selectedPersona,
-          scenario: selectedScenario,
-          template: bundle?.template || null,
-          scriptTurns: bundle?.turns || [],
-          messages: pendingMessages,
-          exchangeIndex: userCount,
-          userText: text,
-          session,
-        })
-
-        const nextMessages = [...pendingMessages, aiMessage]
-        setMessages(nextMessages)
-        setTurnIndex(userCount + 1)
-        setSession((prev) => (prev ? { ...prev, messages: nextMessages } : prev))
-        return true
-      } catch {
-        setMessages(messages)
-        return false
+        const turn = await trainingApi.sendMessage(session.id, text)
+        setMessages((prev) => [...prev.filter((item) => item.id !== pendingId), turn.userMessage, turn.aiMessage])
+        return { ok: true, turnsLeft: turn.turnsLeft }
+      } catch (error) {
+        setMessages((prev) => prev.filter((item) => item.id !== pendingId))
+        return failure(error, 'Não foi possível gerar a resposta do agente.')
       } finally {
+        busyRef.current = false
         setIsGeneratingReply(false)
       }
     },
-    [
-      isGeneratingReply,
-      messages,
-      phase,
-      resolveBundle,
-      selectedPersona,
-      selectedScenario,
-      session,
-    ],
+    [phase, session],
   )
 
   const finishSession = useCallback(async () => {
-    if (phase !== 'running' || !session || !selectedScenario || isJudging) return false
-    const userMessages = messages.filter((m) => m.role === 'user')
-    if (!userMessages.length) return false
-
+    if (phase !== 'running' || !session?.id || busyRef.current) return { ok: false }
+    if (!messages.some((item) => item.role === 'user')) {
+      return { ok: false, error: 'Envie ao menos uma resposta antes de encerrar o treino.' }
+    }
+    busyRef.current = true
     setIsJudging(true)
     try {
-      const { report, completedSession } = await completeSessionState({
-        session,
-        scenario: selectedScenario,
-        persona: selectedPersona,
-        messages,
-        answers: [],
-        mode: 'free',
-        templateLookup: findTemplate,
-      })
-
-      let storedReport = report
-      if (useApi) {
-        const saved = await trainingApi.createSession({
-          scenarioId: selectedScenario.id,
-          personaId: selectedPersona?.id,
-          status: 'completed',
-          score: report.score ?? null,
-          report,
-        })
-        storedReport = { ...report, sessionId: saved.data.id }
-      }
-
-      setSession(completedSession)
-      setAnswers(report.answers)
-      setEvaluation(storedReport)
-      setHistory((prev) => [storedReport, ...prev])
+      const finished = await trainingApi.finishSession(session.id)
+      setEvaluation(finished.report)
+      setMessages(finished.messages || messages)
       setShowConversation(true)
       setPhase('finished')
-      return true
-    } catch {
-      return false
+      refreshProgress()
+      return { ok: true }
+    } catch (error) {
+      return failure(error, 'Não foi possível encerrar o treino.')
     } finally {
+      busyRef.current = false
       setIsJudging(false)
     }
-  }, [
-    findTemplate,
-    isJudging,
-    useApi,
-    messages,
-    phase,
-    selectedPersona,
-    selectedScenario,
-    session,
-  ])
+  }, [messages, phase, refreshProgress, session])
 
-  /** Legacy MCQ path kept for smoke / optional demos. */
-  const chooseOption = useCallback(
-    async (option) => {
-      if (phase !== 'running' || !session || !selectedScenario) return
-      const bundle = resolveBundle(selectedScenario.id)
-      const turns = bundle?.turns || []
-      const currentTurn = turns[turnIndex]
-      if (!currentTurn) return
-
-      const engine = getConversationEngine()
-      const nextAnswers = [...answers, { ...option, turnId: currentTurn.id }]
-      const userMessage = engine.createUserMessage(option.label)
-      const nextMessages = [...messages, userMessage]
-
-      const nextIndex = turnIndex + 1
-      if (nextIndex >= turns.length) {
-        const { report, completedSession } = await completeSessionState({
-          session,
-          scenario: selectedScenario,
-          persona: selectedPersona,
-          messages: nextMessages,
-          answers: nextAnswers,
-          mode: 'mcq',
-          templateLookup: findTemplate,
-        })
-        setSession(completedSession)
-        setAnswers(nextAnswers)
-        setMessages(nextMessages)
-        setTurnIndex(nextIndex)
-        setEvaluation(report)
-        setHistory((prev) => [report, ...prev])
-        setPhase('finished')
-        return
-      }
-
-      setAnswers(nextAnswers)
-      setTurnIndex(nextIndex)
-      setMessages([
-        ...nextMessages,
-        engine.createAiMessage(turns[nextIndex].ai, {
-          speaker: selectedPersona?.name || 'Persona',
-        }),
-      ])
-    },
-    [
-      answers,
-      findTemplate,
-      messages,
-      phase,
-      resolveBundle,
-      selectedPersona,
-      selectedScenario,
-      session,
-      turnIndex,
-    ],
-  )
+  /** Report of a stored session, with its transcript. */
+  const loadReport = useCallback(async (sessionId) => {
+    try {
+      const stored = await trainingApi.getSession(sessionId)
+      if (!stored.report) return { ok: false, error: 'Esta sessão ainda não foi concluída.' }
+      return { ok: true, report: stored.report }
+    } catch (error) {
+      return failure(error, 'Não foi possível carregar a análise.')
+    }
+  }, [])
 
   const resetSimulation = useCallback(() => {
     setSession(null)
     setMessages([])
-    setTurnIndex(0)
-    setAnswers([])
     setPhase('idle')
     setEvaluation(null)
     setShowConversation(false)
     setDraftPersonaId(null)
+    setIsStarting(false)
     setIsGeneratingReply(false)
     setIsJudging(false)
   }, [])
@@ -735,7 +461,11 @@ export function TrainingAiProvider({ children }) {
     permissions,
     catalogReady,
     catalogError,
-    metrics: computeMetrics(history, scenarios),
+    reloadCatalog,
+    aiStatus,
+    aiReady: aiStatus ? aiStatus.ai.ready : true,
+    aiUnavailableReason: aiStatus && !aiStatus.ai.ready ? aiStatus.ai.reason : null,
+    metrics,
     scenarios,
     personas,
     evaluationTemplates,
@@ -751,24 +481,24 @@ export function TrainingAiProvider({ children }) {
     templateToFormState,
     createPersona,
     updatePersona,
+    deletePersona,
     createScenario,
     updateScenario,
+    deleteScenario,
     createTemplate,
     updateTemplate,
+    deleteTemplate,
+    installStarterCatalog,
     session,
     selectedScenario,
     selectedPersona,
     draftPersonaId,
     messages,
-    turnIndex,
-    userMessageCount: messages.filter((m) => m.role === 'user').length,
-    currentTurn:
-      selectedScenario && phase === 'running' && session?.mode === 'mcq'
-        ? (resolveBundle(selectedScenario.id)?.turns || [])[turnIndex]
-        : null,
+    userMessageCount: messages.filter((item) => item.role === 'user' && !String(item.id).startsWith('pending_')).length,
     phase,
     evaluation,
     history,
+    isStarting,
     isGeneratingReply,
     isJudging,
     showConversation,
@@ -781,7 +511,7 @@ export function TrainingAiProvider({ children }) {
     practiceMediaMode: session?.mediaMode === 'voice' ? 'voice' : 'text',
     sendMessage,
     finishSession,
-    chooseOption,
+    loadReport,
     resetSimulation,
     canView: hasTrainingPermission(permissions, 'training.view'),
     canSimulate: hasTrainingPermission(permissions, 'training.simulate'),
@@ -789,9 +519,7 @@ export function TrainingAiProvider({ children }) {
     canManage: hasTrainingPermission(permissions, 'training.manage'),
   }
 
-  return (
-    <TrainingAiContext.Provider value={value}>{children}</TrainingAiContext.Provider>
-  )
+  return <TrainingAiContext.Provider value={value}>{children}</TrainingAiContext.Provider>
 }
 
 export function useTrainingAi() {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
@@ -13,7 +14,24 @@ export default function TrainingCatalogPage() {
     canManage,
     getPersona,
     getEvaluationTemplate,
+    personas,
+    evaluationTemplates,
+    aiReady,
+    aiUnavailableReason,
+    installStarterCatalog,
   } = useTrainingAi()
+  const [installing, setInstalling] = useState(false)
+  const [installError, setInstallError] = useState('')
+
+  const catalogEmpty = !scenarios.length && !personas.length && !evaluationTemplates.length
+
+  async function handleInstall() {
+    setInstalling(true)
+    setInstallError('')
+    const result = await installStarterCatalog()
+    if (!result.ok) setInstallError(result.error)
+    setInstalling(false)
+  }
 
   function handleStart(scenarioId) {
     // Let Simulation.jsx own startSimulation — avoid start+navigate races
@@ -43,11 +61,18 @@ export default function TrainingCatalogPage() {
         </div>
       </header>
 
+      {!aiReady ? (
+        <div className="training-ai__empty">
+          <h3>Treino indisponível</h3>
+          <p>{aiUnavailableReason}</p>
+        </div>
+      ) : null}
+
       <div className="imp-module__metrics">
         <article className="imp-metric">
           <p>Simulações concluídas</p>
           <strong className="accent">{metrics.completed}</strong>
-          <span>Nesta sessão</span>
+          <span>Seus treinos</span>
         </article>
         <article className="imp-metric">
           <p>Score médio</p>
@@ -71,7 +96,7 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Iniciar treinamento</h2>
-              <p>Cenário + agente + playbook → conversa por texto.</p>
+              <p>Cenário + agente + playbook → conversa por texto ou voz.</p>
             </div>
             <Link to="/modules/training-ai/cenarios" className="imp-btn imp-btn--ghost">
               Gerenciar cenários
@@ -80,7 +105,33 @@ export default function TrainingCatalogPage() {
           {scenarios.length === 0 ? (
             <div className="training-ai__empty">
               <h3>Nenhum cenário disponível</h3>
-              <p>Crie um cenário para liberar o primeiro treino.</p>
+              {canManage ? (
+                <>
+                  <p>
+                    {catalogEmpty
+                      ? 'Comece com o catálogo inicial (3 agentes, 3 playbooks e 3 cenários) ou crie o seu.'
+                      : 'Crie um cenário para liberar o primeiro treino.'}
+                  </p>
+                  <div className="imp-actions">
+                    {catalogEmpty ? (
+                      <button
+                        type="button"
+                        className="imp-btn imp-btn--primary"
+                        onClick={handleInstall}
+                        disabled={installing}
+                      >
+                        {installing ? 'Instalando…' : 'Instalar catálogo inicial'}
+                      </button>
+                    ) : null}
+                    <Link to="/modules/training-ai/cenarios/novo" className="imp-btn imp-btn--ghost">
+                      + Novo cenário
+                    </Link>
+                  </div>
+                  {installError ? <p className="training-ai__composer-hint">{installError}</p> : null}
+                </>
+              ) : (
+                <p>Peça ao administrador da sua empresa para cadastrar os cenários de treino.</p>
+              )}
             </div>
           ) : (
             <div className="imp-list">
@@ -113,7 +164,7 @@ export default function TrainingCatalogPage() {
                     <button
                       type="button"
                       className="imp-btn imp-btn--primary"
-                      disabled={!canSimulate}
+                      disabled={!canSimulate || !aiReady}
                       onClick={() => handleStart(scenario.id)}
                     >
                       Simular
@@ -129,7 +180,7 @@ export default function TrainingCatalogPage() {
           <div className="imp-panel__header">
             <div>
               <h2>Últimos insights</h2>
-              <p>Relatórios recentes desta sessão.</p>
+              <p>Relatórios mais recentes.</p>
             </div>
             <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--ghost">
               Ver todos

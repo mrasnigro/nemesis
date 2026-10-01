@@ -22,8 +22,9 @@ export default function TrainingScenarioFormPage() {
     canManage,
   } = useTrainingAi()
 
-  const playbookOptions = (evaluationTemplates || []).filter(
-    (item) => (item.status || 'published') === 'published',
+  const playbookOptions = useMemo(
+    () => (evaluationTemplates || []).filter((item) => (item.status || 'published') === 'published'),
+    [evaluationTemplates],
   )
 
   const existing = isEdit ? getScenario(scenarioId) : null
@@ -54,7 +55,7 @@ export default function TrainingScenarioFormPage() {
       scriptHintsText: '',
       focusText: '',
     }
-  }, [createEmptyScenarioDraft, evaluationTemplates, existing, personas])
+  }, [createEmptyScenarioDraft, existing, personas, playbookOptions])
 
   const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState([])

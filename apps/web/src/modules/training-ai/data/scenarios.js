@@ -1,10 +1,8 @@
 import { DIFFICULTY_LABELS } from './catalogs.js'
 import { INDUSTRY_OPTIONS } from './personas.js'
-import { getEvaluationTemplate } from './evaluationTemplates.js'
 
 /**
- * Training scenarios (mock) — bind persona + evaluation template + briefing.
- * No LLM / voice / TTS.
+ * Training scenarios: bind a persona, a playbook and a briefing.
  */
 
 export const SCENARIO_DIFFICULTIES = ['beginner', 'intermediate', 'advanced']
@@ -20,91 +18,11 @@ export const FUNNEL_STAGE_OPTIONS = [
 
 export { DIFFICULTY_LABELS, INDUSTRY_OPTIONS }
 
-/** @deprecated prefer live templates from TrainingAiContext */
-export function buildTemplateOptions(templates) {
-  return (templates || []).map((item) => ({
-    id: item.id,
-    title: item.title,
-    contactType: item.contactType,
-  }))
-}
-export const seedScenarios = [
-  {
-    id: 'scn_001',
-    title: 'Abertura consultiva B2B',
-    description:
-      'Simule a abertura de uma ligação fria com um diretor comercial cético.',
-    industry: 'Logística',
-    segment: 'Logística',
-    objective: 'Ganhar 12 minutos de discovery na próxima semana com a decisora.',
-    difficulty: 'beginner',
-    durationMin: 8,
-    funnelStage: 'Primeiro Contato Frio',
-    focus: ['Rapport', 'Qualificação inicial', 'Agenda'],
-    personaId: 'per_marina',
-    evaluationTemplateId: 'tpl_cold_call',
-    sellerInstructions:
-      'Você está ligando para um lead que baixou um material no site da IMP. Objetivo: ganhar 12 minutos de discovery na próxima semana.',
-    scriptHints: [
-      'Confirme se é um bom momento',
-      'Cite um insight do segmento logístico',
-      'Peça 12 minutos com agenda clara',
-    ],
-  },
-  {
-    id: 'scn_002',
-    title: 'Tratamento de objeção de preço',
-    description:
-      'O lead compara você com um concorrente mais barato. Reposicione valor sem desconto imediato.',
-    industry: 'Varejo',
-    segment: 'Varejo',
-    objective: 'Reposicionar valor e propor piloto sem cair em desconto precoce.',
-    difficulty: 'intermediate',
-    durationMin: 10,
-    funnelStage: 'Descoberta/Qualificação',
-    focus: ['Objeções', 'Valor', 'Fechamento de próximo passo'],
-    personaId: 'per_rafael',
-    evaluationTemplateId: 'tpl_objection',
-    sellerInstructions:
-      'O prospect já usa um fornecedor mais barato. Não ofereça desconto na primeira reação — quantifique custo oculto e proponha um piloto.',
-    scriptHints: [
-      'Separe preço de custo de oportunidade',
-      'Quantifique impacto operacional',
-      'Proponha prova controlada',
-    ],
-  },
-  {
-    id: 'scn_003',
-    title: 'Diagnóstico de dor e termômetro',
-    description:
-      'Conduza um discovery profundo e classifique o termômetro de interesse ao final.',
-    industry: 'Indústria',
-    segment: 'Indústria',
-    objective: 'Mapear processo, gargalo e stakeholders; fechar com marco/termômetro.',
-    difficulty: 'advanced',
-    durationMin: 12,
-    funnelStage: 'Descoberta/Qualificação',
-    focus: ['Diagnóstico', 'Perguntas abertas', 'Priorização'],
-    personaId: 'per_helena',
-    evaluationTemplateId: 'tpl_discovery',
-    sellerInstructions:
-      'Antes de qualquer pitch, entenda o processo atual e onde o pipeline trava. Feche com um marco leve (playbook / termômetro).',
-    scriptHints: [
-      'Explore processo atual antes da solução',
-      'Valide stakeholders',
-      'Feche com resumo e próximo marco',
-    ],
-  },
-]
-
-/** @deprecated prefer context scenarios; kept for static imports in smoke/tests */
-export const trainingScenarios = seedScenarios
-
-export function getScenario(scenarioId, list = seedScenarios) {
+export function getScenario(scenarioId, list = []) {
   return list.find((item) => item.id === scenarioId) || null
 }
 
-export function scenariosForPersona(personaId, scenarios = seedScenarios) {
+export function scenariosForPersona(personaId, scenarios = []) {
   return scenarios.filter((item) => item.personaId === personaId)
 }
 
@@ -119,7 +37,7 @@ export function createEmptyScenarioDraft(defaults = {}) {
     funnelStage: 'Primeiro Contato Frio',
     focus: [],
     personaId: defaults.personaId || '',
-    evaluationTemplateId: defaults.evaluationTemplateId || 'tpl_cold_call',
+    evaluationTemplateId: defaults.evaluationTemplateId || '',
     sellerInstructions: '',
     scriptHints: [],
   }
@@ -171,7 +89,7 @@ export function normalizeScenarioInput(input = {}, options = {}) {
     errors.push('Dificuldade inválida.')
   }
 
-  const resolveTemplate = options.templateLookup || getEvaluationTemplate
+  const resolveTemplate = options.templateLookup || (() => null)
   if (!resolveTemplate(evaluationTemplateId)) {
     errors.push('Template de avaliação inválido.')
   }

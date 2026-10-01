@@ -1,10 +1,9 @@
 import AgentAvatar from './AgentAvatar.jsx'
 
 /**
- * Persona call stage — "a screen opens with a person, and she starts
- * talking with the salesperson" (voice mode). Speaking/caption state is
- * driven by the avatar engine (mock timing today; HeyGen/D-ID pluggable
- * later behind the same AvatarProvider contract — see services/avatar/).
+ * Persona call stage (voice mode): the persona's name, role and caption while she speaks.
+ * Speaking state is driven by the avatar engine (browser voice today; a video avatar such as HeyGen or D-ID
+ * would plug in behind the same AvatarProvider contract, see services/avatar/).
  */
 export default function PersonaCallStage({
   persona,
@@ -15,6 +14,7 @@ export default function PersonaCallStage({
   onFinish,
   showTranscript = false,
   onToggleTranscript,
+  sttSupported = true,
 }) {
   const speaking = callState === 'speaking'
   const connecting = callState === 'connecting'
@@ -34,7 +34,7 @@ export default function PersonaCallStage({
           <span className="training-ai__call-status-dot" aria-hidden="true" />
           {stateLabel}
         </span>
-        <span className="training-ai__meta">Voz · avatar mock (sem vídeo real ainda)</span>
+        <span className="training-ai__meta">Chamada por voz</span>
       </div>
 
       <div className="training-ai__call-persona">
@@ -61,6 +61,7 @@ export default function PersonaCallStage({
           className={`training-ai__call-mic-btn ${listening ? 'is-listening' : ''}`}
           onClick={() => onListeningChange?.(!listening)}
           aria-pressed={listening}
+          disabled={!sttSupported}
         >
           {listening ? 'Parar de falar' : 'Falar'}
         </button>
@@ -76,7 +77,7 @@ export default function PersonaCallStage({
         </button>
       </div>
       <p className="training-ai__voice-hint">
-        Mic e legendas são guiados por timing simulado — digite abaixo o que falaria na ligação.
+        {sttSupported ? 'Use o microfone para ditar e revise o texto abaixo antes de enviar.' : 'Este navegador não reconhece voz (use o Chrome ou o Edge); digite a sua fala abaixo.'}
       </p>
     </div>
   )

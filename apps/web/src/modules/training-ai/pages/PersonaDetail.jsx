@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AgentAvatar from '../components/AgentAvatar.jsx'
+import DeleteAction from '../components/DeleteAction.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { derivePersonaTraits, personaStatus } from '../utils/agentDisplay.js'
@@ -13,6 +14,7 @@ export default function TrainingPersonaDetailPage() {
     scenarios,
     canManage,
     canSimulate,
+    deletePersona,
   } = useTrainingAi()
 
   const persona = getPersona(personaId)
@@ -86,6 +88,13 @@ export default function TrainingPersonaDetailPage() {
             >
               Editar
             </Link>
+          ) : null}
+          {canManage ? (
+            <DeleteAction
+              confirmText={`Excluir o agente ${persona.name}? Essa ação não pode ser desfeita.`}
+              onDelete={() => deletePersona(persona.id)}
+              onDeleted={() => navigate('/modules/training-ai/personas')}
+            />
           ) : null}
           {canSimulate && practiceScenarios[0] ? (
             <button

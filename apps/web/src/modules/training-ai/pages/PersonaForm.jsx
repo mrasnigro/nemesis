@@ -11,11 +11,11 @@ import {
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { VOICE_OPTIONS } from '../utils/voiceSession.js'
 
-/** Report mockup wizard + video field checklist (awareness, B2B, lists). */
+/** Steps of the agent wizard. */
 const WIZARD_STEPS = [
   { id: 'basics', label: 'Informações básicas', hint: 'Nome, papel e objetivo' },
   { id: 'scenario', label: 'Construção do cenário', hint: 'Instruções e contexto' },
-  { id: 'modes', label: 'Modos de interação', hint: 'Texto ativo · voz stub' },
+  { id: 'modes', label: 'Modos de interação', hint: 'Texto ou voz' },
   { id: 'behavior', label: 'Características comportamentais', hint: 'Objeções e DNA' },
   { id: 'advanced', label: 'Configurações avançadas', hint: 'Consciência e B2B' },
   { id: 'review', label: 'Revisão e publicação', hint: 'Confirme e publique' },
@@ -144,8 +144,7 @@ export default function TrainingPersonaFormPage() {
         <div>
           <h2>{isEdit ? 'Editar Agente' : 'Criar Novo Agente'}</h2>
           <p>
-            Configure o cérebro comportamental — layout alinhado ao mockup IMP; campos extras dos
-            vídeos de referência.
+            Configure o comportamento do agente: quem ele é, como reage e quais objeções levanta.
           </p>
         </div>
         <div className="training-ai__page-header-actions">
@@ -329,7 +328,7 @@ export default function TrainingPersonaFormPage() {
                   onClick={() => patch('interactionMode', 'voice')}
                 >
                   <strong>Voz</strong>
-                  <small>Preferência salva + UI stub na simulação (sem STT/TTS).</small>
+                  <small>O agente fala e você pode ditar as respostas (Chrome ou Edge).</small>
                 </button>
                 <button
                   type="button"
@@ -339,12 +338,12 @@ export default function TrainingPersonaFormPage() {
                   onClick={() => patch('interactionMode', 'both')}
                 >
                   <strong>Ambos</strong>
-                  <small>Preferência salva; prática continua em texto até o áudio.</small>
+                  <small>O treinando escolhe entre texto e voz ao iniciar.</small>
                 </button>
               </div>
               <div className="training-ai__voice-picker">
                 <label className="imp-field">
-                  <span>Voz do agente (stub)</span>
+                  <span>Voz do agente</span>
                   <select
                     value={form.voiceRef || 'voice_neutral_f'}
                     onChange={(e) => patch('voiceRef', e.target.value)}
