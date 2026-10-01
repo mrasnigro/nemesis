@@ -28,7 +28,7 @@ Screens, routes, and the module registry live in the shell for every module. Eac
 
 | Module id | Product name | Track | Data source |
 | --- | --- | --- | --- |
-| `training-ai` | Treinamento IA | Production | `/api/modules/training-ai/…` when `VITE_TRAINING_AI_DATA=api`; seeds when `mock` |
+| `training-ai` | Treinamento IA | Production | `/api/modules/training-ai/…`. AI replies and scoring run on the server |
 | `bdr` | Discagem Automática | Production | `/api/modules/bdr/…`. API and MySQL only |
 | `prospecting` | Prospecção | Customer prototype | Seeds and context |
 | `radar` | Radar de Tendências | Customer prototype | Seeds and context |
@@ -99,7 +99,7 @@ Internal source stays in `src/`. Module folders stay `modules/`, matching the re
 | SQL migration | `NNN_<module>_<topic>.sql` | `005_bdr_dialer.sql` |
 | SQL table | snake_case, module prefix | `training_scenarios`, `bdr_dial_attempts` |
 | JSON field | camelCase | `funnelStage`, `customerId` |
-| Env var, web | `VITE_<NAME>` | `VITE_TRAINING_AI_DATA` |
+| Env var, web | `VITE_<NAME>` | `VITE_PLATFORM_API_URL` |
 | Env var, API | `SCREAMING_SNAKE` | `DB_HOST`, `JWT_SECRET` |
 
 ## Module rules
@@ -112,7 +112,7 @@ Internal source stays in `src/`. Module folders stay `modules/`, matching the re
 ## Next steps
 
 1. Customer-admin view of `/admin` in the shell (the API already scopes those routes).
-2. Switch the `VITE_TRAINING_AI_DATA` default to `api` once the demo no longer needs offline seeds, then remove the seeds per the removal register. BDR is already API-only.
+2. Training IA: run a live session against a real model (`TRAINING_AI_PROVIDER=openai`) and tune the persona and judge prompts with the customer. `training-ai` and `bdr` are already API-only.
 3. Promote Prospecção, Radar, and VSL one at a time after the customer accepts each prototype.
 4. Webinar: move its route files toward the same layering and add integration tests before larger feature work.
 

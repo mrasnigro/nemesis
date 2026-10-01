@@ -28,13 +28,20 @@ The shell keeps one screen tree. Removals take away a second copy, an in-memory 
 | Simulated recording playback on meetings | BDR completion: a meeting plays the recording of its linked call |
 | Client-side history ids and timestamps | BDR completion: the API owns ids and `startedAt`; meetings are linked through `bdr_meetings.call_id` |
 | `bdr_campaigns.campaign_json` and JSON counters | Migration `006_bdr_calls_link.sql`: counters come only from `bdr_leads` |
+| Training browser data mode (`VITE_TRAINING_AI_DATA`, `trainingDataMode`) | Training completion: the module always uses the platform API |
+| Training seeds | Training completion: `data/seeds.js` and the seed arrays in `data/personas.js`, `scenarios.js`, `evaluationTemplates.js` deleted. The starter catalog is `apps/api/src/modules/training-ai/starter.ts`, installed on demand |
+| Training mock AI and scoring in the browser | Training completion: `services/ai/`, `services/scoring.js` and `services/conversation.js` deleted. Replies and scores come from the server |
+| Multiple-choice (MCQ) session path | Training completion: sessions are free conversation only |
+| Training browser-side sessions and reports | Training completion: sessions, transcripts and reports are stored in `training_sessions` and `training_session_messages` (migration `008_training_sessions_flow.sql`, which also moves old embedded transcripts into the new table) |
+| Fake waveform, "stub" labels and simulated mic in the voice UI | Training completion: replaced by real speech synthesis and dictation; the report shows a timeline of real message times |
 
 ## Keep on purpose
 
 | Piece | Why it stays |
 | --- | --- |
 | `src/modules/<id>/` screens and routes | The prototype UI is the production UI |
-| `training-ai` provider interfaces in `services/ai/` and `services/avatar/` | A real model or avatar plugs in behind the same interface |
+| Silent `mock` avatar provider in `services/avatar/` | Fallback for browsers without speech synthesis, and for tests. A video avatar plugs in behind the same interface |
+| `builtin` AI provider in `apps/api/src/modules/training-ai/ai/` | Local development and tests without a model key. Refused in production |
 | Simulated telephony provider | Local development and tests. Rejected in production |
 | `services/webinar/` | Separate product and database |
 | `ModuleAccessRoute` and `src/modules/registry.js` | Entitlements stay visible in the shell |
@@ -43,8 +50,6 @@ The shell keeps one screen tree. Removals take away a second copy, an in-memory 
 
 | Item | Where | Remove when |
 | --- | --- | --- |
-| Training seeds | `src/modules/training-ai/data/` | `VITE_TRAINING_AI_DATA=api` is the default and the demo no longer needs the offline catalog |
-| Training context writes that only update React state | `TrainingAiContext.jsx` | The context loads and saves only through `services/api` |
 | In-browser prospect, radar, and VSL directories | each module's `data/seeds.js` and context filters | That module has been promoted and list filters run in SQL |
 
 Keep a small fixture for tests if a test needs sample rows. That fixture is not imported by the app.

@@ -233,6 +233,22 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Training]
+      summary: Delete a training scenario
+      description: Customer administrator only. 409 IN_USE while something still depends on it.
+      operationId: deleteTrainingScenario
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /api/modules/training-ai/personas:
     get:
@@ -347,6 +363,22 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Training]
+      summary: Delete a training persona
+      description: Customer administrator only. 409 IN_USE while something still depends on it.
+      operationId: deleteTrainingPersona
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /api/modules/training-ai/templates:
     get:
@@ -456,11 +488,103 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Training]
+      summary: Delete a training template
+      description: Customer administrator only. 409 IN_USE while something still depends on it.
+      operationId: deleteTrainingTemplate
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/modules/training-ai/status:
+    get:
+      tags: [Training]
+      summary: Whether practice sessions can run
+      description: Reports the AI provider the server uses and whether it is ready. When it is not ready, starting a session returns 503 AI_NOT_CONFIGURED.
+      operationId: getTrainingStatus
+      responses:
+        '200':
+          description: Provider status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TrainingStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/modules/training-ai/metrics:
+    get:
+      tags: [Training]
+      summary: The signed-in user's own training numbers
+      operationId: getTrainingMetrics
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TrainingMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/modules/training-ai/starter-catalog:
+    post:
+      tags: [Training]
+      summary: Install the starter catalog
+      description: Customer administrator only. Creates 3 playbooks, 3 personas and 3 scenarios. Allowed only while the customer has no catalog items (409 CATALOG_NOT_EMPTY otherwise).
+      operationId: installTrainingStarterCatalog
+      responses:
+        '201':
+          description: Installed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [templates, personas, scenarios]
+                    properties:
+                      templates:
+                        type: integer
+                      personas:
+                        type: integer
+                      scenarios:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /api/modules/training-ai/sessions:
     get:
       tags: [Training]
-      summary: List training sessions for history
+      summary: List finished practice sessions
+      description: A trainee sees their own sessions; the customer administrator sees everyone's. Newest first.
       operationId: listTrainingSessions
       parameters:
         - $ref: '#/components/parameters/Page'
@@ -471,6 +595,12 @@ paths:
           in: query
           schema:
             type: string
+        - name: status
+          in: query
+          description: Defaults to completed.
+          schema:
+            type: string
+            enum: [in_progress, completed]
       responses:
         '200':
           description: One page of sessions
@@ -491,7 +621,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       tags: [Training]
-      summary: Start a simulation session
+      summary: Start a practice session
+      description: |
+        Creates the session and returns it with the persona's opening message. The AI provider must be ready
+        (503 AI_NOT_CONFIGURED otherwise). The persona must be active and the scenario's playbook published.
       operationId: createTrainingSession
       requestBody:
         required: true
@@ -503,6 +636,13 @@ paths:
               properties:
                 scenarioId:
                   type: string
+                personaId:
+                  type: string
+                  description: Overrides the scenario's linked persona.
+                mediaMode:
+                  type: string
+                  enum: [text, voice]
+                  default: text
       responses:
         '201':
           description: Session started
@@ -513,7 +653,7 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    $ref: '#/components/schemas/TrainingSession'
+                    $ref: '#/components/schemas/TrainingSessionDetail'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -522,17 +662,26 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          description: AI_NOT_CONFIGURED. The server has no AI provider ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   /api/modules/training-ai/sessions/{sessionId}:
     parameters:
       - $ref: '#/components/parameters/SessionId'
     get:
       tags: [Training]
-      summary: Get a session report
+      summary: Get a session with its transcript and report
+      description: A trainee reads their own sessions; the customer administrator reads any session of the customer.
       operationId: getTrainingSession
       responses:
         '200':
-          description: Session with evaluation
+          description: Session
           content:
             application/json:
               schema:
@@ -540,7 +689,7 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    $ref: '#/components/schemas/TrainingSession'
+                    $ref: '#/components/schemas/TrainingSessionDetail'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -548,6 +697,111 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/modules/training-ai/sessions/{sessionId}/messages:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Training]
+      summary: Send a message and get the persona's reply
+      description: |
+        Only the trainee who owns the session. The reply is produced on the server; the trainee's message and the
+        reply are stored together, so a provider failure stores nothing. 409 codes: SESSION_CLOSED,
+        SESSION_TURN_LIMIT, TURN_IN_PROGRESS (another message is still being answered).
+        502 AI_PROVIDER_ERROR and 504 AI_PROVIDER_TIMEOUT report provider failures.
+      operationId: sendTrainingMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+      responses:
+        '201':
+          description: Stored turn
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [userMessage, aiMessage, traineeMessages, turnsLeft]
+                    properties:
+                      userMessage:
+                        $ref: '#/components/schemas/TrainingMessage'
+                      aiMessage:
+                        $ref: '#/components/schemas/TrainingMessage'
+                      traineeMessages:
+                        type: integer
+                      turnsLeft:
+                        type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          description: AI_PROVIDER_ERROR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: AI_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '504':
+          description: AI_PROVIDER_TIMEOUT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /api/modules/training-ai/sessions/{sessionId}/finish:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Training]
+      summary: Finish the session and score it
+      description: |
+        Only the trainee who owns the session. The server judges the transcript against the scenario's playbook:
+        with the AI provider when it is ready, otherwise (or when the provider fails) with the playbook's own
+        keyword rules. `report.judgeSource` says which. Finishing twice returns the stored result.
+        409 SESSION_EMPTY when the trainee sent no message.
+      operationId: finishTrainingSession
+      responses:
+        '200':
+          description: Finished session with its report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TrainingSessionDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /api/modules/bdr/campaigns:
     get:
       tags: [Dialer]
@@ -2089,25 +2343,150 @@ components:
       properties:
         title:
           type: string
+        description:
+          type: string
         contactType:
           type: string
+        status:
+          type: string
+          enum: [draft, published]
+          description: Only published playbooks can score a session.
+        sections:
+          type: array
+          description: Stages of the playbook. Criterion weights across all sections must add up to 100.
+          items:
+            type: object
+            required: [name, criteria]
+            properties:
+              name:
+                type: string
+              criteria:
+                type: array
+                items:
+                  type: object
+                  required: [name, weight, passRule]
+                  properties:
+                    name:
+                      type: string
+                    weight:
+                      type: number
+                    yesNoQuestion:
+                      type: string
+                    passRule:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [keywords, avoid_keywords]
+                        keywords:
+                          type: array
+                          items:
+                            type: string
+
+    TrainingStatus:
+      type: object
+      required: [ai, maxTurns]
+      properties:
+        ai:
+          type: object
+          required: [provider, label, ready]
+          properties:
+            provider:
+              type: string
+              enum: [builtin, openai]
+            label:
+              type: string
+            ready:
+              type: boolean
+            reason:
+              type: string
+              nullable: true
+              description: Why the provider is not ready.
+        maxTurns:
+          type: integer
+          description: Trainee messages allowed per session.
+
+    TrainingMetrics:
+      type: object
+      required: [completed, avgScore, pending, streakDays]
+      properties:
+        completed:
+          type: integer
+        avgScore:
+          type: integer
+        pending:
+          type: integer
+          description: Scenarios the user has not completed yet.
+        streakDays:
+          type: integer
+          description: Consecutive days with a finished session, ending today or yesterday.
+
+    TrainingMessage:
+      type: object
+      required: [id, role, speaker, text, timestamp]
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [ai, user]
+        speaker:
+          type: string
+        text:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
 
     TrainingSession:
       type: object
-      required: [id, scenarioId, status, createdAt]
+      description: Session summary, as listed in history.
+      required: [id, scenarioId, status, mediaMode, createdAt]
       properties:
         id:
           type: string
         scenarioId:
           type: string
+        personaId:
+          type: string
+          nullable: true
         userId:
           type: string
         status:
           type: string
           enum: [in_progress, completed]
-        score:
-          type: number
+        mediaMode:
+          type: string
+          enum: [text, voice]
+        aiProvider:
+          type: string
           nullable: true
+        judgeSource:
+          type: string
+          nullable: true
+          enum: [openai, openai+rules, rules]
+        score:
+          type: integer
+          nullable: true
+        scenarioTitle:
+          type: string
+          nullable: true
+        personaName:
+          type: string
+          nullable: true
+        templateTitle:
+          type: string
+          nullable: true
+        band:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+            tone:
+              type: string
         createdAt:
           type: string
           format: date-time
@@ -2116,6 +2495,103 @@ components:
           format: date-time
           nullable: true
 
+    TrainingSessionDetail:
+      description: Session summary fields plus the transcript and, once finished, the report.
+      allOf:
+        - $ref: '#/components/schemas/TrainingSession'
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/TrainingMessage'
+            report:
+              $ref: '#/components/schemas/TrainingReport'
+
+    TrainingReport:
+      type: object
+      nullable: true
+      description: Score and analysis of a finished session. The transcript is repeated in `messages`.
+      properties:
+        sessionId:
+          type: string
+        scenarioId:
+          type: string
+        scenarioTitle:
+          type: string
+        personaId:
+          type: string
+        personaName:
+          type: string
+        templateId:
+          type: string
+        templateTitle:
+          type: string
+        mediaMode:
+          type: string
+          enum: [text, voice]
+        judgeSource:
+          type: string
+          enum: [openai, openai+rules, rules]
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        band:
+          type: object
+          description: 90+ Excelente, 75+ Bom, 60+ Em desenvolvimento, else Precisa reforco.
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+            tone:
+              type: string
+        sections:
+          type: array
+          items:
+            type: object
+        criteria:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              weight:
+                type: number
+              passed:
+                type: boolean
+              rationale:
+                type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        improvements:
+          type: array
+          items:
+            type: string
+        coachNotes:
+          type: string
+        coachFeedback:
+          type: array
+          items:
+            type: object
+        nextSteps:
+          type: array
+          items:
+            type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrainingMessage'
+        completedAt:
+          type: string
+          format: date-time
     BdrCampaign:
       type: object
       required: [id, name, status, createdAt]

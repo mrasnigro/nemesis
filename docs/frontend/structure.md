@@ -70,7 +70,7 @@ Route paths match the module id: `/modules/<id>`. Admin is `/admin/*`.
 
 Login posts to `/platform-api/api/auth/login`; the API sets an httpOnly cookie, and the shell restores the session with `GET /api/auth/me`. The browser never stores a token. Any 401 from a non-auth route signs the user out of the shell.
 
-`bdr` always uses the platform API. `training-ai` chooses its data source with `VITE_TRAINING_AI_DATA` (`mock` = seeds, `api` = platform API). Their API clients sit in `src/modules/<id>/services/` and use `platformRequest`. Prototype modules import seeds from their context; pages do not import seeds and do not call HTTP.
+`bdr` and `training-ai` always use the platform API. Their API clients sit in `src/modules/<id>/services/` and use `platformRequest`. Prototype modules import seeds from their context; pages do not import seeds and do not call HTTP.
 
 ## Webinar inside the shell
 
