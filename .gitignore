@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 /dist
+/docs
 /.builds
 # Local reference media and scraped captures. Markdown and the API spec under docs/ are part of the project.
 /docs/screenshots/bdr/live-fetch/
