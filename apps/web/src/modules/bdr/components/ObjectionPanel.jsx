@@ -168,7 +168,7 @@ export default function ObjectionPanel() {
                     <details
                       key={entry.id}
                       className="bdr-objections__entry"
-                      defaultOpen={catIndex === 0 && entryIndex === 0}
+                      open={catIndex === 0 && entryIndex === 0 ? true : undefined}
                     >
                       <summary className="bdr-objections__entry-summary">
                         <div className="bdr-objections__entry-copy">

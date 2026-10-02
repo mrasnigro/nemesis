@@ -44,6 +44,7 @@ export default function BdrDiscagemPage() {
     scriptCompleted,
     dialError,
     clearDialError,
+    resumeDialing,
     recentAttempts,
   } = useBdrSession()
 
@@ -76,8 +77,7 @@ export default function BdrDiscagemPage() {
   }
 
   function retryDial() {
-    clearDialError()
-    startAutomatic()
+    resumeDialing()
   }
 
   function handleVoltar() {
@@ -104,14 +104,14 @@ export default function BdrDiscagemPage() {
         </button>
       </header>
 
-      {!dialAllowed && call.status === 'idle' && mode !== 'manual' ? (
+      {!dialAllowed && !dialError && call.status === 'idle' && mode !== 'manual' ? (
         <article className="bdr-section__card">
           <p>
-            Defina o status <strong>Em atendimento</strong> no painel para iniciar a discagem.
+            Você não está <strong>Em atendimento</strong>. A discagem automática só roda nesse status.
           </p>
-          <Link to="/modules/bdr" className="bdr-section__cta">
-            Ir ao painel
-          </Link>
+          <button type="button" className="bdr-section__cta" onClick={resumeDialing}>
+            Entrar em atendimento e discar
+          </button>
         </article>
       ) : null}
 
@@ -126,11 +126,11 @@ export default function BdrDiscagemPage() {
             <button type="button" className="bdr-section__cta" onClick={clearDialError}>
               Nova ligação manual
             </button>
-          ) : dialAllowed ? (
+          ) : (
             <button type="button" className="bdr-section__cta" onClick={retryDial}>
               Tentar novamente
             </button>
-          ) : null}
+          )}
         </article>
       ) : null}
 

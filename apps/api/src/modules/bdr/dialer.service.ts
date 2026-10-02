@@ -223,6 +223,7 @@ export async function getDialerConfig(user: AuthUser) {
   }
 }
 
+/** Dials the next due lead, or returns null when none is due right now (see the campaign lead summary). */
 export async function startAutomaticAttempt(user: AuthUser, campaignId: string) {
   const customerId = user.customerId!
   const campaign = await getCampaign(customerId, campaignId)
@@ -234,7 +235,7 @@ export async function startAutomaticAttempt(user: AuthUser, campaignId: string) 
   await releaseStaleAttempts(customerId)
 
   const lead = await reserveNextLead(customerId, campaignId, user.id)
-  if (!lead) throw new AppError(404, 'QUEUE_EMPTY', 'Nenhum lead disponível nesta campanha agora')
+  if (!lead) return null
   const attempt = await originate(user, provider, {
     phone: lead.phoneDigits,
     extension,

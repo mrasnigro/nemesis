@@ -113,7 +113,8 @@ export async function leadSummary(customerId: string, campaignId: string) {
        SUM(status = 'queued' AND next_attempt_at > :now) AS scheduled,
        SUM(status IN ('dialing', 'in_call')) AS active,
        SUM(status = 'done') AS done,
-       SUM(status = 'failed') AS exhausted
+       SUM(status = 'failed') AS exhausted,
+       MIN(CASE WHEN status = 'queued' AND next_attempt_at > :now THEN next_attempt_at END) AS next_attempt_at
      FROM bdr_leads
      WHERE customer_id = :customerId AND campaign_id = :campaignId AND deleted_at IS NULL`,
     { customerId, campaignId, now: new Date() },
@@ -126,6 +127,7 @@ export async function leadSummary(customerId: string, campaignId: string) {
     active: Number(row.active ?? 0),
     done: Number(row.done ?? 0),
     exhausted: Number(row.exhausted ?? 0),
+    nextAttemptAt: row.next_attempt_at == null ? null : new Date(String(row.next_attempt_at)).toISOString(),
   }
 }
 

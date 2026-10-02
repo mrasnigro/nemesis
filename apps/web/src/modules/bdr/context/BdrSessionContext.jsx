@@ -63,6 +63,9 @@ function loadSelectedCampaignId() {
 
 const RECENT_ATTEMPTS_LIMIT = 20
 const MAX_POLL_FAILURES = 5
+const START_RETRY_DELAYS_MS = [1000, 2000, 4000]
+/** Waiting on an empty queue still re-checks this often, so freshly imported leads are picked up. */
+const QUEUE_RECHECK_MS = 30_000
 
 function recentAttemptEntry(attempt) {
   return {
@@ -166,7 +169,23 @@ function reducer(state, action) {
     case 'ATTEMPT_STARTED':
     case 'ATTEMPT_UPDATED':
       if (state.call.status !== 'searching' || state.call.sessionId !== action.sessionId) return state
-      return { ...state, call: { ...state.call, attempt: action.attempt } }
+      return { ...state, call: { ...state.call, attempt: action.attempt, queueWait: null } }
+
+    /** No lead is due yet but some are waiting for their retry time: keep the session and check again later. */
+    case 'QUEUE_WAITING': {
+      if (state.call.status !== 'searching' || state.call.sessionId !== action.sessionId) return state
+      if (!isDialAllowed(state.operatorStatus)) return state
+      const dueIn = action.queue.nextAttemptAt ? Date.parse(action.queue.nextAttemptAt) - Date.now() : Infinity
+      return {
+        ...state,
+        call: createSearchingCall({
+          mode: 'automatic',
+          contactMethod: 'phone',
+          nextDialAt: Date.now() + Math.min(QUEUE_RECHECK_MS, Math.max(NEXT_DIAL_DELAY_MS, dueIn)),
+          queueWait: { nextAttemptAt: action.queue.nextAttemptAt, scheduled: action.queue.scheduled },
+        }),
+      }
+    }
 
     /** Unanswered (or reclassified) attempt: never reaches the operator; automatic mode dials the next lead. */
     case 'ATTEMPT_ENDED': {
@@ -552,10 +571,43 @@ export function BdrSessionProvider({ children }) {
             code: 'NO_CAMPAIGN',
           })
         }
-        const attempt =
+        const request = async () =>
           call.mode === 'manual'
-            ? await bdrRepository.startManualAttempt(call.manualPhone, stateRef.current.selectedCampaignId)
-            : await bdrRepository.startAttempt(stateRef.current.selectedCampaignId)
+            ? {
+                attempt: await bdrRepository.startManualAttempt(
+                  call.manualPhone,
+                  stateRef.current.selectedCampaignId,
+                ),
+                queue: null,
+              }
+            : bdrRepository.startAttempt(stateRef.current.selectedCampaignId)
+        let attempt
+        let queue
+        for (let retry = 0; ; retry += 1) {
+          try {
+            ;({ attempt, queue } = await request())
+            break
+          } catch (error) {
+            // A dropped connection or a server hiccup should not stop the operator: retry a few times first.
+            const transient = error?.status === 0 || error?.status >= 500
+            const stillDialing =
+              stateRef.current.call.status === 'searching' && stateRef.current.call.sessionId === sessionId
+            if (!transient || !stillDialing || retry >= START_RETRY_DELAYS_MS.length) throw error
+            await new Promise((resolve) => window.setTimeout(resolve, START_RETRY_DELAYS_MS[retry]))
+          }
+        }
+        if (!attempt) {
+          if (queue?.scheduled > 0 || queue?.active > 0) {
+            dispatch({ type: 'QUEUE_WAITING', sessionId, queue })
+            return
+          }
+          throw new BdrApiError(
+            queue?.total > 0
+              ? 'Todos os leads desta campanha já foram trabalhados. Importe novos leads ou escolha outra campanha.'
+              : 'Esta campanha ainda não tem leads. Importe uma lista para começar.',
+            { code: 'QUEUE_EMPTY' },
+          )
+        }
         const current = stateRef.current.call
         if (current.status !== 'searching' || current.sessionId !== sessionId) {
           void bdrRepository.hangupAttempt(attempt.id).catch(() => null)
@@ -834,6 +886,15 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'CLEAR_DIAL_ERROR' })
   }, [])
 
+  /** From the dial screen: back to Em atendimento (if needed) and dial again, without a trip to the panel. */
+  const resumeDialing = useCallback(() => {
+    dispatch({ type: 'CLEAR_DIAL_ERROR' })
+    if (stateRef.current.operatorStatus !== 'atendimento') {
+      dispatch({ type: 'SET_OPERATOR_STATUS', status: 'atendimento' })
+    }
+    dispatch({ type: 'START_AUTOMATIC' })
+  }, [])
+
   const setExtension = useCallback(async (extension) => {
     const config = await bdrRepository.setExtension(extension)
     dispatch({ type: 'SET_DIALER_CONFIG', config })
@@ -887,6 +948,7 @@ export function BdrSessionProvider({ children }) {
       markNotHuman,
       disconnectSession,
       clearDialError,
+      resumeDialing,
       setExtension,
       reloadDialerConfig,
       reloadCampaigns,
@@ -899,6 +961,7 @@ export function BdrSessionProvider({ children }) {
     hangupLine,
     markNotHuman,
     clearDialError,
+    resumeDialing,
     setExtension,
     reloadDialerConfig,
     reloadCampaigns,

@@ -188,11 +188,24 @@ describe('dialer', () => {
     expect(response.body.error.code).toBe('NO_EXTENSION')
   })
 
-  it('reports an empty queue', async () => {
+  it('reports an empty queue with the next retry time', async () => {
     const campaign = await createCampaign(operator)
-    const response = await operator.post('/api/modules/bdr/dialer/attempts').send({ campaignId: campaign.id })
-    expect(response.status).toBe(404)
-    expect(response.body.error.code).toBe('QUEUE_EMPTY')
+    const empty = await operator.post('/api/modules/bdr/dialer/attempts').send({ campaignId: campaign.id })
+    expect(empty.status).toBe(200)
+    expect(empty.body.data).toBeNull()
+    expect(empty.body.queue).toMatchObject({ total: 0, ready: 0, scheduled: 0, nextAttemptAt: null })
+
+    await importLeads(operator, campaign.id, [PHONES[0]])
+    const retryAt = new Date(Date.now() + 30 * 60_000)
+    await pool.query('UPDATE bdr_leads SET next_attempt_at = :retryAt WHERE campaign_id = :campaignId', {
+      retryAt,
+      campaignId: campaign.id,
+    })
+    const waiting = await operator.post('/api/modules/bdr/dialer/attempts').send({ campaignId: campaign.id })
+    expect(waiting.status).toBe(200)
+    expect(waiting.body.data).toBeNull()
+    expect(waiting.body.queue).toMatchObject({ ready: 0, scheduled: 1 })
+    expect(Date.parse(waiting.body.queue.nextAttemptAt)).toBeGreaterThan(Date.now())
   })
 
   it('reserves a lead per attempt and returns it to the queue when the operator hangs up', async () => {

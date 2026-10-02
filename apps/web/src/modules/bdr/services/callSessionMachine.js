@@ -16,18 +16,21 @@ export function createIdleCall() {
     manualPhone: '',
     attempt: null,
     nextDialAt: 0,
+    queueWait: null,
   }
 }
 
 /**
  * "searching" = the dialer is working on this operator's behalf: reserving a lead and ringing it.
  * `attempt` is the provider attempt currently ringing; null while the next one is being requested.
+ * `queueWait` (`{ nextAttemptAt, scheduled }`) is set while no lead is due and the dialer re-checks the queue.
  */
 export function createSearchingCall({
   mode,
   contactMethod = 'phone',
   manualPhone = '',
   nextDialAt = 0,
+  queueWait = null,
 }) {
   return {
     status: 'searching',
@@ -39,6 +42,7 @@ export function createSearchingCall({
     manualPhone,
     attempt: null,
     nextDialAt,
+    queueWait,
   }
 }
 

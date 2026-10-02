@@ -1340,12 +1340,35 @@ paths:
                 properties:
                   data:
                     $ref: '#/components/schemas/BdrDialAttempt'
+        '200':
+          description: >
+            No lead is due now. `queue` is the campaign lead summary; `queue.nextAttemptAt` is when the
+            earliest scheduled lead becomes due (null when nothing is scheduled).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, queue]
+                properties:
+                  data:
+                    nullable: true
+                    enum: [null]
+                  queue:
+                    type: object
+                    properties:
+                      total: { type: integer }
+                      ready: { type: integer }
+                      scheduled: { type: integer }
+                      active: { type: integer }
+                      done: { type: integer }
+                      exhausted: { type: integer }
+                      nextAttemptAt: { type: string, format: date-time, nullable: true }
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
-          description: NOT_FOUND (campaign) or QUEUE_EMPTY (no lead is due now)
+          description: NOT_FOUND (campaign)
           content:
             application/json:
               schema:

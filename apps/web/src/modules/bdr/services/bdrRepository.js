@@ -89,9 +89,10 @@ export const bdrRepository = {
     return payload.data
   },
 
+  /** `{ attempt }` when a lead is ringing, or `{ attempt: null, queue }` (lead summary) when none is due now. */
   async startAttempt(campaignId) {
     const payload = await post('/api/modules/bdr/dialer/attempts', { campaignId })
-    return payload.data
+    return { attempt: payload.data ?? null, queue: payload.queue ?? null }
   },
 
   async startManualAttempt(phone, campaignId) {

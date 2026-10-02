@@ -239,7 +239,13 @@ export async function setExtensionController(req: Request, res: Response) {
 export async function startAttemptController(req: Request, res: Response) {
   customerId(req)
   const { campaignId } = attemptStart.parse(req.body)
-  res.status(201).json({ data: await startAutomaticAttempt(req.user!, campaignId) })
+  const attempt = await startAutomaticAttempt(req.user!, campaignId)
+  if (attempt) {
+    res.status(201).json({ data: attempt })
+    return
+  }
+  // An empty queue is a normal state of a campaign (leads waiting for their retry time), not an error.
+  res.status(200).json({ data: null, queue: await leadSummary(req.user!.customerId!, campaignId) })
 }
 
 export async function startManualAttemptController(req: Request, res: Response) {

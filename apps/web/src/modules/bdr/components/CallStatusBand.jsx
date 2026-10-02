@@ -3,6 +3,13 @@ import { formatDurationHHMMSS } from '../services/formatters.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 import { IconPhone, TabIcon } from './DialerIcons.jsx'
 
+function queueWaitDetail({ nextAttemptAt, scheduled }) {
+  const leads = scheduled === 1 ? '1 lead aguarda' : `${scheduled} leads aguardam`
+  if (!nextAttemptAt) return `${leads} novo horário de tentativa`
+  const time = new Date(nextAttemptAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${leads} nova tentativa · próxima às ${time} — a discagem continua sozinha`
+}
+
 /** Foundation call status band — searching / connected chrome */
 export default function CallStatusBand() {
   const { call } = useBdrSession()
@@ -15,16 +22,21 @@ export default function CallStatusBand() {
   const ringing = searching && call.attempt?.status === 'ringing'
   const ringingLead = call.attempt?.lead
   const ringingPhone = ringingLead?.phone || call.manualPhone || call.attempt?.phone || ''
+  const waiting = searching && !call.attempt && call.queueWait
   const label = connected
     ? 'Falando'
     : ringing
       ? `Chamando${ringingLead?.attempts > 1 ? ` · tentativa ${ringingLead.attempts}` : ''}`
-      : 'Buscando próximo lead'
+      : waiting
+        ? 'Aguardando leads'
+        : 'Buscando próximo lead'
   const detail = connected
     ? phone || '...'
     : ringing
       ? [ringingPhone, ringingLead?.company].filter(Boolean).join(' · ')
-      : '...'
+      : waiting
+        ? queueWaitDetail(call.queueWait)
+        : '...'
 
   return (
     <div
