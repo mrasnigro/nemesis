@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { RowDataPacket } from 'mysql2'
-import { config } from '../../core/config.js'
 import { pool } from '../../core/db.js'
+import { queueCallSummary } from './callSummary.js'
+import { recordingAbsolutePath } from './recordingStorage.js'
 import { resolveProvider } from './telephony/settings.js'
 
 type Row = RowDataPacket & Record<string, unknown>
@@ -11,14 +12,6 @@ type Row = RowDataPacket & Record<string, unknown>
 const FIRST_TRY_DELAY_MS = 20_000
 const SWEEP_INTERVAL_MS = 60_000
 const MAX_TRIES = 10
-
-const recordingsRoot = path.resolve(config.RECORDINGS_DIR)
-
-export function recordingAbsolutePath(relative: string) {
-  const absolute = path.resolve(recordingsRoot, relative)
-  if (!absolute.startsWith(recordingsRoot + path.sep)) throw new Error('Recording path escapes storage root')
-  return absolute
-}
 
 async function fetchOnce(attemptId: string) {
   const [rows] = await pool.query<Row[]>(
@@ -53,6 +46,8 @@ async function fetchOnce(attemptId: string) {
          WHERE id = :attemptId`,
         { attemptId, relative: relative.split(path.sep).join('/'), tries, now },
       )
+      // With the audio in hand the summary can be redone from the transcript.
+      if (row.call_id != null) await queueCallSummary(String(row.call_id))
       return
     }
   } catch (error) {

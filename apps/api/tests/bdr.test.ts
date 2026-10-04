@@ -1,6 +1,8 @@
 import type { RowDataPacket } from 'mysql2'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { pool } from '../src/core/db.js'
+import { overrideCallAi, type CallAi } from '../src/modules/bdr/callAi.js'
+import { processCallSummary, queueCallSummary } from '../src/modules/bdr/callSummary.js'
 import { createPlatformAdmin, signIn, unique } from './helpers.js'
 
 type Agent = Awaited<ReturnType<typeof signIn>>
@@ -424,6 +426,139 @@ describe('saved calls', () => {
       expect((await outsider.get(`/api/modules/bdr/calls/${callId}/recording`)).status).toBe(404)
     } finally {
       await rm(path.dirname(absolute), { recursive: true, force: true })
+    }
+  })
+})
+
+describe('call summary', () => {
+  async function summaryOf(callId: string) {
+    const detail = await operator.get(`/api/modules/bdr/calls/${callId}`)
+    expect(detail.status).toBe(200)
+    return detail.body.data as {
+      summary: { text: string; source: string; status: string }
+      transcript: string | null
+      hasTranscript: boolean
+    }
+  }
+
+  async function waitFor(callId: string, done: (call: Awaited<ReturnType<typeof summaryOf>>) => boolean) {
+    for (let i = 0; i < 40; i += 1) {
+      const call = await summaryOf(callId)
+      if (done(call)) return call
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    throw new Error('summary did not reach the expected state')
+  }
+
+  it('builds a summary from the saved attendance when no AI provider is configured', async () => {
+    const meeting = await operator
+      .post('/api/modules/bdr/meetings')
+      .send({ leadName: 'Contato 0', company: 'Empresa 0', date: '2030-08-06', time: '09:30' })
+    const saved = await operator.post('/api/modules/bdr/calls').send(
+      callBody(null, {
+        mode: 'manual',
+        qualification: 'Agendamento / Retorno',
+        clientStatus: 'Agendado',
+        notes: 'Pediu proposta por e-mail',
+        diagnosis: {
+          painPoints: 'Equipe comercial sem rotina',
+          needs: 'Previsibilidade de agenda',
+          conversationSummary: 'Interessado, quer falar com o sócio',
+          salesTemperature: 70,
+          pains: { vendas: true, gestao: true, lucro: false },
+        },
+        meetingIds: [meeting.body.data.id],
+      }),
+    )
+    expect(saved.status).toBe(201)
+    const { summary } = saved.body.data
+    expect(summary).toMatchObject({ source: 'record', status: 'none' })
+    expect(summary.text).toContain('Ligação manual com Contato 0 — Empresa 0')
+    expect(summary.text).toContain('Resultado: Agendamento / Retorno · status do cliente Agendado.')
+    expect(summary.text).toContain('Termômetro de venda: 70% (Quente).')
+    expect(summary.text).toContain('Dores marcadas: Vendas, Gestão.')
+    expect(summary.text).toContain('Necessidades: Previsibilidade de agenda')
+    expect(summary.text).toContain('Resumo do operador: Interessado, quer falar com o sócio')
+    expect(summary.text).toContain('Reunião agendada para 06/08/2030 às 09:30.')
+    expect(summary.text).toContain('Gravação: não disponível.')
+
+    const listed = await operator.get('/api/modules/bdr/calls').query({ pageSize: 100 })
+    const row = listed.body.data.find((call: { id: string }) => call.id === saved.body.data.id)
+    expect(row.summary.text).toBe(summary.text)
+    expect(row).not.toHaveProperty('transcript')
+  })
+
+  it('writes an AI summary from the form, then redoes it from the transcript when the recording arrives', async () => {
+    const inputs: { facts: string; transcript: string | null }[] = []
+    const fake: CallAi = {
+      canTranscribe: true,
+      transcribe: async () => 'Cliente: Alô? Vendedor: Bom dia, aqui é da IMP.',
+      summarize: async (input) => {
+        inputs.push(input)
+        return input.transcript ? 'Resumo com a conversa.' : 'Resumo do formulário.'
+      },
+    }
+    overrideCallAi(fake)
+    const { mkdir, writeFile, rm } = await import('node:fs/promises')
+    const path = await import('node:path')
+    const { config } = await import('../src/core/config.js')
+    let folder: string | null = null
+    try {
+      const campaign = await createCampaign(operator)
+      await importLeads(operator, campaign.id, [PHONES[0]])
+      const attempt = await answeredAttempt(operator, campaign.id)
+      const saved = await operator.post('/api/modules/bdr/calls').send(callBody(attempt.id, { campaignId: campaign.id }))
+      expect(saved.status).toBe(201)
+      const callId = saved.body.data.id as string
+
+      const fromForm = await waitFor(callId, (call) => call.summary.status === 'ready')
+      expect(fromForm.summary).toMatchObject({ text: 'Resumo do formulário.', source: 'ai' })
+      expect(inputs[0].facts).toContain('Termômetro de venda: 70% (Quente).')
+      expect(inputs[0].transcript).toBeNull()
+
+      const relative = `${customerId}/${attempt.id}.mp3`
+      const absolute = path.resolve(config.RECORDINGS_DIR, relative)
+      folder = path.dirname(absolute)
+      await mkdir(folder, { recursive: true })
+      await writeFile(absolute, 'ID3-test')
+      await pool.query(
+        `UPDATE bdr_dial_attempts SET recording_status = 'stored', recording_path = :relative WHERE id = :id`,
+        { relative, id: attempt.id },
+      )
+      await queueCallSummary(callId)
+
+      const fromAudio = await waitFor(callId, (call) => call.summary.source === 'ai_audio')
+      expect(fromAudio.summary).toMatchObject({ text: 'Resumo com a conversa.', status: 'ready' })
+      expect(fromAudio.transcript).toBe('Cliente: Alô? Vendedor: Bom dia, aqui é da IMP.')
+      expect(fromAudio.hasTranscript).toBe(true)
+      expect(inputs.at(-1)?.facts).toContain('Gravação: disponível.')
+    } finally {
+      overrideCallAi(undefined)
+      if (folder) await rm(folder, { recursive: true, force: true })
+    }
+  })
+
+  it('gives up after repeated provider errors and keeps the summary built from the form', async () => {
+    overrideCallAi({
+      canTranscribe: false,
+      transcribe: async () => '',
+      summarize: async () => {
+        throw new Error('provider down')
+      },
+    })
+    try {
+      const saved = await operator.post('/api/modules/bdr/calls').send(callBody(null, { mode: 'manual' }))
+      const callId = saved.body.data.id as string
+      for (let i = 0; i < 10; i += 1) {
+        await processCallSummary(callId)
+        const [row] = await rows('SELECT summary_status FROM bdr_calls WHERE id = :id', { id: callId })
+        if (row.summary_status === 'failed') break
+      }
+      const call = await summaryOf(callId)
+      expect(call.summary).toMatchObject({ source: 'record', status: 'failed' })
+      expect(call.summary.text).toContain('Ligação manual com Contato 0')
+    } finally {
+      overrideCallAi(undefined)
     }
   })
 })

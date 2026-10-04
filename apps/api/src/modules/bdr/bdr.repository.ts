@@ -62,10 +62,14 @@ const CALL_COLUMN_KEYS = [
   'meetingIds',
   'recordingUrl',
   'recordingStatus',
+  'summary',
+  'transcript',
+  'hasTranscript',
 ] as const
 
-function callFromRow(row: JsonRow) {
+function callFromRow(row: JsonRow, options: { transcript?: boolean } = {}) {
   const body = parseJson(row.call_json)
+  const transcript = row.transcript_text == null ? null : String(row.transcript_text)
   return {
     ...body,
     id: String(row.id),
@@ -82,6 +86,15 @@ function callFromRow(row: JsonRow) {
     duration: Number(row.duration_seconds ?? 0),
     durationSeconds: Number(row.duration_seconds ?? 0),
     startedAt: iso(row.started_at),
+    /** Model-written summary and job state; the controller fills `text` from the record when there is none. */
+    summary: {
+      text: row.summary_text == null ? null : String(row.summary_text),
+      source: row.summary_source == null ? null : String(row.summary_source),
+      status: String(row.summary_status ?? 'none'),
+      updatedAt: iso(row.summary_updated_at),
+    },
+    hasTranscript: Boolean(transcript),
+    ...(options.transcript ? { transcript } : {}),
   }
 }
 
@@ -204,7 +217,7 @@ export async function getCall(customerId: string, id: string) {
      LIMIT 1`,
     { customerId, id },
   )
-  return rows[0] ? callFromRow(rows[0]) : null
+  return rows[0] ? callFromRow(rows[0], { transcript: true }) : null
 }
 
 export type CallLink = { attemptId: string | null; leadId: string | null }

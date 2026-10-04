@@ -119,6 +119,12 @@ export const bdrRepository = {
     return (await listAll('/api/modules/bdr/calls')).map(presentCall)
   },
 
+  /** One call with its summary and, when the recording was transcribed, the transcript. */
+  async getCall(id) {
+    const payload = await request(`/api/modules/bdr/calls/${id}`)
+    return presentCall(payload.data)
+  },
+
   async saveHistory(row) {
     const payload = await post('/api/modules/bdr/calls', row)
     return presentCall(payload.data)

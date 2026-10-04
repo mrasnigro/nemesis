@@ -24,7 +24,18 @@ const overridable = new Set(['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD'])
 for (const [key, value] of Object.entries(testEnv)) {
   process.env[key] = overridable.has(key) ? (process.env[key] ?? value) : (process.env[`TEST_${key}`] ?? value)
 }
-for (const key of ['WEBINAR_API_URL', 'WEBINAR_HANDOFF_SHARED_KEY', 'TRUST_PROXY', 'TRAINING_AI_API_KEY', 'TRAINING_AI_BASE_URL', 'TRAINING_AI_MAX_TURNS']) {
+for (const key of [
+  'WEBINAR_API_URL',
+  'WEBINAR_HANDOFF_SHARED_KEY',
+  'TRUST_PROXY',
+  'TRAINING_AI_API_KEY',
+  'TRAINING_AI_BASE_URL',
+  'TRAINING_AI_MAX_TURNS',
+  'CALL_AI_API_KEY',
+  'CALL_AI_BASE_URL',
+  'CALL_AI_MODEL',
+  'CALL_TRANSCRIBE_MODEL',
+]) {
   delete process.env[key]
 }
 

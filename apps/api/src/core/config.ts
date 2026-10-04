@@ -38,6 +38,13 @@ const schema = z.object({
   TRAINING_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   /** Trainee messages allowed in one session. */
   TRAINING_AI_MAX_TURNS: z.coerce.number().int().min(1).max(200).default(40),
+  /** Discagem Automática call summary and transcription. Unset values fall back to the TRAINING_AI_* ones. */
+  CALL_AI_BASE_URL: z.string().url().optional(),
+  CALL_AI_API_KEY: z.string().min(1).optional(),
+  CALL_AI_MODEL: z.string().min(1).optional(),
+  /** Speech-to-text model of the same API; `off` disables transcription. */
+  CALL_TRANSCRIBE_MODEL: z.string().min(1).default('whisper-1'),
+  CALL_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(120_000),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -56,6 +63,19 @@ export const config = {
   allowSimulatedTelephony: parsed.data.NODE_ENV !== 'production',
   allowBuiltinTrainingAi: parsed.data.NODE_ENV !== 'production',
   trustProxy: parseTrustProxy(parsed.data.TRUST_PROXY),
+  callAi: callAiOptions(parsed.data),
+}
+
+function callAiOptions(env: z.infer<typeof schema>) {
+  const apiKey = env.CALL_AI_API_KEY ?? env.TRAINING_AI_API_KEY
+  if (!apiKey) return null
+  return {
+    baseUrl: env.CALL_AI_BASE_URL ?? env.TRAINING_AI_BASE_URL,
+    apiKey,
+    model: env.CALL_AI_MODEL ?? env.TRAINING_AI_MODEL,
+    transcribeModel: env.CALL_TRANSCRIBE_MODEL === 'off' ? null : env.CALL_TRANSCRIBE_MODEL,
+    timeoutMs: env.CALL_AI_TIMEOUT_MS,
+  }
 }
 
 function parseTrustProxy(value: string): boolean | number | string {

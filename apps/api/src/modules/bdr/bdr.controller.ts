@@ -43,8 +43,10 @@ import {
   startAutomaticAttempt,
   startManualAttempt,
 } from './dialer.service.js'
+import { presentSummary, queueCallSummary } from './callSummary.js'
 import { importLeads, leadSummary } from './leads.repository.js'
-import { recordingAbsolutePath, recordingForCall, recordingStatusByCall } from './recordings.js'
+import { recordingAbsolutePath } from './recordingStorage.js'
+import { recordingForCall, recordingStatusByCall } from './recordings.js'
 import {
   getTelephonySettings,
   saveTelephonySettings,
@@ -92,6 +94,12 @@ async function withMeetings<T extends CallRow>(customer: string, rows: T[]) {
   })
 }
 
+/** Meetings, recording and summary, in that order: the summary describes the other two. */
+async function presentCalls<T extends CallRow>(customer: string, rows: T[]) {
+  const enriched = await withRecordings(customer, await withMeetings(customer, rows))
+  return enriched.map((row) => ({ ...row, summary: presentSummary(row) }))
+}
+
 export async function listCampaignsController(req: Request, res: Response) {
   const query = campaignListQuery.parse(req.query)
   const result = await listCampaigns(customerId(req), query)
@@ -124,7 +132,7 @@ export async function listCallsController(req: Request, res: Response) {
   const query = callListQuery.parse(req.query)
   const result = await listCalls(customer, query)
   res.json({
-    data: await withRecordings(customer, await withMeetings(customer, result.rows)),
+    data: await presentCalls(customer, result.rows),
     page: pageMeta(query.page, query.pageSize, result.total),
   })
 }
@@ -133,7 +141,7 @@ export async function getCallController(req: Request, res: Response) {
   const customer = customerId(req)
   const row = await getCall(customer, req.params.callId)
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Call not found')
-  const [enriched] = await withRecordings(customer, await withMeetings(customer, [row]))
+  const [enriched] = await presentCalls(customer, [row])
   res.json({ data: enriched })
 }
 
@@ -156,7 +164,9 @@ export async function createCallController(req: Request, res: Response) {
       body.callbackAt ? new Date(body.callbackAt) : null,
     )
   }
-  const [enriched] = await withRecordings(customer, await withMeetings(customer, [row]))
+  await queueCallSummary(row.id)
+  const saved = (await getCall(customer, row.id)) ?? row
+  const [enriched] = await presentCalls(customer, [saved])
   res.status(201).json({ data: enriched })
 }
 

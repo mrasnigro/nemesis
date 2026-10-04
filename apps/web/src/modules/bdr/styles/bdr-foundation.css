@@ -2103,6 +2103,37 @@
   white-space: pre-wrap;
 }
 
+.bdr-history-detail__summary {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.bdr-history-detail__summary-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.bdr-history-detail__lines {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
+.bdr-history-detail__transcript summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.bdr-history-detail__transcript .bdr-history-detail__pre {
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0.5rem 0 0;
+}
+
 .bdr-history-detail__actions {
   display: flex;
   flex-wrap: wrap;

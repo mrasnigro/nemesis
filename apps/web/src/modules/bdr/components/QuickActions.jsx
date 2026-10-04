@@ -37,14 +37,15 @@ function ActionIcon({ name }) {
 
 export default function QuickActions() {
   const navigate = useNavigate()
-  const { dialAllowed, startAutomatic } = useBdrSession()
+  const { dialAllowed, call, resumeDialing } = useBdrSession()
   const { canOperate, canViewHistory, canSchedule } = useBdrPermissions()
 
   const dialEnabled = dialAllowed && canOperate
 
-  function goAutomatic() {
-    if (!dialEnabled) return
-    startAutomatic()
+  /** One click: puts the operator Em atendimento and starts going through the list. */
+  function startAttendance() {
+    if (!canOperate) return
+    if (call.status === 'idle') resumeDialing()
     navigate('/modules/bdr/discagem?mode=automatic')
   }
 
@@ -62,16 +63,13 @@ export default function QuickActions() {
       <div className="bdr-home__actions">
         <button
           type="button"
-          disabled={!dialEnabled}
-          title={
-            dialEnabled
-              ? 'Discagem Automática'
-              : 'Disponível apenas com status Em atendimento'
-          }
-          onClick={goAutomatic}
+          className="bdr-home__action--primary"
+          disabled={!canOperate}
+          title="Fica Em atendimento e liga para os contatos da campanha, um após o outro"
+          onClick={startAttendance}
         >
           <ActionIcon name="phone" />
-          <span>Discagem Automática</span>
+          <span>Iniciar atendimento</span>
         </button>
 
         <button

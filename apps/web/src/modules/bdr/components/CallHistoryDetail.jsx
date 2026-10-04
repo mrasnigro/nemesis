@@ -1,18 +1,66 @@
+import { useEffect, useState } from 'react'
 import { thermometerLabel } from '../data/catalogs.js'
+import { bdrRepository } from '../services/bdrRepository.js'
 import { formatDurationShort } from '../services/formatters.js'
 import { formatDiagnosisSummary } from '../services/historyMapping.js'
 
+const SUMMARY_RECHECK_MS = 10_000
+
+const SUMMARY_SOURCE_LABELS = {
+  ai_audio: 'Gerado por IA a partir da gravação e do registro',
+  ai: 'Gerado por IA a partir do registro do atendimento',
+  record: 'Montado a partir do registro do atendimento',
+}
+
+function summaryNote(summary) {
+  if (summary.status === 'pending') {
+    return summary.source === 'record'
+      ? 'Resumo com IA em preparação — esta tela atualiza sozinha.'
+      : 'Nova versão com a gravação em preparação.'
+  }
+  if (summary.status === 'failed' && summary.source === 'record') {
+    return 'O resumo com IA não pôde ser gerado; exibindo o resumo do registro.'
+  }
+  return SUMMARY_SOURCE_LABELS[summary.source] ?? ''
+}
+
 /**
- * Call detail panel — qualification, client status, diagnosis, linked meetings and recording.
+ * Call detail panel — summary, qualification, client status, diagnosis, linked meetings,
+ * recording and transcript. The detail is re-read on open so the summary is current.
  */
 export default function CallHistoryDetail({ row, onClose }) {
-  if (!row) return null
+  const [detail, setDetail] = useState(null)
+  const rowId = row?.id
 
-  const diagnosisLines = formatDiagnosisSummary(row.diagnosis || {})
-  const meetings = row.meetings || []
+  useEffect(() => {
+    if (!rowId) return undefined
+    let active = true
+    let timer = null
+    const load = () =>
+      bdrRepository
+        .getCall(rowId)
+        .then((call) => {
+          if (!active) return
+          setDetail(call)
+          if (call?.summary?.status === 'pending') timer = setTimeout(load, SUMMARY_RECHECK_MS)
+        })
+        .catch(() => null)
+    load()
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [rowId])
+
+  if (!row) return null
+  const call = detail?.id === row.id ? { ...row, ...detail } : row
+  const summary = call.summary
+
+  const diagnosisLines = formatDiagnosisSummary(call.diagnosis || {})
+  const meetings = call.meetings || []
 
   const recordingNote =
-    row.recordingStatus === 'pending'
+    call.recordingStatus === 'pending'
       ? 'Gravação sendo copiada da central telefônica…'
       : 'Nenhuma gravação disponível para esta ligação.'
 
@@ -21,7 +69,7 @@ export default function CallHistoryDetail({ row, onClose }) {
       <header className="bdr-history-detail__header">
         <div>
           <h3>Detalhes da chamada</h3>
-          <p>{row.timestamp}</p>
+          <p>{call.timestamp}</p>
         </div>
         <button type="button" className="bdr-modal__close" onClick={onClose}>
           × Fechar
@@ -31,59 +79,67 @@ export default function CallHistoryDetail({ row, onClose }) {
       <div className="bdr-history-detail__grid">
         <div>
           <span>Cliente</span>
-          <strong>{row.leadName}</strong>
+          <strong>{call.leadName}</strong>
         </div>
         <div>
           <span>Empresa</span>
-          <strong>{row.company}</strong>
+          <strong>{call.company}</strong>
         </div>
         <div>
           <span>Telefone</span>
-          <strong>{row.phone}</strong>
+          <strong>{call.phone}</strong>
         </div>
         <div>
           <span>Protocolo</span>
-          <strong>{row.protocol || '—'}</strong>
+          <strong>{call.protocol || '—'}</strong>
         </div>
         <div>
           <span>Duração</span>
-          <strong>{formatDurationShort(row.duration)}</strong>
+          <strong>{formatDurationShort(call.duration)}</strong>
         </div>
         <div>
           <span>Método</span>
-          <strong>{row.method || '—'}</strong>
+          <strong>{call.method || '—'}</strong>
         </div>
         <div>
           <span>Situação da ligação</span>
-          <strong>{row.callStatus}</strong>
+          <strong>{call.callStatus}</strong>
         </div>
         <div>
           <span>Status do cliente</span>
-          <strong className="bdr-history-status">{row.clientStatus}</strong>
+          <strong className="bdr-history-status">{call.clientStatus}</strong>
         </div>
         <div>
           <span>Qualificação (Vw)</span>
-          <strong>{row.qualification || '—'}</strong>
+          <strong>{call.qualification || '—'}</strong>
         </div>
         <div>
           <span>E-mail</span>
-          <strong>{row.email || '—'}</strong>
+          <strong>{call.email || '—'}</strong>
         </div>
         <div>
           <span>CNPJ</span>
-          <strong>{row.cnpj || '—'}</strong>
+          <strong>{call.cnpj || '—'}</strong>
         </div>
         <div>
           <span>Endereço</span>
           <strong>
-            {[row.address, row.city, row.state].filter(Boolean).join(' · ') || '—'}
+            {[call.address, call.city, call.state].filter(Boolean).join(' · ') || '—'}
           </strong>
         </div>
       </div>
 
+      {summary?.text ? (
+        <section className="bdr-history-detail__block bdr-history-detail__summary">
+          <h4>Resumo do atendimento</h4>
+          <p className="bdr-history-detail__summary-note">{summaryNote(summary)}</p>
+          <p className="bdr-history-detail__lines">{summary.text}</p>
+        </section>
+      ) : null}
+
       <section className="bdr-history-detail__block">
         <h4>Notas</h4>
-        <p>{row.notes || 'Sem notas registradas.'}</p>
+        <p>{call.notes || 'Sem notas registradas.'}</p>
       </section>
 
       <section className="bdr-history-detail__block">
@@ -97,24 +153,24 @@ export default function CallHistoryDetail({ row, onClose }) {
         ) : (
           <p>Sem diagnóstico estruturado.</p>
         )}
-        {row.diagnosis?.needs ? (
+        {call.diagnosis?.needs ? (
           <p>
-            <em>Necessidades:</em> {row.diagnosis.needs}
+            <em>Necessidades:</em> {call.diagnosis.needs}
           </p>
         ) : null}
-        {row.diagnosis?.objections ? (
-          <p className="bdr-history-detail__pre">{row.diagnosis.objections}</p>
+        {call.diagnosis?.objections ? (
+          <p className="bdr-history-detail__pre">{call.diagnosis.objections}</p>
         ) : null}
-        {row.diagnosis?.conversationSummary ? (
+        {call.diagnosis?.conversationSummary ? (
           <p>
-            <em>Resumo:</em> {row.diagnosis.conversationSummary}
+            <em>Resumo:</em> {call.diagnosis.conversationSummary}
           </p>
         ) : null}
-        {typeof row.diagnosis?.salesTemperature === 'number' ? (
+        {typeof call.diagnosis?.salesTemperature === 'number' ? (
           <p>
             Termômetro:{' '}
             <strong>
-              {row.diagnosis.salesTemperature}% · {thermometerLabel(row.diagnosis.salesTemperature)}
+              {call.diagnosis.salesTemperature}% · {thermometerLabel(call.diagnosis.salesTemperature)}
             </strong>
           </p>
         ) : null}
@@ -135,21 +191,28 @@ export default function CallHistoryDetail({ row, onClose }) {
 
       <section className="bdr-history-detail__block">
         <h4>Gravação</h4>
-        {row.recordingUrl ? (
-          <audio className="bdr-recording-player" controls preload="none" src={row.recordingUrl} />
+        {call.recordingUrl ? (
+          <audio className="bdr-recording-player" controls preload="none" src={call.recordingUrl} />
         ) : (
           <p>{recordingNote}</p>
         )}
       </section>
 
+      {call.transcript ? (
+        <details className="bdr-history-detail__block bdr-history-detail__transcript">
+          <summary>Transcrição da ligação</summary>
+          <p className="bdr-history-detail__pre">{call.transcript}</p>
+        </details>
+      ) : null}
+
       <div className="bdr-history-detail__actions">
-        {row.recordingUrl ? (
-          <a className="bdr-history-detail__link" href={`${row.recordingUrl}?download=1`}>
+        {call.recordingUrl ? (
+          <a className="bdr-history-detail__link" href={`${call.recordingUrl}?download=1`}>
             Baixar gravação
           </a>
         ) : null}
-        {row.phone ? (
-          <a className="bdr-history-detail__link" href={`tel:${row.phone.replace(/\D/g, '')}`}>
+        {call.phone ? (
+          <a className="bdr-history-detail__link" href={`tel:${call.phone.replace(/\D/g, '')}`}>
             Contato
           </a>
         ) : null}

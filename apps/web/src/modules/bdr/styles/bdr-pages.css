@@ -477,6 +477,17 @@
   background: #4b5563;
 }
 
+.bdr-home__actions button.bdr-home__action--primary:not(:disabled) {
+  border-color: #f59e0b;
+  background: #b45309;
+  color: #fff;
+  font-weight: 700;
+}
+
+.bdr-home__actions button.bdr-home__action--primary:hover:not(:disabled) {
+  background: #d97706;
+}
+
 .bdr-home__actions button:disabled {
   background: #2a2d35;
   border-color: #374151;
