@@ -1,0 +1,20 @@
+# Netlify hosts the Vite site only. API calls stay on this domain so the
+# login cookie is sent. Webinar is not part of this demo.
+[build]
+  command = "npm run build -w @imp/web"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_PLATFORM_API_URL = "/platform-api"
+
+[[redirects]]
+  from = "/platform-api/*"
+  to = "https://impapi-production.up.railway.app/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
