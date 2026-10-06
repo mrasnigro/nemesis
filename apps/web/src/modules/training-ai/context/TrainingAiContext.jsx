@@ -334,6 +334,29 @@ export function TrainingAiProvider({ children }) {
     [findPersona, findScenario, permissions],
   )
 
+  const startPersonaSimulation = useCallback(
+    (personaId, mediaMode) => {
+      if (!hasTrainingPermission(permissions, 'training.simulate')) return null
+      const persona = findPersona(personaId)
+      if (!persona) return null
+      const chosen = mediaMode === 'text' || mediaMode === 'voice' ? mediaMode : mediaModeFor(persona)
+      setSession({
+        id: null,
+        scenarioId: null,
+        personaId: persona.id,
+        mediaMode: chosen,
+        startedAt: null,
+      })
+      setMessages([])
+      setEvaluation(null)
+      setShowConversation(true)
+      setDraftPersonaId(persona.id)
+      setPhase('briefing')
+      return persona
+    },
+    [findPersona, permissions],
+  )
+
   const selectPersonaForSession = useCallback(
     (personaId) => {
       if (phase !== 'setup' || !session) return false
@@ -367,11 +390,11 @@ export function TrainingAiProvider({ children }) {
     setIsStarting(true)
     try {
       const started = await trainingApi.startSession({
-        scenarioId: session.scenarioId,
+        ...(session.scenarioId ? { scenarioId: session.scenarioId } : {}),
         personaId: session.personaId,
         mediaMode: session.mediaMode,
       })
-      setSession((prev) => (prev ? { ...prev, id: started.id } : prev))
+      setSession((prev) => (prev ? { ...prev, id: started.id, startedAt: Date.now() } : prev))
       setMessages(started.messages || [])
       setPhase('running')
       return { ok: true }
@@ -397,7 +420,8 @@ export function TrainingAiProvider({ children }) {
       ])
       setIsGeneratingReply(true)
       try {
-        const turn = await trainingApi.sendMessage(session.id, text)
+        const offsetMs = session.startedAt ? Math.max(0, Date.now() - session.startedAt) : undefined
+        const turn = await trainingApi.sendMessage(session.id, text, offsetMs == null ? {} : { offsetMs })
         setMessages((prev) => [...prev.filter((item) => item.id !== pendingId), turn.userMessage, turn.aiMessage])
         return { ok: true, turnsLeft: turn.turnsLeft }
       } catch (error) {
@@ -411,7 +435,7 @@ export function TrainingAiProvider({ children }) {
     [phase, session],
   )
 
-  const finishSession = useCallback(async () => {
+  const finishSession = useCallback(async (audioBlob) => {
     if (phase !== 'running' || !session?.id || busyRef.current) return { ok: false }
     if (!messages.some((item) => item.role === 'user')) {
       return { ok: false, error: 'Envie ao menos uma resposta antes de encerrar o treino.' }
@@ -419,6 +443,13 @@ export function TrainingAiProvider({ children }) {
     busyRef.current = true
     setIsJudging(true)
     try {
+      if (audioBlob) {
+        try {
+          await trainingApi.uploadSessionAudio(session.id, audioBlob)
+        } catch {
+          // The score still stands when the recording cannot be stored.
+        }
+      }
       const finished = await trainingApi.finishSession(session.id)
       setEvaluation(finished.report)
       setMessages(finished.messages || messages)
@@ -504,6 +535,7 @@ export function TrainingAiProvider({ children }) {
     showConversation,
     setShowConversation,
     startSimulation,
+    startPersonaSimulation,
     selectPersonaForSession,
     confirmPersonaSetup,
     beginConversation,

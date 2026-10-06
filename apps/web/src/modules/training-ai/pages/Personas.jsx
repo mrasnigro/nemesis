@@ -93,7 +93,7 @@ export default function TrainingPersonasPage() {
                     ) : null}
                   </div>
                   <div className="training-ai__agent-card-body">
-                    <AgentAvatar id={persona.id} name={persona.name} size="md" />
+                    <AgentAvatar id={persona.id} name={persona.name} size="md" photo={persona.avatarData} />
                     <div>
                       <h3>{persona.name}</h3>
                       <p>{persona.role}</p>

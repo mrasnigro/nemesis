@@ -3,10 +3,17 @@
  */
 
 export const VOICE_OPTIONS = [
-  { id: 'voice_neutral_f', label: 'Neutra · feminina' },
-  { id: 'voice_neutral_m', label: 'Neutra · masculina' },
-  { id: 'voice_warm_f', label: 'Acolhedora · feminina' },
-  { id: 'voice_firm_m', label: 'Firme · masculina' },
+  { id: 'borges', label: 'Borges · pt-BR', lang: 'pt-BR', gender: 'm' },
+  { id: 'carla', label: 'Carla · pt-BR', lang: 'pt-BR', gender: 'f' },
+  { id: 'carlos', label: 'Carlos · pt-BR', lang: 'pt-BR', gender: 'm' },
+  { id: 'conrado', label: 'Conrado · pt-BR', lang: 'pt-BR', gender: 'm' },
+  { id: 'athena', label: 'Athena · en-US', lang: 'en-US', gender: 'f' },
+  { id: 'bella', label: 'Bella · en-US', lang: 'en-US', gender: 'f' },
+  { id: 'christopher', label: 'Christopher · en-US', lang: 'en-US', gender: 'm' },
+  { id: 'voice_neutral_f', label: 'Neutra · feminina', lang: 'pt-BR', gender: 'f' },
+  { id: 'voice_neutral_m', label: 'Neutra · masculina', lang: 'pt-BR', gender: 'm' },
+  { id: 'voice_warm_f', label: 'Acolhedora · feminina', lang: 'pt-BR', gender: 'f' },
+  { id: 'voice_firm_m', label: 'Firme · masculina', lang: 'pt-BR', gender: 'm' },
 ]
 
 export const PRACTICE_MEDIA_MODES = [

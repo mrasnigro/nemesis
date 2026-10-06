@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import DeleteAction from '../components/DeleteAction.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
+import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { derivePersonaTraits, personaStatus } from '../utils/agentDisplay.js'
 
@@ -42,9 +43,9 @@ export default function TrainingPersonaDetailPage() {
   const status = personaStatus(persona)
   const traits = derivePersonaTraits(persona)
 
-  function handleStart(scenarioId) {
-    navigate(`/modules/training-ai/simulacao/${scenarioId}`, {
-      state: { personaId: persona.id },
+  function handleStart(mediaMode) {
+    navigate(`/modules/training-ai/simulacao/persona/${persona.id}`, {
+      state: { mediaMode },
     })
   }
 
@@ -52,7 +53,7 @@ export default function TrainingPersonaDetailPage() {
     <section className="imp-module">
       <header className="training-ai__page-header">
         <div className="training-ai__chip-row">
-          <AgentAvatar id={persona.id} name={persona.name} size="lg" />
+          <AgentAvatar id={persona.id} name={persona.name} size="lg" photo={persona.avatarData} />
           <div>
             <h2>{persona.name}</h2>
             <p>
@@ -96,14 +97,18 @@ export default function TrainingPersonaDetailPage() {
               onDeleted={() => navigate('/modules/training-ai/personas')}
             />
           ) : null}
-          {canSimulate && practiceScenarios[0] ? (
-            <button
-              type="button"
-              className="imp-btn imp-btn--primary"
-              onClick={() => handleStart(practiceScenarios[0].id)}
-            >
-              Treinar com este agente
+          {canSimulate && persona.status === 'active' && persona.evaluationTemplateId && persona.interactionMode !== 'text' ? (
+            <button type="button" className="imp-btn imp-btn--primary" onClick={() => handleStart('voice')}>
+              Simulação por voz
             </button>
+          ) : null}
+          {canSimulate && persona.status === 'active' && persona.evaluationTemplateId && persona.interactionMode !== 'voice' ? (
+            <button type="button" className="imp-btn imp-btn--ghost" onClick={() => handleStart('text')}>
+              Simulação por texto
+            </button>
+          ) : null}
+          {persona.status === 'active' && !persona.evaluationTemplateId ? (
+            <p className="training-ai__meta">Escolha um template de avaliação nesta persona para iniciar a simulação.</p>
           ) : null}
         </div>
       </header>
@@ -126,6 +131,14 @@ export default function TrainingPersonaDetailPage() {
               {persona.negotiatorType}
               {persona.tone ? ` · ${persona.tone}` : ''}
             </dd>
+          </div>
+          <div>
+            <dt>Cenário</dt>
+            <dd>{scenarioTypeLabel(persona.scenarioType)}</dd>
+          </div>
+          <div className="training-ai__form-span-2">
+            <dt>Instruções ao vendedor</dt>
+            <dd>{persona.sellerInstructions || '—'}</dd>
           </div>
           <div>
             <dt>Modelo</dt>

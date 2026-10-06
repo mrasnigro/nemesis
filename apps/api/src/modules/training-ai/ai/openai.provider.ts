@@ -64,6 +64,7 @@ export function personaSystemPrompt(persona: PersonaProfile, scenario: ScenarioP
     line('Consciência do problema', persona.problemAwareness),
     line('Consciência da solução', persona.solutionAwareness),
     line('Sobre a empresa', persona.companyInfo),
+    line('Fatos da empresa', persona.companyFacts),
     line('Contexto', persona.scenarioContext),
   ].filter((item): item is string => item !== null)
 

@@ -1,4 +1,4 @@
-import { platformListAll, platformRequest } from '../../../../core/api/platformClient.js'
+import { PLATFORM_API_BASE, platformListAll, platformRequest } from '../../../../core/api/platformClient.js'
 
 const BASE = '/api/modules/training-ai'
 
@@ -11,8 +11,16 @@ export const trainingApi = {
   listScenarios: () => platformListAll(`${BASE}/scenarios`),
   listTemplates: () => platformListAll(`${BASE}/templates`),
   /** Completed sessions, newest first (the 50 most recent). Trainees see their own; the administrator sees all. */
-  listSessions: () =>
-    platformRequest(`${BASE}/sessions`, { query: { pageSize: 50 } }).then((payload) => payload.data),
+  listSessions: (query = {}) =>
+    platformRequest(`${BASE}/sessions`, { query: { pageSize: 50, ...query } }).then((payload) => payload.data),
+  getDashboards: (query = {}) =>
+    platformRequest(`${BASE}/dashboards`, { query }).then((payload) => payload.data),
+  listGroups: () => platformRequest(`${BASE}/groups`).then((payload) => payload.data),
+  listDirectory: () => platformRequest(`${BASE}/directory`).then((payload) => payload.data),
+  createGroup: (body) => platformRequest(`${BASE}/groups`, { method: 'POST', body }).then((payload) => payload.data),
+  updateGroup: (id, body) =>
+    platformRequest(`${BASE}/groups/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),
+  deleteGroup: (id) => platformRequest(`${BASE}/groups/${id}`, { method: 'DELETE' }),
 
   createPersona: (body) => platformRequest(`${BASE}/personas`, { method: 'POST', body }),
   updatePersona: (id, body) => platformRequest(`${BASE}/personas/${id}`, { method: 'PATCH', body }),
@@ -27,7 +35,22 @@ export const trainingApi = {
 
   startSession: (body) => platformRequest(`${BASE}/sessions`, { method: 'POST', body }).then((payload) => payload.data),
   getSession: (id) => platformRequest(`${BASE}/sessions/${id}`).then((payload) => payload.data),
-  sendMessage: (id, text) =>
-    platformRequest(`${BASE}/sessions/${id}/messages`, { method: 'POST', body: { text } }).then((payload) => payload.data),
+  sendMessage: (id, text, timing = {}) =>
+    platformRequest(`${BASE}/sessions/${id}/messages`, { method: 'POST', body: { text, ...timing } }).then(
+      (payload) => payload.data,
+    ),
   finishSession: (id) => platformRequest(`${BASE}/sessions/${id}/finish`, { method: 'POST' }).then((payload) => payload.data),
+  rejudgeSession: (id) =>
+    platformRequest(`${BASE}/sessions/${id}/rejudge`, { method: 'POST' }).then((payload) => payload.data),
+  uploadSessionAudio: async (id, blob) => {
+    const response = await fetch(`${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': blob.type || 'audio/webm' },
+      body: blob,
+    })
+    if (!response.ok) throw new Error('Não foi possível guardar a gravação.')
+    return response.json()
+  },
+  sessionAudioUrl: (id) => `${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`,
 }

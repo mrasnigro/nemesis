@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import PersonaCallStage from '../components/PersonaCallStage.jsx'
 import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
+import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
@@ -38,7 +39,7 @@ function stepState(phase, stepId) {
 }
 
 export default function TrainingSimulationPage() {
-  const { scenarioId } = useParams()
+  const { scenarioId, personaId: personaRouteId } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const {
@@ -52,6 +53,7 @@ export default function TrainingSimulationPage() {
     userMessageCount,
     canSimulate,
     startSimulation,
+    startPersonaSimulation,
     selectPersonaForSession,
     confirmPersonaSetup,
     beginConversation,
@@ -81,6 +83,8 @@ export default function TrainingSimulationPage() {
   const [bootError, setBootError] = useState('')
   const lastSpokenMessageIdRef = useRef(null)
   const bootAttemptRef = useRef(null)
+  const recorderRef = useRef(null)
+  const audioChunksRef = useRef([])
 
   // Own the simulation boot here. Entry points only navigate to this route —
   // never bounce silently back to the catalog on a failed/racy start.
@@ -136,6 +140,20 @@ export default function TrainingSimulationPage() {
     selectedScenario?.id,
     startSimulation,
   ])
+
+  useEffect(() => {
+    if (!personaRouteId || scenarioId) return
+    if (selectedPersona?.id === personaRouteId && (phase === 'briefing' || phase === 'running')) return
+    if (phase === 'finished' && selectedPersona?.id === personaRouteId) return
+    if (!canSimulate) {
+      setBootError('Sem permissão para iniciar simulações.')
+      return
+    }
+    if (bootAttemptRef.current === personaRouteId) return
+    bootAttemptRef.current = personaRouteId
+    const started = startPersonaSimulation(personaRouteId, location.state?.mediaMode)
+    if (!started) setBootError('Não foi possível abrir esta persona.')
+  }, [canSimulate, location.state, personaRouteId, phase, scenarioId, selectedPersona?.id, startPersonaSimulation])
 
   // Drive the persona call stage: whenever a new AI line lands while in voice mode, the avatar engine
   // speaks it (browser voice, or silent timing where the browser cannot speak) so the stage can animate
@@ -209,7 +227,21 @@ export default function TrainingSimulationPage() {
   }, [evaluation, navigate, phase])
 
   const scenario =
-    selectedScenario || scenarios.find((item) => item.id === scenarioId) || null
+    selectedScenario ||
+    scenarios.find((item) => item.id === scenarioId) ||
+    (selectedPersona
+      ? {
+          id: null,
+          title: scenarioTypeLabel(selectedPersona.scenarioType),
+          sellerInstructions:
+            selectedPersona.sellerInstructions ||
+            selectedPersona.trainingObjective ||
+            'Siga o contexto desta persona.',
+          objective: selectedPersona.trainingObjective,
+          personaId: selectedPersona.id,
+          difficulty: selectedPersona.difficulty,
+        }
+      : null)
   const persona = selectedPersona
   const linkedDefaultId = scenario?.personaId
 
@@ -227,19 +259,50 @@ export default function TrainingSimulationPage() {
     }
   }
 
+  function stopRecorder() {
+    const recorder = recorderRef.current
+    recorderRef.current = null
+    if (!recorder || recorder.state === 'inactive') return Promise.resolve(null)
+    return new Promise((resolve) => {
+      recorder.addEventListener('stop', () => {
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        resolve(blob.size ? blob : null)
+      }, { once: true })
+      recorder.stop()
+      recorder.stream?.getTracks().forEach((track) => track.stop())
+    })
+  }
+
   async function handleFinish() {
     if (isGeneratingReply || isJudging) return
     setBusyHint('')
     setFinishHint('')
     setListening(false)
-    const result = await finishSession()
+    const audioBlob = await stopRecorder()
+    const result = await finishSession(audioBlob)
     if (!result.ok && result.error) setFinishHint(result.error)
   }
 
   async function handleBegin() {
     setStartError('')
     const result = await beginConversation()
-    if (!result.ok && result.error) setStartError(result.error)
+    if (!result.ok && result.error) {
+      setStartError(result.error)
+      return
+    }
+    if (practiceMediaMode !== 'voice' || !navigator.mediaDevices?.getUserMedia) return
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.addEventListener('dataavailable', (event) => {
+        if (event.data?.size) audioChunksRef.current.push(event.data)
+      })
+      recorder.start()
+      recorderRef.current = recorder
+    } catch {
+      setVoiceNotice('O microfone não foi gravado. A transcrição da conversa continua disponível.')
+    }
   }
 
   if (bootError) {

@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true,
-      allowedHosts: ['rebel-uptown-economist.ngrok-free.dev'],
+      allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.app', '.ngrok.io'],
       fs: {
         allow: [repoRoot],
       },

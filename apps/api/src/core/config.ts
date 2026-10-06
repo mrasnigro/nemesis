@@ -19,6 +19,10 @@ const schema = z.object({
   /** Express "trust proxy" value; set to 1 behind a single reverse proxy so req.ip is the client. */
   TRUST_PROXY: z.string().default('false'),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Public webinar sign-ups allowed per IP every 15 minutes. */
+  WEBINAR_REGISTER_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
+  /** Viewers one live webinar can serve at once. Each viewer is a open connection fed by this process. */
+  WEBINAR_STREAM_MAX_VIEWERS: z.coerce.number().int().min(1).default(200),
   WEBINAR_API_URL: z.string().url().optional(),
   WEBINAR_HANDOFF_SHARED_KEY: z.string().min(16).optional(),
   SEED_USERNAME: z.string().default('imp'),

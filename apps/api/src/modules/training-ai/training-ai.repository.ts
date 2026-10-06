@@ -34,7 +34,7 @@ export type ListResult<T> = { rows: T[]; total: number }
 const personaSort = { createdAt: 'created_at', name: 'name' }
 const templateSort = { createdAt: 'created_at', title: 'title' }
 const scenarioSort = { createdAt: 'created_at', title: 'title' }
-const sessionSort = { createdAt: 'created_at' }
+const sessionSort = { createdAt: 's.created_at' }
 
 // ---------------------------------------------------------------- catalog rows
 
@@ -49,6 +49,12 @@ function personaFromRow(row: JsonRow): Doc & { id: string; name: string; status:
     status: String(row.status),
     industry: row.industry == null ? profile.industry : String(row.industry),
     difficulty: row.difficulty == null ? profile.difficulty : String(row.difficulty),
+    visibility: row.visibility == null ? (profile.visibility ?? 'company') : String(row.visibility),
+    ownerUserId: row.owner_user_id == null ? (profile.ownerUserId ?? null) : String(row.owner_user_id),
+    groupId: row.group_id == null ? (profile.groupId ?? null) : String(row.group_id),
+    scenarioType: row.scenario_type == null ? (profile.scenarioType ?? null) : String(row.scenario_type),
+    evaluationTemplateId:
+      row.evaluation_template_id == null ? (profile.evaluationTemplateId ?? null) : String(row.evaluation_template_id),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   }
@@ -112,9 +118,20 @@ function baseFilters(customerId: string): { filters: string[]; params: Params } 
 
 export async function listPersonas(
   customerId: string,
+  viewer: { userId: string; isManager: boolean },
   query: PageQuery & { status?: string; difficulty?: string },
 ) {
   const { filters, params } = baseFilters(customerId)
+  params.viewerId = viewer.userId
+  params.isManager = viewer.isManager ? 1 : 0
+  filters.push(`(
+    :isManager = 1
+    OR visibility = 'company'
+    OR (visibility = 'individual' AND owner_user_id = :viewerId)
+    OR (visibility = 'group' AND group_id IN (
+      SELECT group_id FROM training_group_members WHERE customer_id = :customerId AND user_id = :viewerId
+    ))
+  )`)
   const term = likeTerm(query.q)
   if (term) {
     filters.push('name LIKE :term')
@@ -144,8 +161,10 @@ export async function insertPersona(customerId: string, input: Record<string, un
   const now = new Date()
   await db.query(
     `INSERT INTO training_personas
-      (id, customer_id, name, status, industry, difficulty, profile_json, created_at, updated_at)
-     VALUES (:id, :customerId, :name, :status, :industry, :difficulty, :profileJson, :now, :now)`,
+      (id, customer_id, name, status, industry, difficulty, visibility, owner_user_id, group_id,
+       scenario_type, evaluation_template_id, profile_json, created_at, updated_at)
+     VALUES (:id, :customerId, :name, :status, :industry, :difficulty, :visibility, :ownerUserId, :groupId,
+       :scenarioType, :evaluationTemplateId, :profileJson, :now, :now)`,
     {
       id,
       customerId,
@@ -153,6 +172,11 @@ export async function insertPersona(customerId: string, input: Record<string, un
       status: String(input.status ?? 'active'),
       industry: input.industry == null ? null : String(input.industry),
       difficulty: input.difficulty == null ? null : String(input.difficulty),
+      visibility: String(input.visibility ?? 'company'),
+      ownerUserId: input.ownerUserId == null ? null : String(input.ownerUserId),
+      groupId: input.groupId == null ? null : String(input.groupId),
+      scenarioType: input.scenarioType == null ? null : String(input.scenarioType),
+      evaluationTemplateId: input.evaluationTemplateId == null ? null : String(input.evaluationTemplateId),
       profileJson: JSON.stringify(input),
       now,
     },
@@ -164,6 +188,8 @@ export async function updatePersona(customerId: string, id: string, input: Recor
   const [result] = await pool.query<ResultSetHeader>(
     `UPDATE training_personas
      SET name = :name, status = :status, industry = :industry, difficulty = :difficulty,
+         visibility = :visibility, owner_user_id = COALESCE(owner_user_id, :ownerUserId),
+         group_id = :groupId, scenario_type = :scenarioType, evaluation_template_id = :evaluationTemplateId,
          profile_json = :profileJson, updated_at = :now
      WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL`,
     {
@@ -173,6 +199,11 @@ export async function updatePersona(customerId: string, id: string, input: Recor
       status: String(input.status ?? 'active'),
       industry: input.industry == null ? null : String(input.industry),
       difficulty: input.difficulty == null ? null : String(input.difficulty),
+      visibility: String(input.visibility ?? 'company'),
+      ownerUserId: input.ownerUserId == null ? null : String(input.ownerUserId),
+      groupId: input.groupId == null ? null : String(input.groupId),
+      scenarioType: input.scenarioType == null ? null : String(input.scenarioType),
+      evaluationTemplateId: input.evaluationTemplateId == null ? null : String(input.evaluationTemplateId),
       profileJson: JSON.stringify(input),
       now: new Date(),
     },
@@ -313,7 +344,7 @@ export async function updateScenario(customerId: string, id: string, input: Reco
 
 // ---------------------------------------------------------------- soft deletes
 
-export type CatalogTable = 'training_personas' | 'training_templates' | 'training_scenarios'
+export type CatalogTable = 'training_personas' | 'training_templates' | 'training_scenarios' | 'training_groups'
 
 export async function softDelete(table: CatalogTable, customerId: string, id: string): Promise<boolean> {
   const [result] = await pool.query<ResultSetHeader>(
@@ -356,6 +387,8 @@ function messageFromRow(row: JsonRow): ChatMessage {
     speaker: String(row.speaker),
     text: String(row.text),
     timestamp: iso(row.created_at) ?? new Date().toISOString(),
+    offsetMs: row.offset_ms == null ? null : Number(row.offset_ms),
+    durationMs: row.duration_ms == null ? null : Number(row.duration_ms),
   }
 }
 
@@ -364,14 +397,17 @@ function sessionFromRow(row: JsonRow) {
   const report = parseJson(row.session_json).report as Record<string, unknown> | undefined
   return {
     id: String(row.id),
-    scenarioId: String(row.scenario_id),
+    scenarioId: row.scenario_id == null ? null : String(row.scenario_id),
     personaId: row.persona_id == null ? null : String(row.persona_id),
     userId: String(row.user_id),
+    userName: row.user_name == null ? null : String(row.user_name),
     status: String(row.status),
     mediaMode: String(row.media_mode),
     aiProvider: row.ai_provider == null ? null : String(row.ai_provider),
     judgeSource: row.judge_source == null ? null : String(row.judge_source),
     score: row.score == null ? null : Number(row.score),
+    durationMs: row.duration_ms == null ? null : Number(row.duration_ms),
+    hasAudio: row.audio_path != null && String(row.audio_path) !== '',
     createdAt: iso(row.created_at),
     completedAt: iso(row.completed_at),
     report,
@@ -388,6 +424,7 @@ function sessionSummary(session: SessionRecord) {
     scenarioTitle: report?.scenarioTitle ?? null,
     personaName: report?.personaName ?? null,
     templateTitle: report?.templateTitle ?? null,
+    negotiatorType: report?.negotiatorType ?? null,
     band: report?.band ?? null,
   }
 }
@@ -395,30 +432,54 @@ function sessionSummary(session: SessionRecord) {
 export async function listSessions(
   customerId: string,
   userScope: string | null,
-  query: PageQuery & { scenarioId?: string; status?: string },
+  query: PageQuery & { scenarioId?: string; status?: string; groupId?: string },
 ) {
-  const { filters, params } = baseFilters(customerId)
+  const filters = ['s.customer_id = :customerId', 's.deleted_at IS NULL']
+  const params: Params = { customerId }
   if (userScope) {
-    filters.push('user_id = :userScope')
+    filters.push('s.user_id = :userScope')
     params.userScope = userScope
   }
   if (query.scenarioId) {
-    filters.push('scenario_id = :scenarioId')
+    filters.push('s.scenario_id = :scenarioId')
     params.scenarioId = query.scenarioId
   }
-  filters.push('status = :status')
+  if (query.groupId) {
+    filters.push(
+      `s.user_id IN (SELECT user_id FROM training_group_members WHERE group_id = :groupId AND customer_id = :customerId)`,
+    )
+    params.groupId = query.groupId
+  }
+  filters.push('s.status = :status')
   params.status = query.status ?? 'completed'
   if (query.from) {
-    filters.push('created_at >= :from')
+    filters.push('s.created_at >= :from')
     params.from = `${query.from} 00:00:00`
   }
   if (query.to) {
-    filters.push('created_at < DATE_ADD(:to, INTERVAL 1 DAY)')
+    filters.push('s.created_at < DATE_ADD(:to, INTERVAL 1 DAY)')
     params.to = query.to
   }
-  return listRows('training_sessions', filters, params, query, sessionSort, '-createdAt', (row) =>
-    sessionSummary(sessionFromRow(row)),
+  const where = filters.join(' AND ')
+  const sort = resolveSort(query.sort, sessionSort, '-createdAt')
+  const offset = (query.page - 1) * query.pageSize
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM training_sessions s WHERE ${where}`,
+    params,
   )
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT s.*, u.name AS user_name
+     FROM training_sessions s
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE ${where}
+     ORDER BY ${sort.column} ${sort.direction}
+     LIMIT :limit OFFSET :offset`,
+    { ...params, limit: query.pageSize, offset },
+  )
+  return {
+    rows: rows.map((row) => sessionSummary(sessionFromRow(row))),
+    total: Number(countRows[0]?.total ?? 0),
+  }
 }
 
 export async function listMessages(sessionId: string, db: Db = pool): Promise<ChatMessage[]> {
@@ -432,9 +493,11 @@ export async function listMessages(sessionId: string, db: Db = pool): Promise<Ch
 /** A session with its transcript. userScope null = any user of the customer. */
 export async function getSession(customerId: string, id: string, userScope: string | null) {
   const [rows] = await pool.query<JsonRow[]>(
-    `SELECT * FROM training_sessions
-     WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL
-       AND (:userScope IS NULL OR user_id = :userScope)
+    `SELECT s.*, u.name AS user_name
+     FROM training_sessions s
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE s.customer_id = :customerId AND s.id = :id AND s.deleted_at IS NULL
+       AND (:userScope IS NULL OR s.user_id = :userScope)
      LIMIT 1`,
     { customerId, id, userScope },
   )
@@ -444,7 +507,7 @@ export async function getSession(customerId: string, id: string, userScope: stri
   return {
     ...session,
     messages,
-    report: session.report ? { ...session.report, messages } : null,
+    report: session.report ? { ...session.report, messages, hasAudio: session.hasAudio, userName: session.userName } : null,
   }
 }
 
@@ -452,7 +515,7 @@ export async function insertSession(
   customerId: string,
   userId: string,
   input: {
-    scenarioId: string
+    scenarioId: string | null
     personaId: string
     mediaMode: 'text' | 'voice'
     aiProvider: string
@@ -492,7 +555,15 @@ export async function insertSession(
 export async function appendTurn(
   sessionId: string,
   nextSeq: number,
-  turn: { userText: string; traineeName: string; aiText: string; personaName: string },
+  turn: {
+    userText: string
+    traineeName: string
+    aiText: string
+    personaName: string
+    userOffsetMs?: number | null
+    userDurationMs?: number | null
+    aiDurationMs?: number | null
+  },
 ): Promise<{ userMessage: ChatMessage; aiMessage: ChatMessage }> {
   const userAt = new Date()
   const aiAt = new Date(userAt.getTime() + 1)
@@ -502,14 +573,34 @@ export async function appendTurn(
   try {
     await connection.beginTransaction()
     await connection.query(
-      `INSERT INTO training_session_messages (id, session_id, seq, role, speaker, text, created_at)
-       VALUES (:id, :sessionId, :seq, 'user', :speaker, :text, :at)`,
-      { id: userId, sessionId, seq: nextSeq, speaker: turn.traineeName, text: turn.userText, at: userAt },
+      `INSERT INTO training_session_messages
+        (id, session_id, seq, role, speaker, text, offset_ms, duration_ms, created_at)
+       VALUES (:id, :sessionId, :seq, 'user', :speaker, :text, :offsetMs, :durationMs, :at)`,
+      {
+        id: userId,
+        sessionId,
+        seq: nextSeq,
+        speaker: turn.traineeName,
+        text: turn.userText,
+        offsetMs: turn.userOffsetMs ?? null,
+        durationMs: turn.userDurationMs ?? null,
+        at: userAt,
+      },
     )
     await connection.query(
-      `INSERT INTO training_session_messages (id, session_id, seq, role, speaker, text, created_at)
-       VALUES (:id, :sessionId, :seq, 'ai', :speaker, :text, :at)`,
-      { id: aiId, sessionId, seq: nextSeq + 1, speaker: turn.personaName, text: turn.aiText, at: aiAt },
+      `INSERT INTO training_session_messages
+        (id, session_id, seq, role, speaker, text, offset_ms, duration_ms, created_at)
+       VALUES (:id, :sessionId, :seq, 'ai', :speaker, :text, :offsetMs, :durationMs, :at)`,
+      {
+        id: aiId,
+        sessionId,
+        seq: nextSeq + 1,
+        speaker: turn.personaName,
+        text: turn.aiText,
+        offsetMs: turn.userOffsetMs == null ? null : turn.userOffsetMs + (turn.userDurationMs ?? 0),
+        durationMs: turn.aiDurationMs ?? null,
+        at: aiAt,
+      },
     )
     await connection.commit()
   } catch (error) {
@@ -522,8 +613,24 @@ export async function appendTurn(
     connection.release()
   }
   return {
-    userMessage: { id: userId, role: 'user', speaker: turn.traineeName, text: turn.userText, timestamp: userAt.toISOString() },
-    aiMessage: { id: aiId, role: 'ai', speaker: turn.personaName, text: turn.aiText, timestamp: aiAt.toISOString() },
+    userMessage: {
+      id: userId,
+      role: 'user',
+      speaker: turn.traineeName,
+      text: turn.userText,
+      timestamp: userAt.toISOString(),
+      offsetMs: turn.userOffsetMs ?? null,
+      durationMs: turn.userDurationMs ?? null,
+    },
+    aiMessage: {
+      id: aiId,
+      role: 'ai',
+      speaker: turn.personaName,
+      text: turn.aiText,
+      timestamp: aiAt.toISOString(),
+      offsetMs: turn.userOffsetMs == null ? null : turn.userOffsetMs + (turn.userDurationMs ?? 0),
+      durationMs: turn.aiDurationMs ?? null,
+    },
   }
 }
 
@@ -531,22 +638,65 @@ export async function appendTurn(
 export async function completeSession(
   customerId: string,
   sessionId: string,
-  result: { score: number; judgeSource: string; report: Record<string, unknown>; completedAt: Date },
+  result: { score: number; judgeSource: string; report: Record<string, unknown>; completedAt: Date; durationMs?: number | null },
 ): Promise<boolean> {
   const [update] = await pool.query<ResultSetHeader>(
     `UPDATE training_sessions
-     SET status = 'completed', score = :score, judge_source = :judgeSource, session_json = :json, completed_at = :completedAt
+     SET status = 'completed', score = :score, duration_ms = :durationMs, judge_source = :judgeSource,
+         session_json = :json, completed_at = :completedAt
      WHERE customer_id = :customerId AND id = :sessionId AND status = 'in_progress'`,
     {
       customerId,
       sessionId,
       score: result.score,
+      durationMs: result.durationMs ?? null,
       judgeSource: result.judgeSource,
       json: JSON.stringify({ report: result.report }),
       completedAt: result.completedAt,
     },
   )
   return update.affectedRows > 0
+}
+
+export async function replaceSessionReport(
+  customerId: string,
+  sessionId: string,
+  result: { score: number; judgeSource: string; report: Record<string, unknown>; durationMs?: number | null },
+): Promise<boolean> {
+  const [update] = await pool.query<ResultSetHeader>(
+    `UPDATE training_sessions
+     SET score = :score, duration_ms = :durationMs, judge_source = :judgeSource, session_json = :json
+     WHERE customer_id = :customerId AND id = :sessionId AND status = 'completed' AND deleted_at IS NULL`,
+    {
+      customerId,
+      sessionId,
+      score: result.score,
+      durationMs: result.durationMs ?? null,
+      judgeSource: result.judgeSource,
+      json: JSON.stringify({ report: result.report }),
+    },
+  )
+  return update.affectedRows > 0
+}
+
+export async function setSessionAudio(customerId: string, sessionId: string, audioPath: string): Promise<boolean> {
+  const [update] = await pool.query<ResultSetHeader>(
+    `UPDATE training_sessions
+     SET audio_path = :audioPath
+     WHERE customer_id = :customerId AND id = :sessionId AND deleted_at IS NULL`,
+    { customerId, sessionId, audioPath },
+  )
+  return update.affectedRows > 0
+}
+
+export async function sessionAudioPath(customerId: string, sessionId: string): Promise<string | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT audio_path FROM training_sessions
+     WHERE customer_id = :customerId AND id = :sessionId AND deleted_at IS NULL LIMIT 1`,
+    { customerId, sessionId },
+  )
+  const value = rows[0]?.audio_path
+  return value == null || value === '' ? null : String(value)
 }
 
 // --------------------------------------------------------------------- metrics
@@ -601,4 +751,187 @@ export function streakDays(completedAt: Date[], timeZone: string, now = new Date
     cursor.setUTCDate(cursor.getUTCDate() - 1)
   }
   return streak
+}
+
+// ---------------------------------------------------------------------- groups
+
+export async function listGroups(customerId: string) {
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT g.*,
+       (SELECT COUNT(*) FROM training_group_members m WHERE m.group_id = g.id) AS member_count
+     FROM training_groups g
+     WHERE g.customer_id = :customerId AND g.deleted_at IS NULL
+     ORDER BY g.name ASC`,
+    { customerId },
+  )
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    memberCount: Number(row.member_count ?? 0),
+    createdAt: iso(row.created_at),
+  }))
+}
+
+export async function getGroup(customerId: string, id: string) {
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT * FROM training_groups WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL LIMIT 1`,
+    { customerId, id },
+  )
+  if (!rows[0]) return null
+  const [members] = await pool.query<JsonRow[]>(
+    `SELECT u.id, u.name, u.email
+     FROM training_group_members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.group_id = :id AND m.customer_id = :customerId
+     ORDER BY u.name`,
+    { id, customerId },
+  )
+  return {
+    id: String(rows[0].id),
+    name: String(rows[0].name),
+    members: members.map((row) => ({ id: String(row.id), name: String(row.name), email: row.email == null ? '' : String(row.email) })),
+  }
+}
+
+export async function insertGroup(customerId: string, name: string, userIds: string[]) {
+  const id = ulid()
+  const now = new Date()
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
+    await connection.query(
+      `INSERT INTO training_groups (id, customer_id, name, created_at, updated_at)
+       VALUES (:id, :customerId, :name, :now, :now)`,
+      { id, customerId, name, now },
+    )
+    for (const userId of userIds) {
+      await connection.query(
+        `INSERT INTO training_group_members (group_id, user_id, customer_id, created_at)
+         VALUES (:id, :userId, :customerId, :now)`,
+        { id, userId, customerId, now },
+      )
+    }
+    await connection.commit()
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
+  }
+  return getGroup(customerId, id)
+}
+
+export async function updateGroup(customerId: string, id: string, name: string, userIds: string[]) {
+  const existing = await getGroup(customerId, id)
+  if (!existing) return null
+  const now = new Date()
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
+    await connection.query(
+      `UPDATE training_groups SET name = :name, updated_at = :now
+       WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL`,
+      { id, customerId, name, now },
+    )
+    await connection.query(`DELETE FROM training_group_members WHERE group_id = :id AND customer_id = :customerId`, {
+      id,
+      customerId,
+    })
+    for (const userId of userIds) {
+      await connection.query(
+        `INSERT INTO training_group_members (group_id, user_id, customer_id, created_at)
+         VALUES (:id, :userId, :customerId, :now)`,
+        { id, userId, customerId, now },
+      )
+    }
+    await connection.commit()
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
+  }
+  return getGroup(customerId, id)
+}
+
+export async function listDirectory(customerId: string) {
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT id, name, email, profile
+     FROM users
+     WHERE customer_id = :customerId AND deleted_at IS NULL
+     ORDER BY name ASC`,
+    { customerId },
+  )
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    email: row.email == null ? '' : String(row.email),
+    profile: String(row.profile),
+  }))
+}
+
+export async function userIdsInCustomer(customerId: string, userIds: string[]) {
+  if (userIds.length === 0) return []
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id FROM users WHERE customer_id = :customerId AND deleted_at IS NULL AND id IN (:ids)`,
+    { customerId, ids: userIds },
+  )
+  return rows.map((row) => String(row.id))
+}
+
+export type AnalyticsRow = {
+  userId: string
+  userName: string
+  score: number
+  durationMs: number
+  completedAt: string
+  templateTitle: string
+  communication: Record<string, unknown> | null
+  sections: { name?: string; earnedWeight?: number; totalWeight?: number }[]
+}
+
+export async function listAnalyticsRows(
+  customerId: string,
+  since: Date,
+  scope: { userId: string | null; groupId: string | null },
+): Promise<AnalyticsRow[]> {
+  const filters = [
+    's.customer_id = :customerId',
+    's.deleted_at IS NULL',
+    "s.status = 'completed'",
+    's.completed_at >= :since',
+  ]
+  const params: Params = { customerId, since }
+  if (scope.userId) {
+    filters.push('s.user_id = :userId')
+    params.userId = scope.userId
+  }
+  if (scope.groupId) {
+    filters.push(
+      `s.user_id IN (SELECT user_id FROM training_group_members WHERE group_id = :groupId AND customer_id = :customerId)`,
+    )
+    params.groupId = scope.groupId
+  }
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT s.user_id, u.name AS user_name, s.score, s.duration_ms, s.completed_at, s.session_json
+     FROM training_sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE ${filters.join(' AND ')}`,
+    params,
+  )
+  return rows.map((row) => {
+    const report = parseJson(row.session_json).report as Record<string, unknown> | undefined
+    const communication = report?.communication
+    const sections = report?.sections
+    return {
+      userId: String(row.user_id),
+      userName: String(row.user_name),
+      score: row.score == null ? 0 : Number(row.score),
+      durationMs: row.duration_ms == null ? Number((communication as { durationSec?: number } | undefined)?.durationSec ?? 0) * 1000 : Number(row.duration_ms),
+      completedAt: iso(row.completed_at) ?? new Date().toISOString(),
+      templateTitle: report?.templateTitle == null ? 'Sem template' : String(report.templateTitle),
+      communication: communication && typeof communication === 'object' ? (communication as Record<string, unknown>) : null,
+      sections: Array.isArray(sections) ? (sections as AnalyticsRow['sections']) : [],
+    }
+  })
 }

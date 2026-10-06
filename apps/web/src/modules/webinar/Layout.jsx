@@ -6,6 +6,7 @@ import './styles/webinar.css'
 import './live/webinar-live.css'
 
 const CLIENT_NAV = [
+  { id: 'platform', label: 'Nova versão (beta)', to: '/modules/webinar/plataforma' },
   { id: 'dashboard', label: 'Início', to: '/modules/webinar/dashboard', end: true },
   { id: 'webinars', label: 'Meus Webinars', to: '/modules/webinar/dashboard/webinars' },
   { id: 'leads', label: 'Leads', to: '/modules/webinar/dashboard/leads' },

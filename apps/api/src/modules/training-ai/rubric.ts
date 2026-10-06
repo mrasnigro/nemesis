@@ -31,7 +31,15 @@ export type CriterionVerdict = { criterionId: string; passed: boolean; rationale
 
 export type Judgment = { provider: string; criteria: CriterionVerdict[] }
 
-export type ChatMessage = { id: string; role: 'ai' | 'user'; speaker: string; text: string; timestamp: string }
+export type ChatMessage = {
+  id: string
+  role: 'ai' | 'user'
+  speaker: string
+  text: string
+  timestamp: string
+  offsetMs?: number | null
+  durationMs?: number | null
+}
 
 export const SCORE_BANDS = [
   { min: 90, label: 'Excelente', tone: 'green' },
@@ -146,6 +154,63 @@ export function evaluateRubric(template: Template, judgment: Judgment) {
   return { score, band: scoreBand(score), sections, criteria }
 }
 
+const FILLER =
+  /\b(n[eé]|tipo|ent[aã]o|ah+|hum+|eh+|assim|basicamente|literalmente|sabe|t[aá])\b/gi
+
+function speakSeconds(message: ChatMessage): number {
+  if (message.durationMs && message.durationMs > 0) return message.durationMs / 1000
+  const words = message.text.trim().split(/\s+/).filter(Boolean).length
+  return words / 2.3
+}
+
+function bandStatus(value: number, low: number, high: number, near = 0): string {
+  if (value >= low && value <= high) return 'Ideal'
+  if (near > 0 && value >= low - near && value <= high + near) return 'Atenção'
+  return 'Precisa Melhorar'
+}
+
+/** Talk time, pace, monologue and fillers. Durations come from the call; otherwise they are estimated from the words. */
+export function communicationMetrics(messages: ChatMessage[]) {
+  const user = messages.filter((message) => message.role === 'user')
+  const ai = messages.filter((message) => message.role === 'ai')
+  const userSec = user.reduce((sum, message) => sum + speakSeconds(message), 0)
+  const aiSec = ai.reduce((sum, message) => sum + speakSeconds(message), 0)
+  const total = userSec + aiSec
+  const talkListenPct = total > 0 ? Math.round((userSec / total) * 100) : 0
+  const words = user.reduce((sum, message) => sum + message.text.trim().split(/\s+/).filter(Boolean).length, 0)
+  const minutes = Math.max(userSec / 60, 1 / 60)
+  const wordsPerMinute = Math.round(words / minutes)
+  const longestMonologueSec = Math.round(Math.max(0, ...user.map(speakSeconds), 0))
+  const fillerCount = user.reduce((sum, message) => sum + (message.text.match(FILLER)?.length ?? 0), 0)
+  const fillersPerMinute = Math.round((fillerCount / minutes) * 10) / 10
+  return {
+    talkListenPct,
+    talkListenIdeal: '40–50%',
+    talkListenStatus: bandStatus(talkListenPct, 40, 50),
+    wordsPerMinute,
+    wordsPerMinuteIdeal: '110–150',
+    wordsPerMinuteStatus: bandStatus(wordsPerMinute, 110, 150, 20),
+    longestMonologueSec,
+    longestMonologueIdeal: '60–150s',
+    longestMonologueStatus: bandStatus(longestMonologueSec, 60, 150),
+    fillersPerMinute,
+    fillersIdeal: 'menos de 2 por minuto',
+    fillersStatus: fillersPerMinute < 2 ? 'Bom' : 'Precisa Melhorar',
+    durationSec: Math.round(total),
+  }
+}
+
+function evidenceFor(messages: ChatMessage[]) {
+  const trainee = messages.filter((message) => message.role === 'user')
+  const message = trainee[trainee.length - 1]
+  if (!message) return null
+  return {
+    messageId: message.id,
+    timestamp: message.timestamp,
+    quote: message.text.slice(0, 400),
+  }
+}
+
 export function coachNotes(score: number): string {
   if (score >= 90) return 'Excelente domínio da rubrica. Pronto para cenários avançados.'
   if (score >= 75) return 'Bom desempenho. Refine os critérios em falha e refaça o cenário.'
@@ -157,8 +222,8 @@ export type SessionReport = ReturnType<typeof buildReport>
 
 export function buildReport(input: {
   sessionId: string
-  scenario: { id: string; title: string }
-  persona: { id: string; name: string }
+  scenario: { id: string; title: string; sellerInstructions?: string }
+  persona: { id: string; name: string; negotiatorType?: string }
   template: Template
   mediaMode: 'text' | 'voice'
   judgeSource: string
@@ -167,8 +232,15 @@ export function buildReport(input: {
   completedAt: Date
 }) {
   const rubric = evaluateRubric(input.template, input.judgment)
-  const passed = rubric.criteria.filter((item) => item.passed)
-  const failed = rubric.criteria.filter((item) => !item.passed)
+  const evidence = evidenceFor(input.messages)
+  const criteria = rubric.criteria.map((item) => ({ ...item, evidence }))
+  const sections = rubric.sections.map((section) => ({
+    ...section,
+    criteria: section.criteria.map((item) => ({ ...item, evidence })),
+  }))
+  const passed = criteria.filter((item) => item.passed)
+  const failed = criteria.filter((item) => !item.passed)
+  const communication = communicationMetrics(input.messages)
 
   const strengths = passed.length ? passed.map((item) => item.name) : ['Manteve a simulação até o final']
   const improvements = failed.length
@@ -213,8 +285,15 @@ export function buildReport(input: {
     judgeSource: input.judgeSource,
     score: rubric.score,
     band: rubric.band,
-    sections: rubric.sections,
-    criteria: rubric.criteria,
+    sections,
+    criteria,
+    communication,
+    positives: passed.length ? passed.map((item) => item.rationale || item.name) : ['Manteve a simulação até o final'],
+    negatives: failed.map((item) => item.rationale || item.yesNoQuestion || item.name),
+    suggestions: failed.map((item) => item.yesNoQuestion || item.name),
+    sellerInstructions:
+      typeof input.scenario.sellerInstructions === 'string' ? input.scenario.sellerInstructions : '',
+    negotiatorType: typeof input.persona.negotiatorType === 'string' ? input.persona.negotiatorType : '',
     strengths,
     improvements,
     coachNotes: coachNotes(rubric.score),

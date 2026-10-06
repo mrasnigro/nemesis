@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/mysql2'
 import mysql from 'mysql2/promise'
 import dotenv from 'dotenv'
 import * as schema from './schema.js'
+import { mysqlSslOptions } from './ssl.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -40,6 +41,7 @@ console.log(`📦 MySQL ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbC
 
 export const pool = mysql.createPool({
   ...dbConfig,
+  ssl: mysqlSslOptions(),
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_POOL_SIZE || 10),
   enableKeepAlive: true,

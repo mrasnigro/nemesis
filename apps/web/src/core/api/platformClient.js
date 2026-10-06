@@ -72,6 +72,64 @@ export async function platformRequest(path, { method = 'GET', body, query, signa
   return payload
 }
 
+/**
+ * Sends raw bytes (a video chunk). Resolves on success; failures throw `PlatformApiError` with the
+ * server's `code` so the caller can tell "not live" from "network down".
+ */
+export async function platformUpload(path, body, { query, signal } = {}) {
+  let response
+  try {
+    response = await fetch(buildUrl(path, query), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/octet-stream', Accept: 'application/json' },
+      body,
+      signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    throw new PlatformApiError('Não foi possível conectar à API da plataforma.', { status: 0, code: 'NETWORK_ERROR' })
+  }
+  if (response.ok) return
+  const payload = await response.json().catch(() => null)
+  if (response.status === 401) sessionExpiredListeners.forEach((listener) => listener())
+  throw new PlatformApiError(payload?.error?.message || `Request failed (${response.status})`, {
+    status: response.status,
+    code: payload?.error?.code,
+  })
+}
+
+/** Downloads a file the API generates (CSV export). The session cookie authorizes it. */
+export async function platformDownload(path, fallbackName = 'download') {
+  let response
+  try {
+    response = await fetch(buildUrl(path), { credentials: 'include' })
+  } catch {
+    throw new PlatformApiError('Não foi possível conectar à API da plataforma.', {
+      status: 0,
+      code: 'NETWORK_ERROR',
+    })
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    if (response.status === 401) sessionExpiredListeners.forEach((listener) => listener())
+    throw new PlatformApiError(payload?.error?.message || `Request failed (${response.status})`, {
+      status: response.status,
+      code: payload?.error?.code,
+    })
+  }
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const name = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || fallbackName
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 /** Follows `{ data, page }` pagination until every row is loaded. */
 export async function platformListAll(path, query = {}) {
   const pageSize = 100

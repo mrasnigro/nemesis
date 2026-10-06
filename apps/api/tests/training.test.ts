@@ -303,6 +303,42 @@ describe('sessions', () => {
     expect(Number(rows[0].messages)).toBe(3)
   })
 
+  it('starts from the persona, stores timing and scores the call', async () => {
+    const template = await create(manager, 'templates', playbook({ scenarioTypes: ['cold_first'] }))
+    const created = await create(
+      manager,
+      'personas',
+      persona({
+        scenarioType: 'cold_first',
+        evaluationTemplateId: template.id,
+        sellerInstructions: 'Peça permissão e proponha uma agenda.',
+        visibility: 'company',
+      }),
+    )
+    const started = await operator.post(`${BASE}/sessions`).send({ personaId: created.id, mediaMode: 'voice' })
+    expect(started.status, JSON.stringify(started.body)).toBe(201)
+    expect(started.body.data.scenarioId).toBeNull()
+
+    const sent = await operator
+      .post(`${BASE}/sessions/${started.body.data.id}/messages`)
+      .send({ text: 'Bom dia, posso marcar uma reunião?', offsetMs: 1200, durationMs: 4000 })
+    expect(sent.status).toBe(201)
+    expect(sent.body.data.userMessage.durationMs).toBe(4000)
+
+    const finished = await operator.post(`${BASE}/sessions/${started.body.data.id}/finish`)
+    expect(finished.status).toBe(200)
+    expect(finished.body.data.report.communication.talkListenPct).toEqual(expect.any(Number))
+    expect(finished.body.data.report.positives.length).toBeGreaterThan(0)
+    expect(finished.body.data.report.criteria).toHaveLength(2)
+
+    const directory = await manager.get(`${BASE}/directory`)
+    expect(directory.status).toBe(200)
+    const memberId = directory.body.data[0].id as string
+    const group = await manager.post(`${BASE}/groups`).send({ name: unique('Grupo '), userIds: [memberId] })
+    expect(group.status).toBe(201)
+    expect(group.body.data.members).toHaveLength(1)
+  })
+
   it('fails the criteria the trainee did not meet', async () => {
     const ids = await setup()
     const session = await startSession(operator, ids.scenario)

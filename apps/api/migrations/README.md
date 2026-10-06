@@ -1,6 +1,6 @@
 # Database migrations
 
-MySQL 8, one schema per environment (`imp`, `imp_test`). Webinar has its own schema, `imp_webinar`, managed by `services/webinar`.
+MySQL 8, one schema per environment (`imp`, `imp_test`). Webinar is moving into this schema (`010_webinar_core.sql`); until the web app stops using `services/webinar`, that service still runs on its own `imp_webinar` schema.
 
 ```bash
 npm run db:migrate        # from the repository root; applies every file not yet recorded
@@ -40,6 +40,16 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `007_bdr_drop_unused.sql` | Drops `bdr_dial_attempts.provider_json` |
 | `008_training_sessions_flow.sql` | Adds `persona_id`, `media_mode`, `ai_provider`, `judge_source` to `training_sessions`; creates `training_session_messages` (one row per message, unique `(session_id, seq)`); moves transcripts that older sessions kept inside `session_json` into that table |
 | `009_bdr_call_summary.sql` | Adds the AI call summary to `bdr_calls`: `summary_text`, `summary_source`, `summary_status`, `summary_tries`, `summary_updated_at`, `transcript_text`. The summary built from the record is computed on read and not stored |
+| `010_webinar_core.sql` | `webinar_webinars`, `webinar_access_codes`, `webinar_leads`, `webinar_chat_messages`. Nothing is copied from the old `imp_webinar` schema |
+| `011_webinar_plans.sql` | `webinar_plans` (shared catalog, no `customer_id`; a `NULL` limit means no limit; money in cents), `webinar_subscriptions` (one per customer; "expired" is `expires_at` in the past, not a stored status), `webinar_payments` (manual records, no gateway). Inserts the four starter plans (Trial, Básico, Profissional, Enterprise) with fixed ids |
+| `012_training_vendiq.sql` | Persona visibility, scenario type and template on `training_personas`; nullable `training_sessions.scenario_id`, duration and audio path; message timing; `training_groups` and `training_group_members` |
+
+## How Webinar plans work
+
+- A customer with no subscription is put on the plan flagged `is_starter` (Trial, 30 days) the first time it uses Webinar, so the trial clock starts at first use.
+- Limits are enforced by the API, not shown only: a webinar's duration and seats may not exceed the plan; scheduling or going live needs a subscription in force (`active`, not expired); registrations and live viewers are capped by the plan's `max_participants` (live viewers also by `WEBINAR_STREAM_MAX_VIEWERS`). Reading, drafting and ending a live webinar never need an active subscription.
+- Only IMP administrators (`/api/admin/webinar`) edit plans, assign them and register payments. Registering a payment moves `expires_at` to the end of the paid period; voiding one does not move it back.
+- `replay_storage_days` and `features_json` are informational until replay exists.
 
 ## How BDR tables relate
 

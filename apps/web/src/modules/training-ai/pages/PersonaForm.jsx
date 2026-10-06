@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import {
@@ -7,7 +7,10 @@ import {
   NEGOTIATOR_TYPES,
   PERSONA_DIFFICULTIES,
   SALES_MODELS,
+  SCENARIO_TYPES,
+  VISIBILITY_OPTIONS,
 } from '../data/personas.js'
+import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { VOICE_OPTIONS } from '../utils/voiceSession.js'
 
@@ -34,8 +37,23 @@ export default function TrainingPersonaFormPage() {
     createPersona,
     updatePersona,
     createEmptyPersonaDraft,
+    evaluationTemplates,
     canManage,
   } = useTrainingAi()
+  const [groups, setGroups] = useState([])
+
+  useEffect(() => {
+    if (!canManage) return undefined
+    let cancelled = false
+    trainingApi.listGroups().then((rows) => {
+      if (!cancelled) setGroups(rows || [])
+    }).catch(() => {
+      if (!cancelled) setGroups([])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [canManage])
 
   const existing = isEdit ? getPersona(personaId) : null
 
@@ -66,8 +84,16 @@ export default function TrainingPersonaFormPage() {
         status: existing.status || 'active',
         traitsText: listToText(existing.traits),
         interactionMode: existing.interactionMode || 'text',
-        voiceRef: existing.voiceRef || 'voice_neutral_f',
+        voiceRef: existing.voiceRef || 'borges',
         scenarioContext: existing.scenarioContext || '',
+        scenarioType: existing.scenarioType || 'cold_first',
+        evaluationTemplateId: existing.evaluationTemplateId || '',
+        sellerInstructions: existing.sellerInstructions || '',
+        visibility: existing.visibility || 'company',
+        groupId: existing.groupId || '',
+        tagsText: listToText(existing.tags),
+        companyFactsText: listToText(existing.companyFacts),
+        avatarData: existing.avatarData || '',
       }
     }
     const draft = createEmptyPersonaDraft()
@@ -272,11 +298,100 @@ export default function TrainingPersonaFormPage() {
                   onChange={(e) => patch('location', e.target.value)}
                 />
               </label>
+              <label className="imp-field training-ai__form-span-2">
+                <span>Foto</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      const image = new Image()
+                      image.onload = () => {
+                        const canvas = document.createElement('canvas')
+                        const scale = Math.min(1, 320 / Math.max(image.width, image.height))
+                        canvas.width = Math.max(1, Math.round(image.width * scale))
+                        canvas.height = Math.max(1, Math.round(image.height * scale))
+                        canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height)
+                        patch('avatarData', canvas.toDataURL('image/jpeg', 0.72))
+                      }
+                      image.src = String(reader.result)
+                    }
+                    reader.readAsDataURL(file)
+                  }}
+                />
+                {form.avatarData ? <img src={form.avatarData} alt="" width="72" height="72" /> : null}
+              </label>
             </div>
           ) : null}
 
           {step.id === 'scenario' ? (
             <div className="training-ai__form-grid">
+              <label className="imp-field">
+                <span>Quem pode ver</span>
+                <select value={form.visibility || 'company'} onChange={(e) => patch('visibility', e.target.value)}>
+                  {VISIBILITY_OPTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              {form.visibility === 'group' ? (
+                <label className="imp-field">
+                  <span>Grupo</span>
+                  <select value={form.groupId || ''} onChange={(e) => patch('groupId', e.target.value)}>
+                    <option value="">Selecione</option>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>{group.name}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label className="imp-field">
+                <span>Cenário da simulação</span>
+                <select value={form.scenarioType || 'cold_first'} onChange={(e) => patch('scenarioType', e.target.value)}>
+                  {SCENARIO_TYPES.map((item) => (
+                    <option key={item.id} value={item.id}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="imp-field">
+                <span>Template de avaliação</span>
+                <select
+                  value={form.evaluationTemplateId || ''}
+                  onChange={(e) => patch('evaluationTemplateId', e.target.value)}
+                >
+                  <option value="">Selecione</option>
+                  {evaluationTemplates
+                    .filter((template) => {
+                      const types = template.scenarioTypes
+                      if (!Array.isArray(types) || types.length === 0) return true
+                      return types.includes(form.scenarioType || 'cold_first')
+                    })
+                    .map((template) => (
+                      <option key={template.id} value={template.id}>{template.title}</option>
+                    ))}
+                </select>
+              </label>
+              <label className="imp-field training-ai__form-span-2">
+                <span>Instruções ao vendedor</span>
+                <textarea
+                  rows={3}
+                  value={form.sellerInstructions || ''}
+                  onChange={(e) => patch('sellerInstructions', e.target.value)}
+                  placeholder="O que o vendedor vê antes da ligação"
+                />
+              </label>
+              <label className="imp-field">
+                <span>Tags</span>
+                <textarea
+                  rows={3}
+                  value={form.tagsText || ''}
+                  onChange={(e) => patch('tagsText', e.target.value)}
+                  placeholder="Uma tag por linha"
+                />
+              </label>
               <label className="imp-field training-ai__form-span-2">
                 <span>Instruções / DNA comportamental* (até ~2000)</span>
                 <textarea
@@ -318,7 +433,7 @@ export default function TrainingPersonaFormPage() {
                   onClick={() => patch('interactionMode', 'text')}
                 >
                   <strong>Texto</strong>
-                  <small>Conversa por chat — caminho real do protótipo.</small>
+                  <small>Conversa por texto.</small>
                 </button>
                 <button
                   type="button"
@@ -338,7 +453,7 @@ export default function TrainingPersonaFormPage() {
                   onClick={() => patch('interactionMode', 'both')}
                 >
                   <strong>Ambos</strong>
-                  <small>O treinando escolhe entre texto e voz ao iniciar.</small>
+                  <small>A persona aceita texto e voz.</small>
                 </button>
               </div>
               <div className="training-ai__voice-picker">
@@ -358,15 +473,18 @@ export default function TrainingPersonaFormPage() {
                 <button
                   type="button"
                   className="imp-btn imp-btn--ghost"
-                  disabled
-                  title="Prévia de áudio indisponível neste protótipo"
+                  onClick={() => {
+                    if (!window.speechSynthesis) return
+                    const voice = VOICE_OPTIONS.find((item) => item.id === form.voiceRef)
+                    const utterance = new SpeechSynthesisUtterance('Olá, eu sou o cliente desta simulação.')
+                    utterance.lang = voice?.lang || form.language || 'pt-BR'
+                    window.speechSynthesis.cancel()
+                    window.speechSynthesis.speak(utterance)
+                  }}
                 >
-                  ▶ Prévia indisponível
+                  ▶ Ouvir voz
                 </button>
               </div>
-              <p className="training-ai__meta" style={{ marginTop: '0.85rem' }}>
-                Report R4: chrome de voz apenas; motor de conversa permanece texto.
-              </p>
             </>
           ) : null}
 
@@ -473,14 +591,24 @@ export default function TrainingPersonaFormPage() {
                 ))}
               </div>
               {form.salesModel === 'b2b' ? (
-                <label className="imp-field training-ai__form-span-2">
-                  <span>Informações da empresa</span>
-                  <textarea
-                    rows={3}
-                    value={form.companyInfo}
-                    onChange={(e) => patch('companyInfo', e.target.value)}
-                  />
-                </label>
+                <>
+                  <label className="imp-field training-ai__form-span-2">
+                    <span>Informações da empresa</span>
+                    <textarea
+                      rows={3}
+                      value={form.companyInfo}
+                      onChange={(e) => patch('companyInfo', e.target.value)}
+                    />
+                  </label>
+                  <label className="imp-field training-ai__form-span-2">
+                    <span>Fatos da empresa (um por linha)</span>
+                    <textarea
+                      rows={3}
+                      value={form.companyFactsText || ''}
+                      onChange={(e) => patch('companyFactsText', e.target.value)}
+                    />
+                  </label>
+                </>
               ) : null}
             </div>
           ) : null}

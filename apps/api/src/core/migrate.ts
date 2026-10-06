@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import mysql from 'mysql2/promise'
 import type { RowDataPacket } from 'mysql2'
 import { config } from './config.js'
+import { mysqlSslOptions } from './mysqlSsl.js'
 
 const migrationsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../migrations')
 
@@ -28,6 +29,7 @@ export async function runMigrations(log: (message: string) => void = console.log
     user: config.DB_USER,
     password: config.DB_PASSWORD,
     database: config.DB_NAME,
+    ssl: mysqlSslOptions(),
     multipleStatements: true,
     timezone: 'Z',
   })

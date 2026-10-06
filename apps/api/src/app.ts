@@ -7,12 +7,14 @@ import { pingDatabase } from './core/db.js'
 import { errorHandler, notFoundHandler } from './core/http.js'
 import { requestContext } from './core/requestContext.js'
 import { auditRouter } from './modules/audit/audit.routes.js'
-import { requireAccountManager, requireAuth } from './modules/auth/auth.middleware.js'
+import { requireAccountManager, requireAuth, requirePlatformAdmin } from './modules/auth/auth.middleware.js'
 import { authRouter } from './modules/auth/auth.routes.js'
 import { bdrRouter } from './modules/bdr/bdr.routes.js'
 import { customersRouter } from './modules/customers/customers.routes.js'
 import { trainingAiRouter } from './modules/training-ai/training-ai.routes.js'
 import { usersRouter } from './modules/users/users.routes.js'
+import { webinarRouter, webinarPublicRouter } from './modules/webinar/webinar.routes.js'
+import { webinarPlansAdminRouter } from './modules/webinar-plans/plans.routes.js'
 import { webinarBridgeRouter } from './modules/webinar-bridge/webinar-bridge.routes.js'
 
 export const API_VERSION = '0.2.0'
@@ -43,12 +45,17 @@ export function createApp() {
   admin.use('/customers', customersRouter)
   admin.use('/users', usersRouter)
   admin.use('/audit-logs', auditRouter)
+  // Webinar plans, subscriptions and payments are the platform's business, not the customer's.
+  admin.use('/webinar', requirePlatformAdmin, webinarPlansAdminRouter)
 
   app.use('/api/auth', authRouter)
   app.use('/api/admin', admin)
   app.use('/api/modules/training-ai', trainingAiRouter)
   app.use('/api/modules/bdr', bdrRouter)
+  app.use('/api/modules/webinar', webinarRouter)
+  // Sign-on handoff to the separate Webinar service; goes away once the web app uses this module.
   app.use('/api/modules/webinar', webinarBridgeRouter)
+  app.use('/api/public/webinar', webinarPublicRouter)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

@@ -25,6 +25,7 @@ const good = normalizeTemplateInput({
   title: 'Rubrica teste',
   description: 'Playbook de teste',
   contactType: 'custom',
+  scenarioTypes: ['cold_first'],
   sections: [
     {
       name: 'Abertura',

@@ -22,7 +22,16 @@ export function getAgentInitials(name = '') {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
-export default function AgentAvatar({ id = '', name = '', size = 'md', className = '' }) {
+export default function AgentAvatar({ id = '', name = '', size = 'md', className = '', photo = '' }) {
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt=""
+        className={`training-ai__avatar training-ai__avatar--${size} ${className}`.trim()}
+      />
+    )
+  }
   const [from, to] = PALETTE[hashId(id || name) % PALETTE.length]
   const initials = getAgentInitials(name)
   return (

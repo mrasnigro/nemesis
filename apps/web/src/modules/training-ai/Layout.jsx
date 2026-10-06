@@ -3,11 +3,14 @@ import { TrainingAiProvider, useTrainingAi } from './context/TrainingAiContext.j
 import './styles/training-ai.css'
 
 const NAV = [
-  { id: 'catalog', label: 'Catálogo', to: '/modules/training-ai', end: true },
-  { id: 'scenarios', label: 'Cenários', to: '/modules/training-ai/cenarios' },
-  { id: 'personas', label: 'Agentes', to: '/modules/training-ai/personas' },
-  { id: 'templates', label: 'Playbooks', to: '/modules/training-ai/templates' },
-  { id: 'history', label: 'Insights', to: '/modules/training-ai/historico' },
+  { id: 'personas', label: 'Personas', to: '/modules/training-ai/personas' },
+  { id: 'templates', label: 'Templates de avaliação', to: '/modules/training-ai/templates' },
+  { id: 'history', label: 'Histórico', to: '/modules/training-ai/historico' },
+  { id: 'engagement', label: 'Engajamento', to: '/modules/training-ai/dashboards/engajamento' },
+  { id: 'ranking', label: 'Ranking', to: '/modules/training-ai/dashboards/ranking' },
+  { id: 'performance', label: 'Performance', to: '/modules/training-ai/dashboards/performance' },
+  { id: 'communication', label: 'Métricas de comunicação', to: '/modules/training-ai/dashboards/comunicacao' },
+  { id: 'groups', label: 'Grupos', to: '/modules/training-ai/grupos' },
 ]
 
 function TrainingWorkspace() {

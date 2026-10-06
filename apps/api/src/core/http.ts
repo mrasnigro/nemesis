@@ -52,6 +52,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return
   }
 
+  if (typeof err === 'object' && err !== null && (err as { type?: string }).type === 'entity.too.large') {
+    res.status(413).json({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body is too large', details: [] } })
+    return
+  }
+
   log('error', 'unhandled', {
     requestId: req.requestId,
     path: req.originalUrl,

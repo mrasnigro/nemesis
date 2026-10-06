@@ -7,9 +7,28 @@ import { DIFFICULTY_LABELS } from './catalogs.js'
 
 export const NEGOTIATOR_TYPES = [
   'Cliente Analítico',
+  'Cliente Cético',
+  'Cliente Comunicativo',
+  'Cliente Inseguro',
   'Cliente Dominante',
-  'Cliente Expressivo',
-  'Cliente Amigável',
+]
+
+export const SCENARIO_TYPES = [
+  { id: 'cold_first', label: 'Primeiro Contato Frio' },
+  { id: 'discovery', label: 'Descoberta/Qualificação' },
+  { id: 'warm_first', label: 'Primeiro Contato Morno' },
+  { id: 'post_sale', label: 'Pós-Venda' },
+  { id: 'inbound', label: 'Contato Receptivo' },
+]
+
+export function scenarioTypeLabel(id) {
+  return SCENARIO_TYPES.find((item) => item.id === id)?.label || 'Simulação'
+}
+
+export const VISIBILITY_OPTIONS = [
+  { id: 'individual', label: 'Individual' },
+  { id: 'company', label: 'Empresa' },
+  { id: 'group', label: 'Grupo' },
 ]
 
 export const INDUSTRY_OPTIONS = [
@@ -77,8 +96,16 @@ export function createEmptyPersonaDraft() {
     status: 'draft',
     traits: [],
     interactionMode: 'text',
-    voiceRef: 'voice_neutral_f',
+    voiceRef: 'borges',
     scenarioContext: '',
+    scenarioType: 'cold_first',
+    evaluationTemplateId: '',
+    sellerInstructions: '',
+    visibility: 'company',
+    groupId: '',
+    tagsText: '',
+    companyFacts: [],
+    avatarData: '',
   }
 }
 
@@ -145,9 +172,21 @@ export function normalizePersonaInput(input = {}) {
     interactionMode: ['text', 'voice', 'both'].includes(input.interactionMode)
       ? input.interactionMode
       : 'text',
-    voiceRef: String(input.voiceRef || 'voice_neutral_f').trim() || 'voice_neutral_f',
+    voiceRef: String(input.voiceRef || 'borges').trim() || 'borges',
     scenarioContext: String(input.scenarioContext || '').trim(),
+    scenarioType: SCENARIO_TYPES.some((item) => item.id === input.scenarioType) ? input.scenarioType : 'cold_first',
+    evaluationTemplateId: String(input.evaluationTemplateId || '').trim() || undefined,
+    sellerInstructions: String(input.sellerInstructions || '').trim(),
+    visibility: ['individual', 'company', 'group'].includes(input.visibility) ? input.visibility : 'company',
+    groupId: String(input.groupId || '').trim() || undefined,
+    tags: splitList(input, 'tags', 'tagsText'),
+    companyFacts: splitList(input, 'companyFacts', 'companyFactsText'),
+    avatarData: String(input.avatarData || '').trim() || undefined,
   }
+
+  if (persona.visibility === 'group' && !persona.groupId) errors.push('Escolha o grupo desta persona.')
+  if (!persona.sellerInstructions) errors.push('Informe as instruções ao vendedor.')
+  if (!persona.evaluationTemplateId) errors.push('Escolha o template de avaliação.')
 
   return { ok: errors.length === 0, errors, persona }
 }

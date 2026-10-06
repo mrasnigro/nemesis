@@ -12,6 +12,8 @@ const testEnv: Record<string, string> = {
   CORS_ORIGINS: 'http://localhost:5173',
   ALLOW_DEV_AUTH: 'false',
   LOGIN_RATE_LIMIT_MAX: '1000',
+  WEBINAR_REGISTER_RATE_LIMIT_MAX: '1000',
+  WEBINAR_STREAM_MAX_VIEWERS: '3',
   TELEPHONY_DEFAULT_PROVIDER: 'simulated',
   TELEPHONY_SECRET_KEY: 'test-only-telephony-secret-key-0123456789',
   TRAINING_AI_PROVIDER: 'builtin',

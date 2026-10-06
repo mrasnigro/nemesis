@@ -7,26 +7,37 @@ import {
   deletePersonaFor,
   deleteScenarioFor,
   deleteTemplateFor,
+  createGroupFor,
+  dashboardsFor,
+  deleteGroupFor,
+  directoryFor,
   finishSessionFor,
   getPersonaFor,
   getScenarioFor,
   getSessionFor,
   getTemplateFor,
   installStarterCatalog,
+  listGroupsFor,
   listPersonaPage,
   listScenarioPage,
   listSessionPage,
   listTemplatePage,
   metricsFor,
+  readSessionAudioFor,
+  rejudgeSessionFor,
+  saveSessionAudioFor,
   sendMessageFor,
   startSessionFor,
   statusFor,
+  updateGroupFor,
   updatePersonaFor,
   updateScenarioFor,
   updateTemplateFor,
   type Actor,
 } from './training-ai.service.js'
 import {
+  dashboardQuery,
+  groupWrite,
   messageWrite,
   personaListQuery,
   personaWrite,
@@ -139,12 +150,57 @@ export async function startSessionController(req: Request, res: Response) {
 }
 
 export async function sendMessageController(req: Request, res: Response) {
-  const { text } = messageWrite.parse(req.body)
-  res.status(201).json({ data: await sendMessageFor(actor(req), req.params.sessionId, text) })
+  const body = messageWrite.parse(req.body)
+  res.status(201).json({
+    data: await sendMessageFor(actor(req), req.params.sessionId, body.text, {
+      offsetMs: body.offsetMs,
+      durationMs: body.durationMs,
+    }),
+  })
 }
 
 export async function finishSessionController(req: Request, res: Response) {
   res.json({ data: await finishSessionFor(actor(req), req.params.sessionId) })
+}
+
+export async function rejudgeSessionController(req: Request, res: Response) {
+  res.json({ data: await rejudgeSessionFor(actor(req), req.params.sessionId) })
+}
+
+export async function saveSessionAudioController(req: Request, res: Response) {
+  const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)
+  const contentType = String(req.headers['content-type'] || 'audio/webm')
+  res.status(201).json({ data: await saveSessionAudioFor(actor(req), req.params.sessionId, audio, contentType) })
+}
+
+export async function readSessionAudioController(req: Request, res: Response) {
+  const file = await readSessionAudioFor(actor(req), req.params.sessionId)
+  res.type(file.contentType).sendFile(file.absolute)
+}
+
+export async function listGroupsController(req: Request, res: Response) {
+  res.json({ data: await listGroupsFor(actor(req)) })
+}
+
+export async function createGroupController(req: Request, res: Response) {
+  res.status(201).json({ data: await createGroupFor(actor(req), groupWrite.parse(req.body)) })
+}
+
+export async function updateGroupController(req: Request, res: Response) {
+  res.json({ data: await updateGroupFor(actor(req), req.params.groupId, groupWrite.parse(req.body)) })
+}
+
+export async function deleteGroupController(req: Request, res: Response) {
+  await deleteGroupFor(actor(req), req.params.groupId)
+  res.status(204).end()
+}
+
+export async function directoryController(req: Request, res: Response) {
+  res.json({ data: await directoryFor(actor(req)) })
+}
+
+export async function dashboardsController(req: Request, res: Response) {
+  res.json({ data: await dashboardsFor(actor(req), dashboardQuery.parse(req.query)) })
 }
 
 export async function metricsController(req: Request, res: Response) {

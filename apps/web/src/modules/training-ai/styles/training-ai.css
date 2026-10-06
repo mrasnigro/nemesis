@@ -627,6 +627,7 @@
   letter-spacing: 0.02em;
   flex-shrink: 0;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12);
+  object-fit: cover;
 }
 
 .training-ai__avatar--sm {
@@ -1594,5 +1595,32 @@
   .training-ai__scenario-practice-card {
     grid-template-columns: 1fr;
   }
+}
+
+.training-ai__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.training-ai__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.training-ai__table th,
+.training-ai__table td {
+  text-align: left;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.training-ai__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0.75rem;
 }
 

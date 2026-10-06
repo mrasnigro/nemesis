@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { PLATFORM_API_BASE } from '../../../core/api/platformClient.js'
+import { trainingApi } from '../services/api/client.js'
 import SectionRadar from '../components/SectionRadar.jsx'
 import SessionAudioPlayer from '../components/SessionAudioPlayer.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
@@ -39,6 +41,9 @@ export default function TrainingReportPage() {
 
   const [activeMessageId, setActiveMessageId] = useState(null)
   const [loaded, setLoaded] = useState({ id: null, report: null, error: '' })
+  const [tab, setTab] = useState('resultados')
+  const [audioUrl, setAudioUrl] = useState('')
+  const [rejudging, setRejudging] = useState(false)
 
   // /relatorio/sessao/:id opens that session; /relatorio/:scenarioId opens the latest one for the scenario.
   const targetId =
@@ -59,7 +64,7 @@ export default function TrainingReportPage() {
     }
   }, [targetId, justFinished, canReport, loadReport])
 
-  const report = justFinished || (loaded.id === targetId ? loaded.report : null)
+  const report = (loaded.id === targetId ? loaded.report : null) || justFinished
   const loading = Boolean(targetId) && !report && loaded.id !== targetId
   const loadError = loaded.id === targetId ? loaded.error : ''
 
@@ -75,6 +80,26 @@ export default function TrainingReportPage() {
     },
     [setShowConversation],
   )
+
+  useEffect(() => {
+    if (!report?.hasAudio || !report.sessionId) return undefined
+    let objectUrl = ''
+    let cancelled = false
+    fetch(`${PLATFORM_API_BASE}/api/modules/training-ai/sessions/${report.sessionId}/audio`, {
+      credentials: 'include',
+    })
+      .then((response) => (response.ok ? response.blob() : null))
+      .then((blob) => {
+        if (!blob || cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setAudioUrl(objectUrl)
+      })
+      .catch(() => null)
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [report?.hasAudio, report?.sessionId])
 
   if (!canReport) {
     return (
@@ -112,8 +137,11 @@ export default function TrainingReportPage() {
   }
 
   const band = report.band || { label: '—', tone: 'muted' }
+  const communication = report.communication
+  const redoTo = report.scenarioId
+    ? `/modules/training-ai/simulacao/${report.scenarioId}`
+    : `/modules/training-ai/simulacao/persona/${report.personaId}`
   const metrics = estimateSessionMetrics(report)
-  const redoScenarioId = report.scenarioId
   const feedback = report.coachFeedback || []
   const nextSteps = report.nextSteps || []
   const mediaLabel = report.mediaMode === 'voice' ? 'Voz' : 'Texto'
@@ -145,11 +173,24 @@ export default function TrainingReportPage() {
           >
             {showConversation ? 'Ocultar transcrição' : 'Ver conversa'}
           </button>
-          <Link
-            to={`/modules/training-ai/simulacao/${redoScenarioId}`}
-            className="imp-btn imp-btn--primary"
-            onClick={resetSimulation}
+          <button
+            type="button"
+            className="imp-btn imp-btn--ghost"
+            disabled={rejudging}
+            onClick={async () => {
+              if (!report.sessionId) return
+              setRejudging(true)
+              try {
+                const stored = await trainingApi.rejudgeSession(report.sessionId)
+                setLoaded({ id: report.sessionId, report: stored.report, error: '' })
+              } finally {
+                setRejudging(false)
+              }
+            }}
           >
+            {rejudging ? 'Gerando…' : 'Novo feedback'}
+          </button>
+          <Link to={redoTo} className="imp-btn imp-btn--primary" onClick={resetSimulation}>
             Refazer simulação
           </Link>
         </div>
@@ -170,6 +211,65 @@ export default function TrainingReportPage() {
         </div>
       </div>
 
+      <div className="training-ai__tabs">
+        {[
+          ['resultados', 'Resultados'],
+          ['comunicacao', 'Métricas de comunicação'],
+          ['template', report.templateTitle || 'Template'],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={`imp-btn ${tab === id ? 'imp-btn--primary' : 'imp-btn--ghost'}`}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'resultados' ? (
+        <div className="imp-panel">
+          {report.sellerInstructions ? <p>{report.sellerInstructions}</p> : null}
+          <h3>Pontos positivos</h3>
+          <ul className="training-ai__list">{(report.positives || report.strengths || []).map((item) => <li key={item}>{item}</li>)}</ul>
+          <h3>Pontos negativos</h3>
+          <ul className="training-ai__list">{(report.negatives || []).map((item) => <li key={item}>{item}</li>)}</ul>
+          <h3>Sugestões de melhoria</h3>
+          <ul className="training-ai__list">{(report.suggestions || report.improvements || []).map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      ) : null}
+
+      {tab === 'comunicacao' ? (
+        <div className="imp-panel">
+          {audioUrl ? (
+            <audio controls src={audioUrl}>
+              <a href={audioUrl} download>Baixar gravação</a>
+            </audio>
+          ) : (
+            <p className="training-ai__meta">Sem arquivo de áudio. As métricas usam o tempo de cada fala.</p>
+          )}
+          <ul className="training-ai__metric-checks">
+            <li>
+              <span>Fala / escuta</span>
+              <strong>{communication?.talkListenPct ?? metrics.talkShare}% <span className="training-ai__meta">{communication?.talkListenStatus} · ideal {communication?.talkListenIdeal || '40–50%'}</span></strong>
+            </li>
+            <li>
+              <span>Palavras por minuto</span>
+              <strong>{communication?.wordsPerMinute ?? '—'} <span className="training-ai__meta">{communication?.wordsPerMinuteStatus} · ideal {communication?.wordsPerMinuteIdeal || '110–150'}</span></strong>
+            </li>
+            <li>
+              <span>Maior monólogo</span>
+              <strong>{communication?.longestMonologueSec ?? '—'}s <span className="training-ai__meta">{communication?.longestMonologueStatus} · ideal {communication?.longestMonologueIdeal || '60–150s'}</span></strong>
+            </li>
+            <li>
+              <span>Vícios de linguagem</span>
+              <strong>{communication?.fillersPerMinute ?? '—'} /min <span className="training-ai__meta">{communication?.fillersStatus} · {communication?.fillersIdeal || 'menos de 2'}</span></strong>
+            </li>
+          </ul>
+        </div>
+      ) : null}
+
       <div className="imp-panel training-ai__session-player-panel">
         <div className="imp-panel__header">
           <div>
@@ -187,7 +287,7 @@ export default function TrainingReportPage() {
         />
       </div>
 
-      <div className="training-ai__insights-split">
+      <div className="training-ai__insights-split" hidden={tab !== 'template'}>
         <div className="imp-panel">
           <div className="imp-panel__header">
             <div>

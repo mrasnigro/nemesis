@@ -6,6 +6,7 @@ import {
   createEmptyCriterionDraft,
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
+import { SCENARIO_TYPES } from '../data/personas.js'
 import WeightRing from '../components/WeightRing.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { sectionWeightsFromTemplate } from '../utils/agentDisplay.js'
@@ -232,6 +233,31 @@ export default function TrainingTemplateFormPage() {
               ))}
             </select>
           </label>
+
+          <fieldset className="imp-field training-ai__form-span-2">
+            <legend>Cenários compatíveis</legend>
+            <div className="training-ai__chip-row">
+              {SCENARIO_TYPES.map((item) => {
+                const selected = (form.scenarioTypes || []).includes(item.id)
+                return (
+                  <label key={item.id} className="training-ai__trait">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => {
+                        const current = form.scenarioTypes || []
+                        patchRoot(
+                          'scenarioTypes',
+                          selected ? current.filter((id) => id !== item.id) : [...current, item.id],
+                        )
+                      }}
+                    />{' '}
+                    {item.label}
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
 
           <label className="imp-field">
             <span>Publicação</span>

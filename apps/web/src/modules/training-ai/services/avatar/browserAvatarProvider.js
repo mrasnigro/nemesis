@@ -12,7 +12,19 @@ export function isBrowserSpeechSupported(scope = globalThis) {
 }
 
 /** `voice_warm_f` / `voice_firm_m` → 'f' | 'm' | null */
+const NAMED_GENDER = {
+  athena: 'f',
+  bella: 'f',
+  borges: 'm',
+  carla: 'f',
+  carlos: 'm',
+  christopher: 'm',
+  conrado: 'm',
+}
+
 function genderOf(voiceRef) {
+  const named = NAMED_GENDER[String(voiceRef || '')]
+  if (named) return named
   const match = /_(f|m)$/.exec(String(voiceRef || ''))
   return match ? match[1] : null
 }

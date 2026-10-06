@@ -13,6 +13,8 @@ const draft = normalizePersonaInput({
   behavior: 'Direto',
   difficulty: 'advanced',
   trainingObjective: 'Praticar discovery',
+  sellerInstructions: 'Você está ligando para um lead.',
+  evaluationTemplateId: 'tpl_1',
   objectionsText: 'Sem tempo\nJá tenho fornecedor',
 })
 assert.equal(draft.ok, true)

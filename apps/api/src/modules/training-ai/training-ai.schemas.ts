@@ -5,6 +5,16 @@ import { totalWeight, type Template } from './rubric.js'
 const difficulty = z.enum(['beginner', 'intermediate', 'advanced'])
 const personaStatus = z.enum(['active', 'paused', 'inactive', 'draft'])
 
+export const SCENARIO_TYPES = ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'] as const
+export const SCENARIO_TYPE_LABELS: Record<(typeof SCENARIO_TYPES)[number], string> = {
+  cold_first: 'Primeiro Contato Frio',
+  discovery: 'Descoberta/Qualificação',
+  warm_first: 'Primeiro Contato Morno',
+  post_sale: 'Pós-Venda',
+  inbound: 'Contato Receptivo',
+}
+const scenarioType = z.enum(SCENARIO_TYPES)
+
 const text = (max: number) => z.string().trim().max(max).default('')
 const required = (max: number) => z.string().trim().min(1).max(max)
 const list = (itemMax: number, maxItems: number) => z.array(z.string().trim().min(1).max(itemMax)).max(maxItems).default([])
@@ -41,6 +51,18 @@ export const personaWrite = z.object({
   interactionMode: z.enum(['text', 'voice', 'both']).default('text'),
   voiceRef: text(64),
   scenarioContext: text(2000),
+  scenarioType: scenarioType.optional(),
+  evaluationTemplateId: z.string().trim().min(1).optional(),
+  sellerInstructions: z.string().trim().max(4000).optional(),
+  visibility: z.enum(['individual', 'company', 'group']).optional(),
+  groupId: z.string().trim().min(1).nullable().optional(),
+  tags: list(40, 20).optional(),
+  avatarData: z.string().max(400_000).optional(),
+  companyFacts: list(300, 30).optional(),
+}).superRefine((value, context) => {
+  if (value.visibility === 'group' && !value.groupId) {
+    context.addIssue({ code: 'custom', path: ['groupId'], message: 'Escolha o grupo que pode ver esta persona' })
+  }
 })
 
 export const scenarioListQuery = pageQuery.extend({
@@ -91,6 +113,7 @@ export const templateWrite = z
     description: required(2000),
     contactType: text(120),
     status: z.enum(['published', 'draft']).default('draft'),
+    scenarioTypes: z.array(scenarioType).max(5).optional(),
     sections: z.array(sectionWrite).min(1).max(20),
   })
   .superRefine((value, context) => {
@@ -107,14 +130,32 @@ export const templateWrite = z
 export const sessionListQuery = pageQuery.extend({
   scenarioId: z.string().optional(),
   status: z.enum(['in_progress', 'completed']).optional(),
+  scope: z.enum(['mine', 'all']).optional(),
+  userId: z.string().optional(),
+  groupId: z.string().optional(),
 })
 
-export const sessionStart = z.object({
-  scenarioId: z.string().min(1),
-  personaId: z.string().min(1).optional(),
-  mediaMode: z.enum(['text', 'voice']).default('text'),
-})
+export const sessionStart = z
+  .object({
+    scenarioId: z.string().min(1).optional(),
+    personaId: z.string().min(1).optional(),
+    mediaMode: z.enum(['text', 'voice']).default('text'),
+  })
+  .refine((value) => Boolean(value.scenarioId || value.personaId), 'Informe a persona ou o cenário')
 
 export const messageWrite = z.object({
   text: z.string().trim().min(1).max(2000),
+  offsetMs: z.number().int().min(0).max(3_600_000).optional(),
+  durationMs: z.number().int().min(0).max(600_000).optional(),
+})
+
+export const groupWrite = z.object({
+  name: required(200),
+  userIds: z.array(z.string().trim().min(1)).max(200).default([]),
+})
+
+export const dashboardQuery = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+  groupId: z.string().optional(),
+  userId: z.string().optional(),
 })

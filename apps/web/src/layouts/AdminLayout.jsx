@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/admin/users', label: 'Usuários', icon: 'users' },
   { to: '/admin/modules', label: 'Módulos', icon: 'modules' },
   { to: '/admin/permissions', label: 'Permissões', icon: 'permissions' },
+  { to: '/admin/webinar', label: 'Webinar · Planos', icon: 'modules' },
   { to: '/admin/logs', label: 'Logs', icon: 'logs' },
 ]
 
@@ -32,6 +33,10 @@ const ROUTE_META = {
   '/admin/permissions': {
     title: 'Permissões',
     subtitle: 'Catálogo RBAC e mapa de papéis',
+  },
+  '/admin/webinar': {
+    title: 'Webinar · Planos',
+    subtitle: 'Planos, assinaturas e pagamentos do módulo Webinar',
   },
   '/admin/logs': {
     title: 'Activity logs',

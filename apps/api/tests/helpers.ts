@@ -23,6 +23,22 @@ export async function createPlatformAdmin(): Promise<{ username: string; passwor
   return { username, password }
 }
 
+/**
+ * Puts a customer on a Webinar plan by name. A new customer starts on Trial (20 minutes, 5 people),
+ * so tests that are not about plans move it to Enterprise to keep limits out of the way.
+ */
+export async function grantWebinarPlan(
+  admin: ReturnType<typeof request.agent>,
+  customerId: string,
+  planName = 'Enterprise',
+) {
+  const plans = await admin.get('/api/admin/webinar/plans')
+  const plan = (plans.body.data as { id: string; name: string }[]).find((item) => item.name === planName)
+  if (!plan) throw new Error(`Webinar plan ${planName} not found`)
+  const response = await admin.put(`/api/admin/webinar/subscriptions/${customerId}`).send({ planId: plan.id, expiresAt: null })
+  if (response.status !== 200) throw new Error(`could not grant ${planName}: ${response.status} ${JSON.stringify(response.body)}`)
+}
+
 export async function signIn(username: string, password: string) {
   const agent = request.agent(app)
   const response = await agent.post('/api/auth/login').send({ username, password })

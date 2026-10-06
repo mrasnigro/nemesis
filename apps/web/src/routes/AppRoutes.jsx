@@ -10,6 +10,7 @@ import {
   ModulesPage,
   PermissionsPage,
   UsersPage,
+  WebinarPlansPage,
 } from '../pages/admin/index.js'
 import Dashboard from '../pages/Dashboard'
 import Login from '../pages/Login'
@@ -33,6 +34,8 @@ import {
   TrainingScenariosPage,
   TrainingSimulationPage,
   TrainingTemplateDetailPage,
+  TrainingDashboardsPage,
+  TrainingGroupsPage,
   TrainingTemplateFormPage,
   TrainingTemplatesPage,
 } from '../modules/training-ai'
@@ -73,6 +76,17 @@ import {
   WebinarLiveHomeRedirect,
   WebinarOneOnOneLaunchPage,
   WebinarOverviewPage,
+  WebinarPlatformDashboard,
+  WebinarPlatformLayout,
+  WebinarPlatformLeads,
+  WebinarPlatformStudio,
+  WebinarPlatformSubscription,
+  WebinarPlatformWebinarDetail,
+  WebinarPlatformWebinarForm,
+  WebinarPlatformWebinarWizard,
+  WebinarPlatformWebinars,
+  WebinarPublicJoin,
+  WebinarPublicRoom,
   WebinarSessionRoot,
   WebinarSidecarPage,
 } from '../modules/webinar'
@@ -158,6 +172,9 @@ export default function AppRoutes() {
           element={<TrainingTemplateDetailPage />}
         />
         <Route path="/modules/training-ai/historico" element={<TrainingHistoryPage />} />
+        <Route path="/modules/training-ai/grupos" element={<TrainingGroupsPage />} />
+        <Route path="/modules/training-ai/dashboards/:view" element={<TrainingDashboardsPage />} />
+        <Route path="/modules/training-ai/simulacao/persona/:personaId" element={<TrainingSimulationPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />
         <Route
           path="/modules/training-ai/relatorio/sessao/:sessionId"
@@ -193,6 +210,36 @@ export default function AppRoutes() {
         <Route path="/modules/radar/analise" element={<RadarAnalysisPage />} />
         <Route path="/modules/radar/insight/:insightId" element={<RadarInsightPage />} />
       </Route>
+
+      {/* Webinar on the platform API. Runs next to the current pages until streaming moves over. */}
+      <Route
+        element={
+          <ProtectedRoute allowedRoles={['imp']}>
+            <ModuleRoute moduleId="webinar">
+              <WebinarPlatformLayout />
+            </ModuleRoute>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/modules/webinar/plataforma" element={<WebinarPlatformDashboard />} />
+        <Route path="/modules/webinar/plataforma/webinars" element={<WebinarPlatformWebinars />} />
+        <Route path="/modules/webinar/plataforma/webinars/novo" element={<WebinarPlatformWebinarWizard />} />
+        <Route path="/modules/webinar/plataforma/webinars/:webinarId" element={<WebinarPlatformWebinarDetail />} />
+        <Route
+          path="/modules/webinar/plataforma/webinars/:webinarId/editar"
+          element={<WebinarPlatformWebinarForm />}
+        />
+        <Route
+          path="/modules/webinar/plataforma/webinars/:webinarId/estudio"
+          element={<WebinarPlatformStudio />}
+        />
+        <Route path="/modules/webinar/plataforma/leads" element={<WebinarPlatformLeads />} />
+        <Route path="/modules/webinar/plataforma/assinatura" element={<WebinarPlatformSubscription />} />
+      </Route>
+
+      {/* Visitors: no account, no session. The access code and the lead id are their keys. */}
+      <Route path="/webinar/entrar" element={<WebinarPublicJoin />} />
+      <Route path="/webinar/sala/:leadId" element={<WebinarPublicRoom />} />
 
       <Route
         element={
@@ -297,6 +344,7 @@ export default function AppRoutes() {
         <Route path="users" element={<UsersPage />} />
         <Route path="modules" element={<ModulesPage />} />
         <Route path="permissions" element={<PermissionsPage />} />
+        <Route path="webinar" element={<WebinarPlansPage />} />
         <Route path="logs" element={<LogsPage />} />
       </Route>
 

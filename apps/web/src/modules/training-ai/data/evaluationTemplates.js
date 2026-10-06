@@ -77,6 +77,7 @@ export function createEmptyTemplateDraft() {
     description: '',
     contactType: 'custom',
     status: 'draft',
+    scenarioTypes: ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'],
     sections: [
       {
         id: 'sec_geral',
@@ -124,6 +125,7 @@ export function templateToFormState(template) {
     description: template.description || '',
     contactType: template.contactType || 'custom',
     status: template.status || 'published',
+    scenarioTypes: template.scenarioTypes || ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'],
     sections: (template.sections || []).map((section) => ({
       id: section.id,
       name: section.name || '',
@@ -233,7 +235,10 @@ export function normalizeTemplateInput(input = {}) {
     })
   }
 
-  const candidate = { title, description, contactType, status, sections }
+  const scenarioTypes = Array.isArray(input.scenarioTypes) ? input.scenarioTypes.filter(Boolean) : []
+  if (!scenarioTypes.length) errors.push('Marque ao menos um cenário compatível.')
+
+  const candidate = { title, description, contactType, status, scenarioTypes, sections }
   const weightTotal = totalTemplateWeight(candidate)
   if (sections.length && weightTotal !== 100) {
     errors.push(`A soma dos pesos deve ser 100 (atual: ${weightTotal}).`)
