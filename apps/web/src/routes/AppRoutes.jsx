@@ -38,6 +38,7 @@ import {
   TrainingGroupsPage,
   TrainingUsersPage,
   TrainingProfilePage,
+  TrainingSettingsTwoFactorPage,
   TrainingTemplateFormPage,
   TrainingTemplatesPage,
 } from '../modules/training-ai'
@@ -178,6 +179,10 @@ export default function AppRoutes() {
         <Route path="/modules/training-ai/grupos" element={<TrainingGroupsPage />} />
         <Route path="/modules/training-ai/usuarios" element={<TrainingUsersPage />} />
         <Route path="/modules/training-ai/conta" element={<TrainingProfilePage />} />
+        <Route
+          path="/modules/training-ai/configuracoes/dois-fatores"
+          element={<TrainingSettingsTwoFactorPage />}
+        />
         <Route path="/modules/training-ai/dashboards/:view" element={<TrainingDashboardsPage />} />
         <Route path="/modules/training-ai/simulacao/persona/:personaId" element={<TrainingSimulationPage />} />
         <Route path="/modules/training-ai/simulacao/:scenarioId" element={<TrainingSimulationPage />} />

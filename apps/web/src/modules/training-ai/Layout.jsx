@@ -42,8 +42,14 @@ const NAV = [
     label: 'Configurações',
     icon: <OutlineIcon name="settings" />,
     collapsible: true,
-    defaultOpen: false,
-    children: [],
+    defaultOpen: true,
+    children: [
+      {
+        id: 'two-factor',
+        label: 'Autenticação em dois fatores',
+        to: '/modules/training-ai/configuracoes/dois-fatores',
+      },
+    ],
   },
 ]
 
