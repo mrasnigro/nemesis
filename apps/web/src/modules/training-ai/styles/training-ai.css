@@ -2014,20 +2014,419 @@
   color: var(--text-muted);
 }
 
+.training-ai__history-stage {
+  position: relative;
+  padding-top: 0.85rem;
+}
+
+.training-ai__history-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.85rem;
+}
+
+.training-ai__history-actions {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.training-ai__history-filter-wrap {
+  position: relative;
+}
+
+.training-ai__history-filter-modal {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 24;
+}
+
+.training-ai__history-filter-panel {
+  position: relative;
+  z-index: 1;
+  width: min(22rem, calc(100vw - 3rem));
+  padding: 1rem 1.05rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card, 0 14px 36px rgba(0, 0, 0, 0.28));
+}
+
+.training-ai__history-filter-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.training-ai__history-filter-head .training-ai__outline-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--brand);
+}
+
+.training-ai__history-filter-section {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.training-ai__history-filter-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.training-ai__history-filter-section h4 {
+  margin: 0 0 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.training-ai__history-date-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.training-ai__history-date-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.training-ai__history-date-field input {
+  width: 100%;
+  min-height: var(--training-ai-control-h-sm, 2.1rem);
+  padding: 0.5rem 2.55rem 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.training-ai__history-date-field.is-active input {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+
+.training-ai__history-date-field .training-ai__outline-icon {
+  position: absolute;
+  right: 0.35rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 0.4rem;
+  background: var(--brand);
+  color: var(--brand-ink, #111827);
+  pointer-events: none;
+}
+
+.training-ai__history-date-field .training-ai__outline-icon {
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0.3rem;
+  box-sizing: border-box;
+}
+
+.training-ai__history-calendar {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface);
+}
+
+.training-ai__history-calendar-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.training-ai__history-calendar-select {
+  position: relative;
+}
+
+.training-ai__history-calendar-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 2.1rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.training-ai__history-calendar-trigger.is-open {
+  border-color: var(--brand);
+}
+
+.training-ai__history-calendar-menu {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  z-index: 3;
+  width: 100%;
+  max-height: 10rem;
+  margin: 0;
+  padding: 0.25rem;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card, 0 10px 24px rgba(0, 0, 0, 0.2));
+}
+
+.training-ai__history-calendar-menu--years {
+  max-height: 9rem;
+}
+
+.training-ai__history-calendar-menu button {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.training-ai__history-calendar-menu button:hover,
+.training-ai__history-calendar-menu button.is-selected {
+  background: var(--brand);
+  color: var(--brand-ink, #111827);
+}
+
+.training-ai__history-calendar-weekdays,
+.training-ai__history-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.15rem;
+}
+
+.training-ai__history-calendar-weekdays span {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.training-ai__history-calendar-day {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-h);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.training-ai__history-calendar-day.is-outside {
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+
+.training-ai__history-calendar-day:hover {
+  background: var(--brand-soft);
+}
+
+.training-ai__history-calendar-day.is-in-range {
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--brand-soft, #fff7ed) 88%, transparent);
+}
+
+.training-ai__history-calendar-day.is-selected {
+  background: var(--brand);
+  color: var(--brand-ink, #111827);
+  font-weight: 700;
+}
+
+.training-ai__history-scope-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.training-ai__history-scope-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.training-ai__history-scope-toggle button .training-ai__outline-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.training-ai__history-scope-toggle button.is-active {
+  background: var(--brand);
+  color: var(--brand-ink, #111827);
+}
+
+.training-ai__history-scope-suggest {
+  position: relative;
+  margin-top: 0.65rem;
+}
+
+.training-ai__history-scope-search {
+  display: flex;
+  width: 100%;
+}
+
+.training-ai__history-scope-search input {
+  width: 100%;
+}
+
+.training-ai__history-suggest-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-card, 0 10px 24px rgba(0, 0, 0, 0.22));
+}
+
+.training-ai__history-suggest-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-h);
+  font-size: 0.82rem;
+}
+
+.training-ai__history-suggest-head .training-ai__outline-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  color: var(--brand);
+}
+
+.training-ai__history-suggest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 9rem;
+  overflow: auto;
+}
+
+.training-ai__history-suggest-list li.is-empty {
+  padding: 0.65rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.training-ai__history-suggest-list button {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.training-ai__history-suggest-list button:hover,
+.training-ai__history-suggest-list button.is-selected {
+  background: var(--brand-soft);
+}
+
+.training-ai__history-filter-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-top: 0.95rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.training-ai__history-table-wrap {
+  overflow-x: auto;
+}
+
+.training-ai__history-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .training-ai__type-pill {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: var(--surface-2, #f3f4f6);
-  font-size: 0.8rem;
-  font-weight: 600;
+  gap: 0.35rem;
+  min-height: 1.65rem;
+  padding: 0.2rem 0.7rem 0.2rem 0.55rem;
+  border-radius: var(--training-ai-radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.training-ai__type-pill .training-ai__outline-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
 }
 
 .training-ai__type-pill.is-voice {
-  background: var(--brand-soft);
-  color: var(--brand);
-  border: 1px solid var(--brand-border);
+  background: var(--brand, #f59e0b);
+  color: #fff;
+  border: none;
+}
+
+.training-ai__type-pill.is-text {
+  background: color-mix(in srgb, var(--brand, #f59e0b) 16%, transparent);
+  color: var(--brand, #f59e0b);
+  border: 1px solid color-mix(in srgb, var(--brand, #f59e0b) 35%, transparent);
 }
 
 .training-ai__score-ring {
