@@ -17,6 +17,7 @@ export const starterTemplates = [
     description: 'Rubrica para abertura consultiva em ligação fria: saudação, permissão, valor e próximo passo.',
     contactType: 'cold_call',
     status: 'published',
+    scenarioTypes: ['cold_first', 'warm_first', 'inbound'],
     sections: [
       {
         id: 'sec_abertura',
@@ -82,6 +83,7 @@ export const starterTemplates = [
     description: 'Rubrica para reposicionar valor sob pressão de custo, sem desconto precoce.',
     contactType: 'objection',
     status: 'published',
+    scenarioTypes: ['discovery', 'negotiation', 'presentation'],
     sections: [
       {
         id: 'sec_reconhecimento',
@@ -132,6 +134,7 @@ export const starterTemplates = [
     description: 'Rubrica para discovery: processo, gargalo, stakeholders e marco sem pitch precoce.',
     contactType: 'discovery',
     status: 'published',
+    scenarioTypes: ['discovery', 'presentation', 'negotiation', 'post_sale'],
     sections: [
       {
         id: 'sec_diagnostico',
@@ -188,6 +191,8 @@ export const starterPersonas = [
     location: 'São Paulo, SP',
     language: 'pt-BR',
     negotiatorType: 'Cliente Analítico',
+    scenarioType: 'cold_first',
+    templateKey: 'cold_call',
     tone: 'Objetivo',
     behavior: 'Cética e objetiva; quer saber o motivo da ligação em poucos segundos.',
     difficulty: 'beginner',
@@ -217,6 +222,8 @@ export const starterPersonas = [
     location: 'Curitiba, PR',
     language: 'pt-BR',
     negotiatorType: 'Cliente Dominante',
+    scenarioType: 'discovery',
+    templateKey: 'objection',
     tone: 'Direto',
     behavior: 'Pressão por custo; compara com concorrente e pede números sem rodeio.',
     difficulty: 'intermediate',
@@ -246,6 +253,8 @@ export const starterPersonas = [
     location: 'Belo Horizonte, MG',
     language: 'pt-BR',
     negotiatorType: 'Cliente Analítico',
+    scenarioType: 'discovery',
+    templateKey: 'discovery',
     tone: 'Consultivo',
     behavior: 'Analítica e detalhista; exige diagnóstico do processo antes de qualquer pitch.',
     difficulty: 'advanced',

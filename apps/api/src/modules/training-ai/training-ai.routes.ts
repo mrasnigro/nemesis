@@ -12,6 +12,7 @@ import {
   dashboardsController,
   deleteGroupController,
   directoryController,
+  patchDirectoryUserController,
   finishSessionController,
   getPersonaController,
   getScenarioController,
@@ -49,6 +50,7 @@ trainingAiRouter.post('/groups', asyncHandler(createGroupController))
 trainingAiRouter.patch('/groups/:groupId', asyncHandler(updateGroupController))
 trainingAiRouter.delete('/groups/:groupId', asyncHandler(deleteGroupController))
 trainingAiRouter.get('/directory', asyncHandler(directoryController))
+trainingAiRouter.patch('/directory/:userId', asyncHandler(patchDirectoryUserController))
 
 trainingAiRouter.get('/personas', asyncHandler(listPersonasController))
 trainingAiRouter.post('/personas', asyncHandler(createPersonaController))

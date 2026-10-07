@@ -17,6 +17,8 @@ export const trainingApi = {
     platformRequest(`${BASE}/dashboards`, { query }).then((payload) => payload.data),
   listGroups: () => platformRequest(`${BASE}/groups`).then((payload) => payload.data),
   listDirectory: () => platformRequest(`${BASE}/directory`).then((payload) => payload.data),
+  patchDirectoryUser: (id, body) =>
+    platformRequest(`${BASE}/directory/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),
   createGroup: (body) => platformRequest(`${BASE}/groups`, { method: 'POST', body }).then((payload) => payload.data),
   updateGroup: (id, body) =>
     platformRequest(`${BASE}/groups/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),

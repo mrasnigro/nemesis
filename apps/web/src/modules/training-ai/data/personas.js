@@ -14,11 +14,13 @@ export const NEGOTIATOR_TYPES = [
 ]
 
 export const SCENARIO_TYPES = [
-  { id: 'cold_first', label: 'Primeiro Contato Frio' },
-  { id: 'discovery', label: 'Descoberta/Qualificação' },
-  { id: 'warm_first', label: 'Primeiro Contato Morno' },
-  { id: 'post_sale', label: 'Pós-Venda' },
-  { id: 'inbound', label: 'Contato Receptivo' },
+  { id: 'cold_first', label: 'Prospecção ativa' },
+  { id: 'warm_first', label: 'Lead morno' },
+  { id: 'inbound', label: 'Inbound' },
+  { id: 'discovery', label: 'Diagnóstico' },
+  { id: 'presentation', label: 'Apresentação' },
+  { id: 'negotiation', label: 'Negociação e fechamento' },
+  { id: 'post_sale', label: 'Relacionamento' },
 ]
 
 export function scenarioTypeLabel(id) {

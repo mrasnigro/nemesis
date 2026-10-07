@@ -5,13 +5,23 @@ import { totalWeight, type Template } from './rubric.js'
 const difficulty = z.enum(['beginner', 'intermediate', 'advanced'])
 const personaStatus = z.enum(['active', 'paused', 'inactive', 'draft'])
 
-export const SCENARIO_TYPES = ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'] as const
+export const SCENARIO_TYPES = [
+  'cold_first',
+  'warm_first',
+  'inbound',
+  'discovery',
+  'presentation',
+  'negotiation',
+  'post_sale',
+] as const
 export const SCENARIO_TYPE_LABELS: Record<(typeof SCENARIO_TYPES)[number], string> = {
-  cold_first: 'Primeiro Contato Frio',
-  discovery: 'Descoberta/Qualificação',
-  warm_first: 'Primeiro Contato Morno',
-  post_sale: 'Pós-Venda',
-  inbound: 'Contato Receptivo',
+  cold_first: 'Prospecção ativa',
+  warm_first: 'Lead morno',
+  inbound: 'Inbound',
+  discovery: 'Diagnóstico',
+  presentation: 'Apresentação',
+  negotiation: 'Negociação e fechamento',
+  post_sale: 'Relacionamento',
 }
 const scenarioType = z.enum(SCENARIO_TYPES)
 
@@ -113,7 +123,7 @@ export const templateWrite = z
     description: required(2000),
     contactType: text(120),
     status: z.enum(['published', 'draft']).default('draft'),
-    scenarioTypes: z.array(scenarioType).max(5).optional(),
+    scenarioTypes: z.array(scenarioType).max(7).optional(),
     sections: z.array(sectionWrite).min(1).max(20),
   })
   .superRefine((value, context) => {
@@ -151,8 +161,18 @@ export const messageWrite = z.object({
 
 export const groupWrite = z.object({
   name: required(200),
+  description: text(500).optional(),
+  status: z.enum(['active', 'paused']).default('active'),
   userIds: z.array(z.string().trim().min(1)).max(200).default([]),
 })
+
+export const directoryUserPatch = z
+  .object({
+    profile: z.enum(['customer_admin', 'sdr_bdr']),
+    status: z.enum(['active', 'inactive', 'invited']),
+  })
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, { message: 'Nothing to update' })
 
 export const dashboardQuery = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),

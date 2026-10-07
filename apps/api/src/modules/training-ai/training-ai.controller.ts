@@ -11,6 +11,7 @@ import {
   dashboardsFor,
   deleteGroupFor,
   directoryFor,
+  patchDirectoryUserFor,
   finishSessionFor,
   getPersonaFor,
   getScenarioFor,
@@ -37,6 +38,7 @@ import {
 } from './training-ai.service.js'
 import {
   dashboardQuery,
+  directoryUserPatch,
   groupWrite,
   messageWrite,
   personaListQuery,
@@ -197,6 +199,12 @@ export async function deleteGroupController(req: Request, res: Response) {
 
 export async function directoryController(req: Request, res: Response) {
   res.json({ data: await directoryFor(actor(req)) })
+}
+
+export async function patchDirectoryUserController(req: Request, res: Response) {
+  res.json({
+    data: await patchDirectoryUserFor(actor(req), req.params.userId, directoryUserPatch.parse(req.body)),
+  })
 }
 
 export async function dashboardsController(req: Request, res: Response) {

@@ -67,40 +67,98 @@
 .module-workspace__nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.85rem;
   flex: 1;
+  overflow: auto;
+}
+
+.module-workspace__nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.module-workspace__nav-section {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  color: var(--text-h);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.module-workspace__nav-section--toggle {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  font: inherit;
+}
+
+.module-workspace__nav-section--toggle:hover {
+  background: rgba(55, 65, 81, 0.35);
+}
+
+.module-workspace__nav-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.module-workspace__nav-section-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.module-workspace__nav-section-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.module-workspace__nav-chevron {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.module-workspace__nav-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.module-workspace__subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: 1.9rem;
 }
 
 .module-workspace__link {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.7rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   color: var(--text-muted);
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.86rem;
+  font-weight: 500;
   text-decoration: none;
+  cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.module-workspace__link-icon {
-  display: inline-flex;
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-
-.module-workspace__link-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
-.module-workspace__link.is-active .module-workspace__link-icon {
-  color: var(--brand);
-  opacity: 1;
 }
 
 .module-workspace__link:hover {
@@ -112,6 +170,7 @@
   color: var(--text-h);
   background: var(--dialer-panel-active);
   border-color: rgba(245, 158, 11, 0.35);
+  font-weight: 600;
 }
 
 .module-workspace__footer {

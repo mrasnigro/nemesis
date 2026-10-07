@@ -77,7 +77,7 @@ export function createEmptyTemplateDraft() {
     description: '',
     contactType: 'custom',
     status: 'draft',
-    scenarioTypes: ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'],
+    scenarioTypes: ['cold_first', 'warm_first', 'inbound', 'discovery', 'presentation', 'negotiation', 'post_sale'],
     sections: [
       {
         id: 'sec_geral',
@@ -125,7 +125,7 @@ export function templateToFormState(template) {
     description: template.description || '',
     contactType: template.contactType || 'custom',
     status: template.status || 'published',
-    scenarioTypes: template.scenarioTypes || ['cold_first', 'discovery', 'warm_first', 'post_sale', 'inbound'],
+    scenarioTypes: template.scenarioTypes || ['cold_first', 'warm_first', 'inbound', 'discovery', 'presentation', 'negotiation', 'post_sale'],
     sections: (template.sections || []).map((section) => ({
       id: section.id,
       name: section.name || '',

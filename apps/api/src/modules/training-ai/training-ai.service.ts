@@ -26,6 +26,7 @@ import {
   listAnalyticsRows,
   listDirectory,
   listGroups,
+  patchDirectoryUser,
   listPersonas,
   listScenarios,
   listSessions,
@@ -214,8 +215,15 @@ export async function installStarterCatalog(actor: Actor) {
       templateIds.set(key, String(row!.id))
     }
     const personaIds = new Map<string, string>()
-    for (const { key, ...persona } of starterPersonas) {
-      const row = await insertPersona(customerId, persona, connection)
+    for (const { key, templateKey, ...persona } of starterPersonas) {
+      const row = await insertPersona(
+        customerId,
+        {
+          ...persona,
+          evaluationTemplateId: templateKey ? templateIds.get(String(templateKey)) : undefined,
+        },
+        connection,
+      )
       personaIds.set(key, String(row!.id))
     }
     for (const { personaKey, templateKey, ...scenario } of starterScenarios) {
@@ -515,14 +523,35 @@ export async function listGroupsFor(actor: Actor) {
 export async function createGroupFor(actor: Actor, input: z.infer<typeof groupWrite>) {
   const customerId = managerCustomerOf(actor)
   const userIds = await ownedUserIds(customerId, input.userIds)
-  return insertGroup(customerId, input.name, userIds)
+  return insertGroup(customerId, {
+    name: input.name,
+    description: input.description,
+    status: input.status,
+    userIds,
+  })
 }
 
 export async function updateGroupFor(actor: Actor, id: string, input: z.infer<typeof groupWrite>) {
   const customerId = managerCustomerOf(actor)
   const userIds = await ownedUserIds(customerId, input.userIds)
-  const row = await updateGroup(customerId, id, input.name, userIds)
+  const row = await updateGroup(customerId, id, {
+    name: input.name,
+    description: input.description,
+    status: input.status,
+    userIds,
+  })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Grupo não encontrado')
+  return row
+}
+
+export async function patchDirectoryUserFor(
+  actor: Actor,
+  userId: string,
+  patch: { profile?: 'customer_admin' | 'sdr_bdr'; status?: 'active' | 'inactive' | 'invited' },
+) {
+  const customerId = managerCustomerOf(actor)
+  const row = await patchDirectoryUser(customerId, userId, patch)
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'Usuário não encontrado')
   return row
 }
 
@@ -607,6 +636,13 @@ export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboar
     }))
 
   return {
+    consumption: {
+      days: query.days,
+      simulations: rows.length,
+      minutes,
+      averageMinutes: rows.length ? Math.round((minutes / rows.length) * 10) / 10 : 0,
+      activeUsers: mau,
+    },
     engagement: {
       days: query.days,
       dau,
@@ -617,6 +653,13 @@ export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboar
       wauMau: ratio(wau, mau),
       simulations: rows.length,
       minutes,
+      series: series.map((item) => ({
+        date: item.date,
+        dauMau: ratio(dau, mau),
+        dauWau: ratio(dau, wau),
+        wauMau: ratio(wau, mau),
+        simulations: item.minutes,
+      })),
     },
     ranking,
     performance: {

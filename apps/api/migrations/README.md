@@ -42,7 +42,10 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `009_bdr_call_summary.sql` | Adds the AI call summary to `bdr_calls`: `summary_text`, `summary_source`, `summary_status`, `summary_tries`, `summary_updated_at`, `transcript_text`. The summary built from the record is computed on read and not stored |
 | `010_webinar_core.sql` | `webinar_webinars`, `webinar_access_codes`, `webinar_leads`, `webinar_chat_messages`. Nothing is copied from the old `imp_webinar` schema |
 | `011_webinar_plans.sql` | `webinar_plans` (shared catalog, no `customer_id`; a `NULL` limit means no limit; money in cents), `webinar_subscriptions` (one per customer; "expired" is `expires_at` in the past, not a stored status), `webinar_payments` (manual records, no gateway). Inserts the four starter plans (Trial, Básico, Profissional, Enterprise) with fixed ids |
-| `012_training_vendiq.sql` | Persona visibility, scenario type and template on `training_personas`; nullable `training_sessions.scenario_id`, duration and audio path; message timing; `training_groups` and `training_group_members` |
+| `012_training_groups.sql` | `training_groups`, `training_group_members` |
+| `013_training_persona_scope.sql` | On `training_personas`: `visibility`, `owner_user_id`, `group_id`, `scenario_type`, `evaluation_template_id` |
+| `014_training_session_recording.sql` | Nullable `training_sessions.scenario_id`; `duration_ms` and `audio_path` on sessions; `offset_ms` and `duration_ms` on `training_session_messages` |
+| `015_training_groups_detail.sql` | `description` and `status` on `training_groups` |
 
 ## How Webinar plans work
 

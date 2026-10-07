@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -7,7 +7,11 @@ export default function TrainingGroupsPage() {
   const [groups, setGroups] = useState([])
   const [people, setPeople] = useState([])
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [userIds, setUserIds] = useState([])
+  const [creating, setCreating] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState('recent')
   const [error, setError] = useState('')
 
   async function reload() {
@@ -27,6 +31,18 @@ export default function TrainingGroupsPage() {
     }
   }, [canManage])
 
+  const visible = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    let rows = groups
+    if (term) rows = rows.filter((group) => `${group.name} ${group.description || ''}`.toLowerCase().includes(term))
+    const sorted = [...rows]
+    if (sort === 'az') sorted.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    if (sort === 'za') sorted.sort((a, b) => b.name.localeCompare(a.name, 'pt-BR'))
+    if (sort === 'oldest') sorted.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+    if (sort === 'recent') sorted.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    return sorted
+  }, [groups, query, sort])
+
   if (!canManage) {
     return (
       <section className="imp-module">
@@ -42,9 +58,11 @@ export default function TrainingGroupsPage() {
     event.preventDefault()
     setError('')
     try {
-      await trainingApi.createGroup({ name, userIds })
+      await trainingApi.createGroup({ name, description, status: 'active', userIds })
       setName('')
+      setDescription('')
       setUserIds([])
+      setCreating(false)
       await reload()
     } catch (err) {
       setError(err?.message || 'Não foi possível criar o grupo.')
@@ -60,46 +78,106 @@ export default function TrainingGroupsPage() {
       <header className="training-ai__page-header">
         <div>
           <h2>Grupos</h2>
-          <p>Um grupo define quem vê uma persona e filtra o histórico dos vendedores.</p>
+        </div>
+        <div className="training-ai__page-header-actions">
+          <label className="training-ai__search training-ai__search--action">
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pesquisar..." />
+            <span className="training-ai__search-btn" aria-hidden="true">⌕</span>
+          </label>
+          <button type="button" className="imp-btn imp-btn--primary" onClick={() => setCreating(true)}>
+            + Criar Grupo
+          </button>
         </div>
       </header>
+
       {error ? <p>{error}</p> : null}
-      <form className="imp-panel" onSubmit={createGroup}>
-        <label className="imp-field">
-          <span>Nome do grupo</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} required />
-        </label>
-        <div className="training-ai__chip-row">
-          {people.map((person) => (
-            <label key={person.id} className="training-ai__trait">
-              <input type="checkbox" checked={userIds.includes(person.id)} onChange={() => toggleUser(person.id)} />{' '}
-              {person.name}
-            </label>
-          ))}
-        </div>
-        <button type="submit" className="imp-btn imp-btn--primary">Criar grupo</button>
-      </form>
+
+      {creating ? (
+        <form className="imp-panel" onSubmit={createGroup}>
+          <label className="imp-field">
+            <span>Nome do grupo</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} required />
+          </label>
+          <label className="imp-field">
+            <span>Descrição</span>
+            <input value={description} onChange={(event) => setDescription(event.target.value)} />
+          </label>
+          <div className="training-ai__chip-row">
+            {people.map((person) => (
+              <label key={person.id} className="training-ai__trait">
+                <input type="checkbox" checked={userIds.includes(person.id)} onChange={() => toggleUser(person.id)} />{' '}
+                {person.name}
+              </label>
+            ))}
+          </div>
+          <div className="imp-actions">
+            <button type="button" className="imp-btn imp-btn--ghost" onClick={() => setCreating(false)}>Cancelar</button>
+            <button type="submit" className="imp-btn imp-btn--primary">Salvar grupo</button>
+          </div>
+        </form>
+      ) : null}
+
+      <div className="training-ai__sort-bar">
+        <span>ORDENAR</span>
+        {[
+          ['recent', 'Mais recente'],
+          ['oldest', 'Mais antigo'],
+          ['az', 'A-Z'],
+          ['za', 'Z-A'],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={sort === id ? 'is-active' : ''}
+            onClick={() => setSort(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="imp-panel">
-        {groups.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="training-ai__empty"><h3>Nenhum grupo</h3></div>
         ) : (
-          <ul className="training-ai__list">
-            {groups.map((group) => (
-              <li key={group.id}>
-                <strong>{group.name}</strong> — {group.memberCount} pessoa{group.memberCount === 1 ? '' : 's'}
-                <button
-                  type="button"
-                  className="imp-btn imp-btn--ghost"
-                  onClick={async () => {
-                    await trainingApi.deleteGroup(group.id)
-                    await reload()
-                  }}
-                >
-                  Excluir
-                </button>
-              </li>
+          <div className="training-ai__group-grid">
+            {visible.map((group) => (
+              <article key={group.id} className="training-ai__group-card">
+                <header>
+                  <div>
+                    <h3>{group.name}</h3>
+                    <p>{group.description || 'Sem descrição'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="imp-btn imp-btn--ghost"
+                    onClick={async () => {
+                      await trainingApi.deleteGroup(group.id)
+                      await reload()
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </header>
+                <div className="training-ai__template-stats">
+                  <div>
+                    <span className="training-ai__tile-label">Membros</span>
+                    <strong>{group.memberCount}</strong>
+                  </div>
+                  <div>
+                    <span className="training-ai__tile-label">Personas</span>
+                    <strong>{group.personaCount ?? 0}</strong>
+                  </div>
+                  <div>
+                    <span className="training-ai__tile-label">Status</span>
+                    <span className={`imp-pill ${group.status === 'active' ? 'imp-pill--green' : 'imp-pill--muted'}`}>
+                      {group.status === 'active' ? '+ Ativo' : 'Pausado'}
+                    </span>
+                  </div>
+                </div>
+              </article>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </section>

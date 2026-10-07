@@ -14,3 +14,5 @@ export { default as TrainingTemplateDetailPage } from './pages/TemplateDetail.js
 export { default as TrainingTemplateFormPage } from './pages/TemplateForm.jsx'
 export { default as TrainingDashboardsPage } from './pages/Dashboards.jsx'
 export { default as TrainingGroupsPage } from './pages/Groups.jsx'
+export { default as TrainingUsersPage } from './pages/Users.jsx'
+export { default as TrainingProfilePage } from './pages/Profile.jsx'
