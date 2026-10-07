@@ -3,6 +3,7 @@
  * Keep the `name` API stable so pages can swap icons without hand-drawn SVG paths.
  */
 import {
+  ArrowUpDown,
   BarChart3,
   BookOpen,
   Building2,
@@ -11,6 +12,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
+  Clock,
+  Crown,
   Download,
   Filter,
   Headphones,
@@ -26,6 +29,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Trophy,
   Upload,
   User,
   UserPlus,
@@ -62,6 +66,10 @@ const ICONS = {
   shield: ShieldCheck,
   chevronsLeft: ChevronsLeft,
   chevronsRight: ChevronsRight,
+  clock: Clock,
+  trophy: Trophy,
+  crown: Crown,
+  sort: ArrowUpDown,
 }
 
 export default function OutlineIcon({ name, className = '', size, strokeWidth = 1.75, ...rest }) {

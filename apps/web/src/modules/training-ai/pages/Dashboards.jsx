@@ -116,6 +116,31 @@ function formatPct(value) {
   })}%`
 }
 
+function averageMinutes(row) {
+  const simulations = Number(row?.simulations) || 0
+  const minutes = Number(row?.minutes) || 0
+  if (!simulations) return 0
+  return Math.round((minutes / simulations) * 10) / 10
+}
+
+function formatMinutes(value) {
+  return `${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: Number.isInteger(Number(value)) ? 0 : 1,
+    maximumFractionDigits: 1,
+  })} min`
+}
+
+function formatScore(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  })
+}
+
+function formatCount(value) {
+  return Number(value || 0).toLocaleString('pt-BR')
+}
+
 function niceMax(value) {
   const n = Math.max(Number(value) || 0, 1)
   if (n <= 4) return 4
@@ -134,6 +159,107 @@ function Metric({ label, value, hint, tone }) {
         {hint ? <small>{hint}</small> : null}
       </div>
     </article>
+  )
+}
+
+function truncateName(name, max = 22) {
+  const text = String(name || '—')
+  if (text.length <= max) return text
+  return `${text.slice(0, max - 1)}…`
+}
+
+function RankingCompareChart({ title, rows, valueKey, selectedUserId, formatValue }) {
+  const [hoverId, setHoverId] = useState(null)
+  const max = niceMax(Math.max(...rows.map((row) => Number(row[valueKey]) || 0), 0))
+  const ticks = [0, 1, 2, 3, 4].map((step) => Math.round((max / 4) * step * 10) / 10)
+  const hoverRow = rows.find((row) => row.userId === hoverId) || null
+  const hoverIndex = hoverRow ? rows.findIndex((row) => row.userId === hoverId) : -1
+  const hoverValue = hoverRow ? Number(hoverRow[valueKey]) || 0 : 0
+  const hoverWidth = hoverRow ? Math.max(0, Math.min(100, (hoverValue / max) * 100)) : 0
+
+  return (
+    <section className="training-ai__rank-chart">
+      <h4>{title}</h4>
+      <div className="training-ai__rank-chart-frame">
+        <div className="training-ai__rank-chart-corner" aria-hidden="true" />
+        <div className="training-ai__rank-chart-axis" aria-hidden="true">
+          {ticks.map((tick) => (
+            <span key={tick} style={{ left: `${(tick / max) * 100}%` }}>
+              {tick}
+            </span>
+          ))}
+        </div>
+
+        <div className="training-ai__rank-chart-labels">
+          {rows.map((row, index) => (
+            <span
+              key={row.userId}
+              className={[
+                row.userId === selectedUserId ? 'is-focus' : '',
+                row.userId === hoverId ? 'is-hover' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              {index + 1}º {truncateName(row.userName)}
+            </span>
+          ))}
+        </div>
+
+        <div className="training-ai__rank-chart-plot" role="img" aria-label={title}>
+          <div className="training-ai__rank-chart-grid" aria-hidden="true">
+            {ticks.map((tick) => (
+              <span key={tick} style={{ left: `${(tick / max) * 100}%` }} />
+            ))}
+          </div>
+
+          <ul className="training-ai__rank-chart-bars">
+            {rows.map((row) => {
+              const value = Number(row[valueKey]) || 0
+              const widthPct = Math.max(0, Math.min(100, (value / max) * 100))
+              const focused = row.userId === selectedUserId
+              const hovered = row.userId === hoverId
+              return (
+                <li
+                  key={row.userId}
+                  className={[
+                    focused ? 'is-focus' : '',
+                    hovered ? 'is-hover' : '',
+                  ].filter(Boolean).join(' ')}
+                  onMouseEnter={() => setHoverId(row.userId)}
+                  onMouseLeave={() => setHoverId(null)}
+                >
+                  <span className="training-ai__rank-chart-track" />
+                  <span
+                    className="training-ai__rank-chart-bar"
+                    style={{
+                      width: `${hovered && value === 0
+                        ? 2.5
+                        : Math.max(widthPct, value > 0 ? 1.5 : 0)}%`,
+                    }}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+
+          {hoverRow ? (
+            <div
+              className="training-ai__rank-chart-tip"
+              style={{
+                top: `${((hoverIndex + 0.5) / Math.max(rows.length, 1)) * 100}%`,
+                left: `min(${Math.max(hoverWidth, 8)}%, calc(100% - 12.5rem))`,
+              }}
+            >
+              <strong>
+                {hoverIndex + 1}º {hoverRow.userName}
+              </strong>
+              <span>
+                {title}: {formatValue ? formatValue(hoverValue) : hoverValue}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -392,6 +518,14 @@ export default function TrainingDashboardsPage() {
   const activeView = DASH_TABS.some((tab) => tab.id === view) ? view : 'engajamento'
 
   useEffect(() => {
+    if (activeView !== 'ranking') setSelectedUser(null)
+  }, [activeView])
+
+  useEffect(() => {
+    setSelectedUser(null)
+  }, [appliedFilters])
+
+  useEffect(() => {
     if (view !== 'consumo') return
     setConsumoOpen(true)
     navigate('/modules/training-ai/dashboards/engajamento', { replace: true })
@@ -592,7 +726,8 @@ export default function TrainingDashboardsPage() {
   return (
     <TrainingPage className="training-ai__dashboards">
       <header className="training-ai__page-header">
-        <div>
+        <div className="training-ai__page-title-row">
+          {activeView === 'ranking' ? <OutlineIcon name="chart" /> : null}
           <h2>{title}</h2>
         </div>
         <div className="training-ai__page-header-actions">
@@ -898,59 +1033,149 @@ export default function TrainingDashboardsPage() {
       ) : null}
 
       {activeView === 'ranking' && data ? (
-        <div className="imp-panel">
-          <h3>Ranking de Usuários</h3>
-          {ranking.length === 0 ? (
-            <div className="training-ai__empty"><h3>Nenhuma simulação neste período</h3></div>
-          ) : (
+        <div className="imp-panel training-ai__ranking-panel">
+          {selectedUser ? (
             <>
-              <ul className="training-ai__ranking-list">
-                {ranking.map((row, index) => (
-                  <li key={row.userId}>
-                    <span className="training-ai__rank">{index + 1}º</span>
-                    <span className="training-ai__user-avatar">{(row.userName || '?').slice(0, 1)}</span>
-                    <div className="training-ai__ranking-meta">
-                      <strong>{row.userName}</strong>
-                      <div className="training-ai__template-stats">
-                        <div>
-                          <span className="training-ai__tile-label">Duração média</span>
-                          <strong>{row.simulations ? Math.round(row.minutes / row.simulations) : 0} min</strong>
+              <button
+                type="button"
+                className="training-ai__ranking-back"
+                onClick={() => setSelectedUser(null)}
+              >
+                <OutlineIcon name="chevron" className="is-flip" />
+                Ranking de Usuários - {selectedUser.userName}
+              </button>
+
+              <div className="training-ai__ranking-detail-charts">
+                <RankingCompareChart
+                  title="Pontuação Média"
+                  rows={ranking}
+                  valueKey="averageScore"
+                  selectedUserId={selectedUser.userId}
+                  formatValue={formatScore}
+                />
+                <RankingCompareChart
+                  title="Duração Média (Minutos)"
+                  rows={ranking.map((row) => ({
+                    ...row,
+                    averageMinutes: averageMinutes(row),
+                  }))}
+                  valueKey="averageMinutes"
+                  selectedUserId={selectedUser.userId}
+                  formatValue={formatMinutes}
+                />
+                <RankingCompareChart
+                  title="Total de Simulações"
+                  rows={ranking}
+                  valueKey="simulations"
+                  selectedUserId={selectedUser.userId}
+                  formatValue={formatCount}
+                />
+              </div>
+            </>
+          ) : ranking.length === 0 ? (
+            <>
+              <div className="training-ai__ranking-head">
+                <h3>Ranking de Usuários</h3>
+              </div>
+              <div className="training-ai__empty">
+                <h3>Nenhuma simulação neste período</h3>
+              </div>
+            </>
+          ) : (
+            <div className="training-ai__ranking-split">
+              <section className="training-ai__ranking-podium-pane" aria-label="Pódio">
+                <div className="training-ai__ranking-head">
+                  <h3>Ranking de Usuários</h3>
+                  <span className="training-ai__ranking-sort">
+                    <OutlineIcon name="sort" />
+                    1º → último
+                  </span>
+                </div>
+
+                <div className="training-ai__podium" aria-label="Classificação até o 3º lugar">
+                  {[
+                    { row: ranking[1], place: 2 },
+                    { row: ranking[0], place: 1 },
+                    { row: ranking[2], place: 3 },
+                  ]
+                    .filter((item) => item.row)
+                    .map(({ row, place }) => (
+                      <div key={row.userId} className={`training-ai__podium-col is-${place}`}>
+                        <div className="training-ai__podium-person">
+                          {place === 1 ? (
+                            <span className="training-ai__podium-crown" aria-hidden="true">
+                              <OutlineIcon name="crown" />
+                            </span>
+                          ) : null}
+                          <span className="training-ai__podium-avatar">
+                            <OutlineIcon name="user" />
+                            <span className="training-ai__podium-badge">{place}</span>
+                          </span>
+                          <strong title={row.userName}>{row.userName}</strong>
+                          <em>{formatScore(row.averageScore)}</em>
                         </div>
-                        <div>
-                          <span className="training-ai__tile-label">Simulações</span>
-                          <strong>{row.simulations}</strong>
-                        </div>
-                        <div>
-                          <span className="training-ai__tile-label">Pontuação média</span>
-                          <strong>{row.averageScore}</strong>
+                        <div className="training-ai__podium-step">
+                          <span className="training-ai__podium-mark">IA</span>
                         </div>
                       </div>
-                    </div>
-                    <button type="button" className="imp-btn imp-btn--ghost" onClick={() => setSelectedUser(row)}>
-                      Detalhes
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <div className="training-ai__podium">
-                {[ranking[1], ranking[0], ranking[2]].filter(Boolean).map((row) => {
-                  const place = ranking.indexOf(row) + 1
-                  return (
-                    <div key={row.userId} className={`training-ai__podium-step is-${place}`}>
-                      <span className="training-ai__user-avatar">{(row.userName || '?').slice(0, 1)}</span>
-                      <strong>{place}º</strong>
-                      <small>{row.userName}</small>
-                      <em>{row.averageScore}</em>
-                    </div>
-                  )
-                })}
-              </div>
-              {selectedUser ? (
-                <p className="training-ai__meta">
-                  {selectedUser.userName}: {selectedUser.simulations} simulações, média {selectedUser.averageScore}, {selectedUser.minutes} min.
-                </p>
-              ) : null}
-            </>
+                    ))}
+                </div>
+              </section>
+
+              <section className="training-ai__ranking-list-pane" aria-label="Classificação individual">
+                <ul className="training-ai__ranking-list">
+                  {ranking.map((row, index) => {
+                    const place = index + 1
+                    const avgMinutes = averageMinutes(row)
+                    return (
+                      <li
+                        key={row.userId}
+                        className={index % 2 === 0 ? 'is-odd' : 'is-even'}
+                      >
+                        <span className="training-ai__rank">{place}º</span>
+                        <span className="training-ai__ranking-avatar" aria-hidden="true">
+                          <OutlineIcon name="user" />
+                        </span>
+                        <strong className="training-ai__ranking-name" title={row.userName}>
+                          {row.userName}
+                        </strong>
+                        <div className="training-ai__ranking-metrics">
+                          <div>
+                            <span className="training-ai__tile-label">Duração média</span>
+                            <strong>
+                              <OutlineIcon name="clock" />
+                              {formatMinutes(avgMinutes)}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="training-ai__tile-label">Simulações</span>
+                            <strong>
+                              <OutlineIcon name="headset" />
+                              {formatCount(row.simulations)}
+                            </strong>
+                          </div>
+                          <div>
+                            <span className="training-ai__tile-label">Pontuação média</span>
+                            <strong>
+                              <OutlineIcon name="trophy" />
+                              {formatScore(row.averageScore)}
+                            </strong>
+                          </div>
+                        </div>
+                        <TrainingButton
+                          variant="primary"
+                          className="training-ai__ranking-details"
+                          onClick={() => setSelectedUser(row)}
+                        >
+                          <OutlineIcon name="chart" />
+                          Detalhes
+                        </TrainingButton>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            </div>
           )}
         </div>
       ) : null}
