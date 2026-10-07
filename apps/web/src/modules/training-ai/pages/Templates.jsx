@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import TrainingButton from '../components/TrainingButton.jsx'
+import OutlineIcon from '../components/OutlineIcon.jsx'
 import { flattenCriteria } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -23,13 +25,15 @@ export default function TrainingTemplatesPage() {
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
-    <TrainingPage>
-      <header className="training-ai__page-header">
-        <div>
+    <TrainingPage className="training-ai__templates-page">
+      <header className="training-ai__page-header training-ai__templates-header">
+        <div className="training-ai__page-title-row">
+          <OutlineIcon name="clipboard" />
           <h2>Templates de Avaliação</h2>
         </div>
-        <div className="training-ai__page-header-actions">
-          <label className="training-ai__search training-ai__search--action">
+        <div className="training-ai__page-header-actions training-ai__templates-actions">
+          <label className="training-ai__search training-ai__search--action training-ai__search--personas">
+            <span className="sr-only">Pesquisar templates</span>
             <input
               value={query}
               onChange={(event) => {
@@ -38,21 +42,30 @@ export default function TrainingTemplatesPage() {
               }}
               placeholder="Pesquisar..."
             />
-            <span className="training-ai__search-btn" aria-hidden="true">⌕</span>
+            <span className="training-ai__search-btn" aria-hidden="true">
+              <OutlineIcon name="search" />
+            </span>
           </label>
-          {canManage ? (
-            <Link to="/modules/training-ai/templates/novo" className="imp-btn imp-btn--primary">
-              Criar Template
-            </Link>
-          ) : null}
+          <TrainingButton
+            to="/modules/training-ai/templates/novo"
+            variant="primary"
+            title={canManage ? undefined : 'Somente o administrador pode criar templates'}
+          >
+            <OutlineIcon name="plus" />
+            Criar Template
+          </TrainingButton>
         </div>
       </header>
 
-      <div className="imp-panel">
+      <div className="imp-panel training-ai__templates-stage">
         {pageRows.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhum template</h3>
             <p>Crie um template com perguntas sim/não e pesos que somem 100.</p>
+            <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
+              <OutlineIcon name="plus" />
+              Criar Template
+            </TrainingButton>
           </div>
         ) : (
           <>
@@ -76,19 +89,18 @@ export default function TrainingTemplatesPage() {
                   >
                     <header>
                       <h3>{template.title}</h3>
-                      {canManage ? (
-                        <button
-                          type="button"
-                          className="imp-btn imp-btn--ghost"
-                          aria-label={`Editar ${template.title}`}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            navigate(`/modules/training-ai/templates/${template.id}/editar`)
-                          }}
-                        >
-                          Editar
-                        </button>
-                      ) : null}
+                      <TrainingButton
+                        variant="primary"
+                        iconOnly
+                        className="training-ai__template-edit-btn"
+                        aria-label={`Editar ${template.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          navigate(`/modules/training-ai/templates/${template.id}/editar`)
+                        }}
+                      >
+                        <OutlineIcon name="pencil" />
+                      </TrainingButton>
                     </header>
                     <div className="training-ai__template-stats">
                       <div>
@@ -109,11 +121,11 @@ export default function TrainingTemplatesPage() {
               })}
             </div>
             <div className="training-ai__pagination">
-              <button type="button" disabled={currentPage <= 1} onClick={() => setPage(1)}>«</button>
-              <button type="button" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>‹</button>
+              <button type="button" disabled={currentPage <= 1} onClick={() => setPage(1)} aria-label="Primeira página">«</button>
+              <button type="button" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Anterior">‹</button>
               <span className="training-ai__page-num">{currentPage}</span>
-              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>›</button>
-              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage(totalPages)}>»</button>
+              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Próxima">›</button>
+              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage(totalPages)} aria-label="Última página">»</button>
             </div>
           </>
         )}

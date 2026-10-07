@@ -109,6 +109,27 @@ const PATHS = {
       <circle cx="18" cy="17" r="2" />
     </>
   ),
+  clipboard: (
+    <>
+      <rect x="7" y="4.5" width="10" height="15" rx="1.5" />
+      <path d="M9.5 4.5V3.5h5v1" />
+      <path d="M10 9.5h4M10 13h4M10 16.5h2.5" />
+    </>
+  ),
+  pencil: (
+    <>
+      <path d="M13.5 5.5 18.5 10.5" />
+      <path d="M5 19l1.2-4.5L15.8 5 19 8.2 9.5 17.8 5 19z" />
+    </>
+  ),
+  save: (
+    <>
+      <path d="M5 5.5h11.5L19 8v10.5H5V5.5z" />
+      <path d="M8 5.5v4.5h7V5.5" />
+      <path d="M8 19v-5.5h8V19" />
+    </>
+  ),
+  minus: <path d="M6 12h12" />,
   chevron: <path d="M9 6l6 6-6 6" />,
 }
 

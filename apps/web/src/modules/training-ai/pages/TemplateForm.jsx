@@ -1,21 +1,22 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import TrainingButton from '../components/TrainingButton.jsx'
+import OutlineIcon from '../components/OutlineIcon.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import {
-  CONTACT_TYPE_OPTIONS,
-  PASS_RULE_TYPES,
   createEmptyCriterionDraft,
   totalTemplateWeight,
 } from '../data/evaluationTemplates.js'
 import { SCENARIO_TYPES } from '../data/personas.js'
-import WeightRing from '../components/WeightRing.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import { sectionWeightsFromTemplate } from '../utils/agentDisplay.js'
 
-function newSection(index) {
+const TEMPLATES_LIST = '/modules/training-ai/templates'
+
+function newSection(name, index) {
   return {
     id: `sec_${Date.now()}_${index}`,
-    name: '',
+    name: name || '',
     description: '',
     criteria: [createEmptyCriterionDraft(1)],
   }
@@ -38,20 +39,65 @@ export default function TrainingTemplateFormPage() {
 
   const initial = useMemo(() => {
     if (existing) return templateToFormState(existing)
-    return createEmptyTemplateDraft()
+    const draft = createEmptyTemplateDraft()
+    return {
+      ...draft,
+      scenarioTypes: ['cold_first', 'warm_first', 'inbound', 'discovery'],
+      sections: [],
+    }
   }, [createEmptyTemplateDraft, existing, templateToFormState])
 
   const [form, setForm] = useState(initial)
+  const [sectionDraft, setSectionDraft] = useState('')
   const [errors, setErrors] = useState([])
   const [saving, setSaving] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const [editingSectionIndex, setEditingSectionIndex] = useState(null)
+  const [editingSectionName, setEditingSectionName] = useState('')
 
   const weightTotal = totalTemplateWeight(form)
-  const sectionWeights = sectionWeightsFromTemplate(form)
+  const isDirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(initial) || Boolean(sectionDraft.trim()),
+    [form, initial, sectionDraft],
+  )
+
+  function requestLeave() {
+    if (isDirty) {
+      setDiscardOpen(true)
+      return
+    }
+    navigate(TEMPLATES_LIST)
+  }
+
+  function confirmDiscard() {
+    setDiscardOpen(false)
+    navigate(TEMPLATES_LIST)
+  }
+
+  function startEditSection(index, name) {
+    setEditingSectionIndex(index)
+    setEditingSectionName(name || '')
+  }
+
+  function commitEditSection() {
+    if (editingSectionIndex == null) return
+    patchSection(editingSectionIndex, 'name', editingSectionName.trim())
+    setEditingSectionIndex(null)
+    setEditingSectionName('')
+  }
+
+  function cancelEditSection() {
+    setEditingSectionIndex(null)
+    setEditingSectionName('')
+  }
 
   if (!canManage) {
     return (
       <TrainingPage>
-        <div className="imp-empty">Sem permissão para gerenciar templates.</div>
+        <div className="training-ai__empty">
+          <h3>Sem permissão</h3>
+          <p>Somente o administrador gerencia templates.</p>
+        </div>
       </TrainingPage>
     )
   }
@@ -59,8 +105,11 @@ export default function TrainingTemplateFormPage() {
   if (isEdit && !existing) {
     return (
       <TrainingPage>
-        <div className="imp-empty">
-          Template não encontrado. <Link to="/modules/training-ai/templates">Voltar</Link>
+        <div className="training-ai__empty">
+          <h3>Template não encontrado</h3>
+          <TrainingButton to="/modules/training-ai/templates" variant="primary">
+            Voltar
+          </TrainingButton>
         </div>
       </TrainingPage>
     )
@@ -83,27 +132,23 @@ export default function TrainingTemplateFormPage() {
     setForm((prev) => {
       const sections = prev.sections.map((section, sIdx) => {
         if (sIdx !== sectionIndex) return section
-        const criteria = section.criteria.map((criterion, cIdx) => {
-          if (cIdx !== criterionIndex) return criterion
-          if (field === 'passRuleType') {
-            return {
-              ...criterion,
-              passRule: { ...criterion.passRule, type: value },
-            }
-          }
-          return { ...criterion, [field]: value }
-        })
+        const criteria = section.criteria.map((criterion, cIdx) =>
+          cIdx === criterionIndex ? { ...criterion, [field]: value } : criterion,
+        )
         return { ...section, criteria }
       })
       return { ...prev, sections }
     })
   }
 
-  function addSection() {
+  function addSectionFromDraft() {
+    const name = sectionDraft.trim()
+    if (!name) return
     setForm((prev) => ({
       ...prev,
-      sections: [...prev.sections, newSection(prev.sections.length + 1)],
+      sections: [...prev.sections, newSection(name, prev.sections.length + 1)],
     }))
+    setSectionDraft('')
   }
 
   function removeSection(sectionIndex) {
@@ -133,6 +178,7 @@ export default function TrainingTemplateFormPage() {
     setForm((prev) => {
       const sections = prev.sections.map((section, index) => {
         if (index !== sectionIndex) return section
+        if (section.criteria.length <= 1) return section
         return {
           ...section,
           criteria: section.criteria.filter((_, cIdx) => cIdx !== criterionIndex),
@@ -142,12 +188,39 @@ export default function TrainingTemplateFormPage() {
     })
   }
 
+  function toggleScenario(id) {
+    const current = form.scenarioTypes || []
+    const selected = current.includes(id)
+    patchRoot(
+      'scenarioTypes',
+      selected ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
     setErrors([])
 
-    const result = isEdit ? await updateTemplate(templateId, form) : await createTemplate(form)
+    const prepared = {
+      ...form,
+      description: form.description?.trim() || form.title.trim() || 'Template de avaliação',
+      status: form.status || 'published',
+      sections: (form.sections || []).map((section) => ({
+        ...section,
+        criteria: (section.criteria || []).map((criterion) => ({
+          ...criterion,
+          keywordsText:
+            String(criterion.keywordsText || '').trim()
+            || [criterion.name, criterion.yesNoQuestion].filter(Boolean).join('\n'),
+          passRule: criterion.passRule || { type: 'keywords', keywords: [] },
+        })),
+      })),
+    }
+
+    const result = isEdit
+      ? await updateTemplate(templateId, prepared)
+      : await createTemplate(prepared)
     setSaving(false)
 
     if (!result.ok) {
@@ -159,40 +232,18 @@ export default function TrainingTemplateFormPage() {
   }
 
   return (
-    <TrainingPage>
-      <header className="training-ai__page-header">
-        <div>
-          <h2>{isEdit ? 'Editar playbook' : 'Novo playbook de score'}</h2>
-          <p>Organize etapas, critérios auditáveis e pesos (soma 100).</p>
-        </div>
+    <TrainingPage className="training-ai__template-form-page">
+      <header className="training-ai__page-header training-ai__template-form-header">
+        <div />
         <div className="training-ai__page-header-actions">
-          <Link
-            to={
-              isEdit
-                ? `/modules/training-ai/templates/${templateId}`
-                : '/modules/training-ai/templates'
-            }
-            className="imp-btn imp-btn--ghost"
-          >
-            ← Cancelar
-          </Link>
+          <TrainingButton type="button" variant="primary" onClick={requestLeave}>
+            <OutlineIcon name="clipboard" />
+            Meus Templates de Avaliação
+          </TrainingButton>
         </div>
       </header>
 
-      <div className="training-ai__playbook-layout">
-      <form className="imp-panel training-ai__form" onSubmit={handleSubmit}>
-        <div className="imp-panel__header">
-          <div>
-            <h2>Editor de etapas</h2>
-            <p>Critérios com perguntas sim/não e regras por palavras-chave.</p>
-          </div>
-          <span
-            className={`imp-pill ${weightTotal === 100 ? 'imp-pill--green' : 'imp-pill--rose'}`}
-          >
-            Pesos: {weightTotal}/100
-          </span>
-        </div>
-
+      <form className="training-ai__template-form" onSubmit={handleSubmit}>
         {errors.length ? (
           <ul className="training-ai__form-errors">
             {errors.map((error) => (
@@ -201,248 +252,258 @@ export default function TrainingTemplateFormPage() {
           </ul>
         ) : null}
 
-        <div className="training-ai__form-grid">
-          <label className="imp-field training-ai__form-span-2">
-            <span>Nome</span>
+        <section className="imp-panel training-ai__create-card">
+          <div className="training-ai__create-card-head">
+            <h3>Informações Básicas</h3>
+            <p>Reúna os dados primários do template de avaliação.</p>
+          </div>
+          <label className="imp-field">
+            <span>Nome do Template*</span>
             <input
               value={form.title}
               onChange={(event) => patchRoot('title', event.target.value)}
               required
+              placeholder="Ex.: Contato Telefônico - Cold"
             />
           </label>
+        </section>
 
-          <label className="imp-field training-ai__form-span-2">
-            <span>Descrição</span>
-            <textarea
-              rows={2}
-              value={form.description}
-              onChange={(event) => patchRoot('description', event.target.value)}
-              required
-            />
-          </label>
-
-          <label className="imp-field">
-            <span>Tipo de contato</span>
-            <select
-              value={form.contactType}
-              onChange={(event) => patchRoot('contactType', event.target.value)}
-            >
-              {CONTACT_TYPE_OPTIONS.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <fieldset className="imp-field training-ai__form-span-2">
-            <legend>Cenários compatíveis</legend>
-            <div className="training-ai__chip-row">
-              {SCENARIO_TYPES.map((item) => {
-                const selected = (form.scenarioTypes || []).includes(item.id)
-                return (
-                  <label key={item.id} className="training-ai__trait">
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => {
-                        const current = form.scenarioTypes || []
-                        patchRoot(
-                          'scenarioTypes',
-                          selected ? current.filter((id) => id !== item.id) : [...current, item.id],
-                        )
-                      }}
-                    />{' '}
-                    {item.label}
-                  </label>
-                )
-              })}
-            </div>
-          </fieldset>
-
-          <label className="imp-field">
-            <span>Publicação</span>
-            <select
-              value={form.status || 'draft'}
-              onChange={(event) => patchRoot('status', event.target.value)}
-            >
-              <option value="published">Publicado</option>
-              <option value="draft">Rascunho</option>
-            </select>
-          </label>
-        </div>
-
-        {(form.sections || []).map((section, sectionIndex) => (
-          <div key={section.id || sectionIndex} className="training-ai__template-section">
-            <div className="training-ai__template-section-head">
-              <label className="imp-field">
-                <span>Etapa</span>
-                <input
-                  value={section.name}
-                  onChange={(event) => patchSection(sectionIndex, 'name', event.target.value)}
-                  placeholder="Ex.: Abertura"
-                  required
-                />
-              </label>
-              <label className="imp-field">
-                <span>Descrição da etapa</span>
-                <input
-                  value={section.description || ''}
-                  onChange={(event) =>
-                    patchSection(sectionIndex, 'description', event.target.value)
-                  }
-                  placeholder="Ex.: Estabelecer contato e gerar interesse"
-                />
-              </label>
-              <div className="imp-actions">
-                <button
-                  type="button"
-                  className="imp-btn imp-btn--ghost"
-                  onClick={() => addCriterion(sectionIndex)}
-                >
-                  + Critério
-                </button>
-                {form.sections.length > 1 ? (
-                  <button
-                    type="button"
-                    className="imp-btn imp-btn--ghost"
-                    onClick={() => removeSection(sectionIndex)}
-                  >
-                    Remover seção
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
-            {(section.criteria || []).map((criterion, criterionIndex) => (
-              <div
-                key={criterion.id || criterionIndex}
-                className="training-ai__template-criterion"
-              >
-                <div className="training-ai__form-grid">
-                  <label className="imp-field">
-                    <span>Critério</span>
-                    <input
-                      value={criterion.name}
-                      onChange={(event) =>
-                        patchCriterion(sectionIndex, criterionIndex, 'name', event.target.value)
-                      }
-                      required
-                    />
-                  </label>
-                  <label className="imp-field">
-                    <span>Peso</span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={criterion.weight}
-                      onChange={(event) =>
-                        patchCriterion(
-                          sectionIndex,
-                          criterionIndex,
-                          'weight',
-                          event.target.value,
-                        )
-                      }
-                      required
-                    />
-                  </label>
-                  <label className="imp-field training-ai__form-span-2">
-                    <span>Pergunta pass/fail</span>
-                    <input
-                      value={criterion.yesNoQuestion}
-                      onChange={(event) =>
-                        patchCriterion(
-                          sectionIndex,
-                          criterionIndex,
-                          'yesNoQuestion',
-                          event.target.value,
-                        )
-                      }
-                      placeholder="O vendedor fez X?"
-                      required
-                    />
-                  </label>
-                  <label className="imp-field">
-                    <span>Regra</span>
-                    <select
-                      value={criterion.passRule?.type || 'keywords'}
-                      onChange={(event) =>
-                        patchCriterion(
-                          sectionIndex,
-                          criterionIndex,
-                          'passRuleType',
-                          event.target.value,
-                        )
-                      }
-                    >
-                      {PASS_RULE_TYPES.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="imp-field">
-                    <span>Palavras-chave (uma por linha)</span>
-                    <textarea
-                      rows={2}
-                      value={criterion.keywordsText || ''}
-                      onChange={(event) =>
-                        patchCriterion(
-                          sectionIndex,
-                          criterionIndex,
-                          'keywordsText',
-                          event.target.value,
-                        )
-                      }
-                      required
-                    />
-                  </label>
-                </div>
-                {section.criteria.length > 1 ? (
-                  <button
-                    type="button"
-                    className="imp-btn imp-btn--ghost"
-                    onClick={() => removeCriterion(sectionIndex, criterionIndex)}
-                  >
-                    Remover critério
-                  </button>
-                ) : null}
-              </div>
-            ))}
+        <section className="imp-panel training-ai__create-card">
+          <div className="training-ai__create-card-head">
+            <h3>Critérios de Avaliação</h3>
+            <p>
+              Organize os critérios em seções. Cada critério é uma pergunta de Sim ou Não que a IA
+              usará pra avaliar a transcrição da simulação. O peso define o impacto no score final
+              (somam 100).
+            </p>
+            <p className="training-ai__weight-live">
+              Pesos totais: {weightTotal}/100
+              {weightTotal === 100 ? ' · pronto para salvar' : ' · ajuste até 100'}
+            </p>
           </div>
-        ))}
 
-        <div className="imp-actions">
-          <button type="button" className="imp-btn imp-btn--ghost" onClick={addSection}>
-            + Nova etapa
+          <div className="training-ai__section-composer">
+            <label className="imp-field training-ai__section-composer-field">
+              <span>Nome da seção</span>
+              <input
+                value={sectionDraft}
+                onChange={(event) => setSectionDraft(event.target.value)}
+                placeholder="Ex.: Prospecção"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    addSectionFromDraft()
+                  }
+                }}
+              />
+            </label>
+            <TrainingButton
+              type="button"
+              variant="primary"
+              iconOnly
+              aria-label="Adicionar seção"
+              onClick={addSectionFromDraft}
+            >
+              <OutlineIcon name="plus" />
+            </TrainingButton>
+          </div>
+
+          {(form.sections || []).length === 0 ? (
+            <p className="training-ai__meta">Adicione uma seção para começar os critérios.</p>
+          ) : null}
+
+          {(form.sections || []).map((section, sectionIndex) => {
+            const isEditing = editingSectionIndex === sectionIndex
+            return (
+            <div key={section.id || sectionIndex} className="training-ai__template-section-block">
+              <div className="training-ai__template-section-title">
+                {isEditing ? (
+                  <div className="training-ai__section-name-input is-editing">
+                    <input
+                      value={editingSectionName}
+                      onChange={(event) => setEditingSectionName(event.target.value)}
+                      onBlur={commitEditSection}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          event.currentTarget.blur()
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          cancelEditSection()
+                        }
+                      }}
+                      placeholder="Ex: Qualificação"
+                      autoFocus
+                      aria-label="Editar nome da seção"
+                    />
+                    <button
+                      type="button"
+                      className="training-ai__section-name-clear"
+                      aria-label="Cancelar edição"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={cancelEditSection}
+                    >
+                      <OutlineIcon name="x" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="training-ai__section-name-display">
+                    <span>{section.name || `Seção ${sectionIndex + 1}`}</span>
+                  </div>
+                )}
+                <div className="training-ai__template-section-actions">
+                  {!isEditing ? (
+                    <TrainingButton
+                      type="button"
+                      variant="ghost"
+                      iconOnly
+                      aria-label="Editar nome da seção"
+                      onClick={() => startEditSection(sectionIndex, section.name)}
+                    >
+                      <OutlineIcon name="pencil" />
+                    </TrainingButton>
+                  ) : null}
+                  <TrainingButton
+                    type="button"
+                    variant="ghost"
+                    iconOnly
+                    className="training-ai__btn-danger-icon"
+                    aria-label="Remover seção"
+                    onClick={() => {
+                      if (isEditing) cancelEditSection()
+                      removeSection(sectionIndex)
+                    }}
+                  >
+                    <OutlineIcon name="x" />
+                  </TrainingButton>
+                </div>
+              </div>
+
+              {(section.criteria || []).map((criterion, criterionIndex) => (
+                <div
+                  key={criterion.id || criterionIndex}
+                  className="training-ai__template-criterion-row"
+                >
+                  <div className="training-ai__template-criterion-fields">
+                    <label className="imp-field">
+                      <span>Nome do Critério*</span>
+                      <input
+                        value={criterion.name}
+                        onChange={(event) =>
+                          patchCriterion(sectionIndex, criterionIndex, 'name', event.target.value)
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="imp-field training-ai__field-weight">
+                      <span>Peso*</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        step={0.1}
+                        value={criterion.weight}
+                        onChange={(event) =>
+                          patchCriterion(
+                            sectionIndex,
+                            criterionIndex,
+                            'weight',
+                            event.target.value,
+                          )
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="imp-field training-ai__form-span-2">
+                      <span>Pergunta (Sim ou Não)*</span>
+                      <textarea
+                        rows={3}
+                        value={criterion.yesNoQuestion}
+                        onChange={(event) =>
+                          patchCriterion(
+                            sectionIndex,
+                            criterionIndex,
+                            'yesNoQuestion',
+                            event.target.value,
+                          )
+                        }
+                        required
+                      />
+                    </label>
+                  </div>
+                  <div className="training-ai__template-criterion-actions">
+                    <TrainingButton
+                      type="button"
+                      variant="ghost"
+                      iconOnly
+                      className="training-ai__btn-danger-icon"
+                      aria-label="Remover critério"
+                      onClick={() => removeCriterion(sectionIndex, criterionIndex)}
+                      disabled={section.criteria.length <= 1}
+                    >
+                      <OutlineIcon name="minus" />
+                    </TrainingButton>
+                    <TrainingButton
+                      type="button"
+                      variant="primary"
+                      iconOnly
+                      aria-label="Adicionar critério"
+                      onClick={() => addCriterion(sectionIndex)}
+                    >
+                      <OutlineIcon name="plus" />
+                    </TrainingButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+            )
+          })}
+        </section>
+
+        <section className="imp-panel training-ai__create-card">
+          <div className="training-ai__create-card-head">
+            <h3>Cenários Compatíveis</h3>
+            <p>Selecione os cenários de simulação onde este template pode ser utilizado.</p>
+          </div>
+          <div className="training-ai__scenario-check-grid">
+            {SCENARIO_TYPES.map((item) => {
+              const selected = (form.scenarioTypes || []).includes(item.id)
+              return (
+                <label key={item.id} className={`training-ai__scenario-check ${selected ? 'is-selected' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleScenario(item.id)}
+                  />
+                  <span>{item.label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </section>
+
+        <div className="training-ai__create-footer">
+          <button type="button" className="imp-btn training-ai__btn-cancel" onClick={requestLeave}>
+            <OutlineIcon name="x" />
+            Cancelar
           </button>
-          <button type="submit" className="imp-btn imp-btn--primary" disabled={saving}>
-            {saving ? 'Salvando…' : isEdit ? 'Publicar alterações' : 'Criar playbook'}
-          </button>
+          <TrainingButton type="submit" variant="primary" disabled={saving}>
+            <OutlineIcon name="save" />
+            {saving ? 'Salvando…' : 'Salvar'}
+          </TrainingButton>
         </div>
       </form>
 
-      <aside className="training-ai__playbook-rail">
-        <h3>Distribuição ao vivo</h3>
-        <WeightRing sections={sectionWeights} />
-        <ul className="training-ai__dist-list">
-          {sectionWeights.map((item) => (
-            <li key={item.id}>
-              <span>{item.name || 'Etapa'}</span>
-              <strong>{item.weight}%</strong>
-            </li>
-          ))}
-        </ul>
-        <p className="training-ai__meta" style={{ textAlign: 'center' }}>
-          {weightTotal === 100
-            ? 'Pesos prontos para publicar.'
-            : `Ajuste os pesos até 100 (atual: ${weightTotal}).`}
-        </p>
-      </aside>
-      </div>
+      <ConfirmDialog
+        open={discardOpen}
+        title="Descartar alterações?"
+        message="Você tem alterações não salvas. Deseja descartar e voltar para a listagem?"
+        cancelLabel="Continuar editando"
+        confirmLabel="Descartar"
+        onCancel={() => setDiscardOpen(false)}
+        onConfirm={confirmDiscard}
+      />
     </TrainingPage>
   )
 }

@@ -1952,6 +1952,37 @@
   padding-top: 0.75rem;
 }
 
+.training-ai__templates-header {
+  align-items: center;
+}
+
+.training-ai__templates-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.training-ai__templates-stage {
+  min-height: 12rem;
+}
+
+.training-ai__template-edit-btn {
+  flex-shrink: 0;
+}
+
+.training-ai__template-card header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.training-ai__template-stats strong {
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
 .training-ai__tile-label {
   display: block;
   margin-bottom: 0.2rem;
@@ -3057,6 +3088,13 @@
   max-width: 58rem;
 }
 
+.training-ai__create-card-head .training-ai__weight-live {
+  margin-top: 0.55rem;
+  color: var(--text-h);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .training-ai__scenario-choice-grid {
   display: grid;
   gap: 0.55rem;
@@ -3226,6 +3264,246 @@
   height: 0.9rem;
 }
 
+.training-ai__template-form-page .training-ai__template-form-header {
+  justify-content: flex-end;
+}
+
+.training-ai__template-form {
+  display: grid;
+  gap: var(--training-ai-gap, 1.25rem);
+}
+
+.training-ai__section-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin-top: 0.85rem;
+}
+
+.training-ai__section-composer-field {
+  margin: 0;
+}
+
+.training-ai__template-section-block {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.training-ai__template-section-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.training-ai__section-name-display,
+.training-ai__section-name-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--training-ai-control-h-sm, 2.1rem);
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--training-ai-radius-control, 0.65rem);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.training-ai__section-name-display span {
+  color: var(--text-h);
+  font-size: var(--training-ai-font-sm, 0.82rem);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-ai__section-name-input {
+  padding-right: 2.4rem;
+}
+
+.training-ai__section-name-input input {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--training-ai-font-sm, 0.82rem);
+  outline: none;
+}
+
+.training-ai__section-name-input.is-editing {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+.training-ai__section-name-clear {
+  position: absolute;
+  right: 0.45rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+}
+
+.training-ai__section-name-clear .training-ai__outline-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.training-ai__template-section-actions,
+.training-ai__template-criterion-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.training-ai__template-criterion-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  margin-bottom: 0.85rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.training-ai__template-criterion-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  gap: 0.75rem;
+}
+
+.training-ai__template-criterion-fields .training-ai__form-span-2 {
+  grid-column: 1 / -1;
+}
+
+.training-ai__field-weight input {
+  width: 100%;
+}
+
+.training-ai__btn-danger-icon {
+  color: #ef4444 !important;
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border)) !important;
+}
+
+.training-ai__scenario-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.training-ai__scenario-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+
+.training-ai__scenario-check.is-selected {
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--border));
+  background: color-mix(in srgb, var(--brand-soft, #fff7ed) 65%, var(--surface));
+}
+
+.training-ai__scenario-check input {
+  accent-color: var(--brand);
+}
+
+.training-ai__confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+
+.training-ai__confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--bg, #111827) 55%, transparent);
+  cursor: pointer;
+}
+
+.training-ai__confirm-panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 26rem);
+  padding: 1.5rem 1.35rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card, 0 16px 40px rgba(0, 0, 0, 0.35));
+  text-align: center;
+}
+
+.training-ai__confirm-close {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.training-ai__confirm-close .training-ai__outline-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.training-ai__confirm-panel h3 {
+  margin: 0.35rem 0 0;
+  color: var(--text-h);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.training-ai__confirm-panel p {
+  margin: 0.65rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.training-ai__confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
 @media (max-width: 900px) {
   .training-ai__users-layout,
   .training-ai__dash-grid,
@@ -3265,6 +3543,23 @@
 
   .training-ai__personas-toolbar {
     width: 100%;
+    justify-content: flex-end;
+  }
+
+  .training-ai__templates-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .training-ai__template-criterion-row {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__template-criterion-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__template-criterion-actions {
     justify-content: flex-end;
   }
 }
