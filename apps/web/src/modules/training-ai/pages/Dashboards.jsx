@@ -5,6 +5,8 @@ import OutlineIcon from '../components/OutlineIcon.jsx'
 import TrainingButton from '../components/TrainingButton.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { formatBrDate, toLocalIsoDate } from '../utils/dates.js'
+import { downloadCsv } from '../utils/download.js'
 
 const DASH_TABS = [
   { id: 'engajamento', label: 'Engajamento' },
@@ -35,19 +37,6 @@ const DEFAULT_FILTERS = {
   scopeLabel: '',
   personaId: '',
   personaQuery: '',
-}
-
-function toLocalIsoDate(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function formatBrDate(iso) {
-  const [year, month, day] = String(iso || '').slice(0, 10).split('-')
-  if (!year || !month || !day) return String(iso || '')
-  return `${day}/${month}/${year}`
 }
 
 function dateRange(days) {
@@ -679,13 +668,7 @@ export default function TrainingDashboardsPage() {
     ranking.forEach((row, index) => {
       lines.push(`ranking,${index + 1},${row.userName},${row.averageScore}`)
     })
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `treinamento-${activeView}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(`treinamento-${activeView}.csv`, lines)
   }
 
   function selectPerson(person) {

@@ -75,14 +75,14 @@ export function TrainingAiProvider({ children }) {
         trainingApi.listPersonas(),
         trainingApi.listScenarios(),
         trainingApi.listTemplates(),
-        trainingApi.listSessions(),
+        trainingApi.listSessionsAll(),
         trainingApi.getMetrics(),
         trainingApi.getStatus(),
       ])
       setPersonas(nextPersonas)
       setScenarios(nextScenarios)
       setEvaluationTemplates(nextTemplates)
-      setHistory(sessions.map(toHistoryItem))
+      setHistory((sessions || []).map(toHistoryItem))
       setMetrics(nextMetrics)
       setAiStatus(status)
       setCatalogError(null)
@@ -99,8 +99,8 @@ export function TrainingAiProvider({ children }) {
 
   const refreshProgress = useCallback(async () => {
     try {
-      const [sessions, nextMetrics] = await Promise.all([trainingApi.listSessions(), trainingApi.getMetrics()])
-      setHistory(sessions.map(toHistoryItem))
+      const [sessions, nextMetrics] = await Promise.all([trainingApi.listSessionsAll(), trainingApi.getMetrics()])
+      setHistory((sessions || []).map(toHistoryItem))
       setMetrics(nextMetrics)
     } catch {
       // The report is already saved; the lists refresh on the next load.

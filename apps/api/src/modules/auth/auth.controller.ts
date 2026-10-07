@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { config } from '../../core/config.js'
 import type { AuthUser } from '../../types/express.js'
+import { getCustomerSettings } from '../training-ai/training-ai.repository.js'
 import { login, SESSION_TTL_SECONDS, sessionCookieName } from './auth.service.js'
 
 const loginBody = z.object({
@@ -9,7 +10,7 @@ const loginBody = z.object({
   password: z.string().min(1).max(200),
 })
 
-function publicUser(user: AuthUser) {
+function publicUser(user: AuthUser, extras: Record<string, unknown> = {}) {
   return {
     id: user.id,
     username: user.username,
@@ -19,6 +20,19 @@ function publicUser(user: AuthUser) {
     profile: user.profile,
     customer: user.customerId ? { id: user.customerId, name: user.customerName } : null,
     modules: user.modules,
+    ...extras,
+  }
+}
+
+async function enrichPublicUser(user: AuthUser) {
+  if (!user.customerId || !user.modules?.includes('training-ai')) {
+    return publicUser(user)
+  }
+  try {
+    const settings = await getCustomerSettings(user.customerId)
+    return publicUser(user, { trainingAi: { require2fa: settings.require2fa } })
+  } catch {
+    return publicUser(user, { trainingAi: { require2fa: false } })
   }
 }
 
@@ -35,7 +49,7 @@ export async function loginController(req: Request, res: Response) {
   const body = loginBody.parse(req.body)
   const result = await login(body.username, body.password, req.ip)
   res.cookie(sessionCookieName(), result.token, { ...cookieOptions(), maxAge: SESSION_TTL_SECONDS * 1000 })
-  res.json({ data: publicUser(result.user) })
+  res.json({ data: await enrichPublicUser(result.user) })
 }
 
 export async function logoutController(_req: Request, res: Response) {
@@ -44,5 +58,5 @@ export async function logoutController(_req: Request, res: Response) {
 }
 
 export async function meController(req: Request, res: Response) {
-  res.json({ data: publicUser(req.user!) })
+  res.json({ data: await enrichPublicUser(req.user!) })
 }

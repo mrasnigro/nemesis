@@ -10,9 +10,14 @@ export const trainingApi = {
   listPersonas: () => platformListAll(`${BASE}/personas`),
   listScenarios: () => platformListAll(`${BASE}/scenarios`),
   listTemplates: () => platformListAll(`${BASE}/templates`),
-  /** Completed sessions, newest first (the 50 most recent). Trainees see their own; the administrator sees all. */
+  /** Completed sessions page. Returns `{ data, page }` so callers can paginate. */
   listSessions: (query = {}) =>
-    platformRequest(`${BASE}/sessions`, { query: { pageSize: 50, ...query } }).then((payload) => payload.data),
+    platformRequest(`${BASE}/sessions`, { query: { pageSize: 50, ...query } }).then((payload) => ({
+      data: payload?.data || [],
+      page: payload?.page || { page: 1, pageSize: 50, total: 0 },
+    })),
+  /** All completed sessions (follows API pages). Prefer `listSessions` when showing a paged UI. */
+  listSessionsAll: (query = {}) => platformListAll(`${BASE}/sessions`, { pageSize: 100, ...query }),
   getDashboards: (query = {}) =>
     platformRequest(`${BASE}/dashboards`, { query }).then((payload) => payload.data),
   listGroups: () => platformRequest(`${BASE}/groups`).then((payload) => payload.data),

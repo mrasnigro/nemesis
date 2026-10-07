@@ -1,4 +1,28 @@
+import { Link } from 'react-router-dom'
+import { useAuth } from '../../../auth/AuthContext.jsx'
+import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+
 /** Shared page shell for Treinamento IA — keeps margin/padding/gap consistent. */
+
+function TrainingPolicyBanner() {
+  const { user } = useAuth()
+  const { canManage } = useTrainingAi()
+  if (!user?.trainingAi?.require2fa) return null
+
+  return (
+    <div className="training-ai__policy-banner" role="status">
+      <p>
+        A empresa exige autenticação em dois fatores. O cadastro individual no login será aplicado
+        quando a autenticação estiver disponível na plataforma.
+      </p>
+      {canManage ? (
+        <Link to="/modules/training-ai/configuracoes/dois-fatores" className="imp-btn imp-btn--primary">
+          Ver política
+        </Link>
+      ) : null}
+    </div>
+  )
+}
 
 export default function TrainingPage({
   as: Tag = 'section',
@@ -11,6 +35,7 @@ export default function TrainingPage({
       className={['imp-module', 'training-ai__page', className].filter(Boolean).join(' ')}
       {...rest}
     >
+      <TrainingPolicyBanner />
       {children}
     </Tag>
   )

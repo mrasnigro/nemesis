@@ -3170,6 +3170,42 @@
   font-size: 0.65rem;
 }
 
+.training-ai__history-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.training-ai__history-pagination .training-ai__outline-icon.is-flip {
+  transform: scaleX(-1);
+}
+
+.training-ai__policy-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--border));
+  border-radius: var(--training-ai-radius-control, 0.65rem);
+  background: color-mix(in srgb, var(--brand-soft, #fff7ed) 70%, var(--surface));
+  color: var(--text-h);
+  font-size: var(--training-ai-font-sm, 0.82rem);
+}
+
+.training-ai__policy-banner p {
+  margin: 0;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
 .training-ai__ranking-panel {
   display: grid;
   gap: 1.25rem;

@@ -15,6 +15,7 @@ import {
   deleteGroupCascade,
   getCustomerSettings,
   getGroup,
+  listUserGroupQuotas,
   getMetrics,
   getPersona,
   getScenario,
@@ -307,6 +308,7 @@ function templateAllows(template: Template, scenarioType: unknown) {
 export async function startSessionFor(actor: Actor, input: z.infer<typeof sessionStart>) {
   const customerId = customerOf(actor)
   const provider = requireAiProvider()
+  await assertGroupMinuteQuota(customerId, actor.userId)
 
   if (!input.scenarioId) {
     const persona = await getPersona(customerId, String(input.personaId))
@@ -578,11 +580,23 @@ export function directoryFor(actor: Actor) {
 }
 
 export async function getSettingsFor(actor: Actor) {
-  return getCustomerSettings(managerCustomerOf(actor))
+  // Any module user may read org policy flags; only managers may change them.
+  return getCustomerSettings(customerOf(actor))
 }
 
 export async function patchSettingsFor(actor: Actor, patch: { require2fa: boolean }) {
   return upsertCustomerSettings(managerCustomerOf(actor), patch)
+}
+
+async function assertGroupMinuteQuota(customerId: string, userId: string) {
+  const quotas = await listUserGroupQuotas(customerId, userId)
+  const exhausted = quotas.find((group) => group.usedMinutes >= group.monthlyMinutes)
+  if (!exhausted) return
+  throw new AppError(
+    409,
+    'GROUP_QUOTA_EXCEEDED',
+    `O grupo "${exhausted.name}" atingiu o limite de ${exhausted.monthlyMinutes} minutos neste mês.`,
+  )
 }
 
 export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboardQuery>) {

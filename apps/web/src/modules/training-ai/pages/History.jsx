@@ -7,12 +7,15 @@ import AgentAvatar from '../components/AgentAvatar.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { formatBrDate, formatDuration, toLocalIsoDate } from '../utils/dates.js'
+import { downloadCsv } from '../utils/download.js'
 
 const WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
+const HISTORY_PAGE_SIZE = 50
 
 const EMPTY_FILTERS = {
   from: '',
@@ -28,28 +31,6 @@ function scoreTone(score) {
   if (score >= 80) return 'green'
   if (score >= 40) return 'amber'
   return 'rose'
-}
-
-function formatDuration(ms) {
-  const total = Math.max(0, Math.round(Number(ms || 0) / 1000))
-  const hh = String(Math.floor(total / 3600)).padStart(2, '0')
-  const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
-  const ss = String(total % 60).padStart(2, '0')
-  return `${hh}:${mm}:${ss}`
-}
-
-function toLocalIsoDate(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function formatBrDate(iso) {
-  if (!iso) return ''
-  const [year, month, day] = String(iso).slice(0, 10).split('-')
-  if (!year || !month || !day) return ''
-  return `${day}/${month}/${year}`
 }
 
 function ScoreRing({ score }) {
@@ -236,6 +217,8 @@ export default function TrainingHistoryPage() {
   const [groups, setGroups] = useState([])
   const [people, setPeople] = useState([])
   const [rows, setRows] = useState([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -255,6 +238,10 @@ export default function TrainingHistoryPage() {
   }, [canManage])
 
   useEffect(() => {
+    setPage(1)
+  }, [applied, scope])
+
+  useEffect(() => {
     if (!canReport) return undefined
     let cancelled = false
     const listScope = canManage && scope === 'all' ? 'all' : 'mine'
@@ -265,11 +252,13 @@ export default function TrainingHistoryPage() {
         to: applied.to || undefined,
         groupId: listScope === 'all' && applied.scopeType === 'group' ? applied.groupId || undefined : undefined,
         userId: listScope === 'all' && applied.scopeType === 'user' ? applied.userId || undefined : undefined,
-        pageSize: 50,
+        page,
+        pageSize: HISTORY_PAGE_SIZE,
       })
-      .then((list) => {
+      .then((payload) => {
         if (!cancelled) {
-          setRows(list || [])
+          setRows(payload?.data || [])
+          setTotal(Number(payload?.page?.total || 0))
           setError('')
         }
       })
@@ -279,7 +268,7 @@ export default function TrainingHistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [applied, canManage, canReport, scope])
+  }, [applied, canManage, canReport, page, scope])
 
   const filteredSuggestions = useMemo(() => {
     const term = draft.query.trim().toLowerCase()
@@ -373,14 +362,11 @@ export default function TrainingHistoryPage() {
         item.score ?? '',
       ].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `historico-simulacoes-${toLocalIsoDate(new Date())}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(`historico-simulacoes-${toLocalIsoDate(new Date())}.csv`, lines)
   }
+
+  const pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE) || 1)
+  const safePage = Math.min(page, pageCount)
 
   if (!canReport) {
     return (
@@ -698,6 +684,44 @@ export default function TrainingHistoryPage() {
                 })}
               </tbody>
             </table>
+            {total > HISTORY_PAGE_SIZE ? (
+              <div className="training-ai__history-pagination">
+                <p className="training-ai__meta">
+                  Mostrando {(safePage - 1) * HISTORY_PAGE_SIZE + 1}–
+                  {Math.min(safePage * HISTORY_PAGE_SIZE, total)} de {total}
+                </p>
+                <div className="training-ai__group-pagination" aria-label="Paginação do histórico">
+                  <button type="button" disabled={safePage <= 1} onClick={() => setPage(1)} aria-label="Primeira página">
+                    <OutlineIcon name="chevronsLeft" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((value) => Math.max(1, value - 1))}
+                    aria-label="Página anterior"
+                  >
+                    <OutlineIcon name="chevron" className="is-flip" />
+                  </button>
+                  <span className="training-ai__group-page-current">{safePage}</span>
+                  <button
+                    type="button"
+                    disabled={safePage >= pageCount}
+                    onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+                    aria-label="Próxima página"
+                  >
+                    <OutlineIcon name="chevron" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={safePage >= pageCount}
+                    onClick={() => setPage(pageCount)}
+                    aria-label="Última página"
+                  >
+                    <OutlineIcon name="chevronsRight" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

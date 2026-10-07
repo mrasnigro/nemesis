@@ -951,6 +951,40 @@ export async function deleteGroupCascade(customerId: string, id: string) {
   }
 }
 
+/** Active groups with a monthly minute quota that include this user. */
+export async function listUserGroupQuotas(customerId: string, userId: string) {
+  const monthStart = new Date()
+  monthStart.setDate(1)
+  monthStart.setHours(0, 0, 0, 0)
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT g.id, g.name, g.monthly_minutes AS monthly_minutes,
+       COALESCE((
+         SELECT SUM(s.duration_ms)
+         FROM training_sessions s
+         JOIN training_group_members gm
+           ON gm.user_id = s.user_id AND gm.group_id = g.id AND gm.customer_id = g.customer_id
+         WHERE s.customer_id = g.customer_id
+           AND s.deleted_at IS NULL
+           AND s.status = 'completed'
+           AND s.completed_at >= :monthStart
+       ), 0) AS used_ms
+     FROM training_groups g
+     JOIN training_group_members m
+       ON m.group_id = g.id AND m.customer_id = g.customer_id AND m.user_id = :userId
+     WHERE g.customer_id = :customerId
+       AND g.deleted_at IS NULL
+       AND g.status = 'active'
+       AND g.monthly_minutes IS NOT NULL`,
+    { customerId, userId, monthStart },
+  )
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    monthlyMinutes: Number(row.monthly_minutes),
+    usedMinutes: Math.round(Number(row.used_ms || 0) / 60000),
+  }))
+}
+
 export async function getCustomerSettings(customerId: string) {
   const [rows] = await pool.query<JsonRow[]>(
     `SELECT require_2fa, updated_at
