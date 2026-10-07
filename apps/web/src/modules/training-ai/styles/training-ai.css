@@ -3050,6 +3050,48 @@
   gap: 1rem;
 }
 
+.training-ai__dash-grid--communication {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.training-ai__comm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 18rem;
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.training-ai__comm-card-head h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 0.98rem;
+  font-weight: 750;
+}
+
+.training-ai__comm-card-head .training-ai__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0;
+}
+
+.training-ai__comm-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 11rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.training-ai__comm-empty p {
+  margin: 0;
+}
+
 .training-ai__dash-side {
   display: flex;
   flex-direction: column;
@@ -4383,7 +4425,8 @@
 @media (max-width: 900px) {
   .training-ai__users-layout,
   .training-ai__dash-grid,
-  .training-ai__dash-grid--engagement {
+  .training-ai__dash-grid--engagement,
+  .training-ai__dash-grid--communication {
     grid-template-columns: 1fr;
   }
 

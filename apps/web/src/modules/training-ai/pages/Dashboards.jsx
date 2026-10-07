@@ -727,7 +727,9 @@ export default function TrainingDashboardsPage() {
     <TrainingPage className="training-ai__dashboards">
       <header className="training-ai__page-header">
         <div className="training-ai__page-title-row">
-          {activeView === 'ranking' ? <OutlineIcon name="chart" /> : null}
+          {activeView === 'ranking' || activeView === 'comunicacao' ? (
+            <OutlineIcon name="chart" />
+          ) : null}
           <h2>{title}</h2>
         </div>
         <div className="training-ai__page-header-actions">
@@ -1227,16 +1229,62 @@ export default function TrainingDashboardsPage() {
       ) : null}
 
       {activeView === 'comunicacao' && communication ? (
-        <div className="imp-panel">
-          <p className="training-ai__meta">Faixas: fala 40–50%, ritmo 110–150 ppm, monólogo 60–150s, vícios abaixo de 2/min.</p>
-          <SimpleBars points={communicationSeries} valueKey="talkListenPct" maxHint={100} days={appliedFilters.days} />
-          <ul className="training-ai__list">
-            {communicationSeries.filter((item) => item.talkListenPct || item.wordsPerMinute).map((item) => (
-              <li key={item.date}>
-                {formatBrDate(item.date)}: fala {item.talkListenPct}% · {item.wordsPerMinute} ppm · monólogo {item.longestMonologueSec}s · vícios {item.fillersPerMinute}/min
-              </li>
-            ))}
-          </ul>
+        <div className="training-ai__dash-grid training-ai__dash-grid--communication">
+          {[
+            {
+              id: 'talk',
+              label: 'Proporção de Fala e Escuta',
+              key: 'talkListenPct',
+              tone: 'purple',
+              suffix: '%',
+            },
+            {
+              id: 'pace',
+              label: 'Ritmo de Fala',
+              key: 'wordsPerMinute',
+              tone: 'purple',
+              suffix: '',
+            },
+            {
+              id: 'monologue',
+              label: 'Maior Monólogo',
+              key: 'longestMonologueSec',
+              tone: 'purple',
+              suffix: 's',
+            },
+            {
+              id: 'fillers',
+              label: 'Vícios de Linguagem',
+              key: 'fillersPerMinute',
+              tone: 'purple',
+              suffix: '',
+            },
+          ].map((metric) => {
+            const hasData = communicationSeries.some((row) => Number(row[metric.key]) > 0)
+            return (
+              <section key={metric.id} className="imp-panel training-ai__comm-card">
+                <div className="training-ai__comm-card-head">
+                  <h3>Evolução em Métricas de Comunicação</h3>
+                  <p className="training-ai__meta">
+                    <span className={`training-ai__dot training-ai__dot--${metric.tone}`} />
+                    {metric.label}
+                  </p>
+                </div>
+                {hasData ? (
+                  <SimpleLines
+                    points={communicationSeries}
+                    days={appliedFilters.days}
+                    valueSuffix={metric.suffix}
+                    series={[{ key: metric.key, label: metric.label, tone: metric.tone }]}
+                  />
+                ) : (
+                  <div className="training-ai__comm-empty">
+                    <p>Sem simulações no período</p>
+                  </div>
+                )}
+              </section>
+            )
+          })}
         </div>
       ) : null}
       </div>
