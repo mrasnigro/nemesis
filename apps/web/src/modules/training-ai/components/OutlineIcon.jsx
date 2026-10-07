@@ -141,6 +141,25 @@ const PATHS = {
       <path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6A2.5 2.5 0 0 1 16.5 15H11l-4 3.5V15H7.5A2.5 2.5 0 0 1 5 12.5v-6z" />
     </>
   ),
+  userPlus: (
+    <>
+      <circle cx="9" cy="8.5" r="3.1" />
+      <path d="M3.5 19c1.3-3 3.4-4.5 5.5-4.5s4.2 1.5 5.5 4.5" />
+      <path d="M17 8v6M14 11h6" />
+    </>
+  ),
+  chevronsLeft: (
+    <>
+      <path d="M11 6l-6 6 6 6" />
+      <path d="M18 6l-6 6 6 6" />
+    </>
+  ),
+  chevronsRight: (
+    <>
+      <path d="M13 6l6 6-6 6" />
+      <path d="M6 6l6 6-6 6" />
+    </>
+  ),
 }
 
 export default function OutlineIcon({ name, className = '' }) {
