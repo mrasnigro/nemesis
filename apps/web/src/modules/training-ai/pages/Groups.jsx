@@ -9,7 +9,6 @@ import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 const PAGE_SIZE = 8
 const TABS = [
   { id: 'members', label: 'Membros' },
-  { id: 'groups', label: 'Grupos' },
   { id: 'personas', label: 'Personas' },
 ]
 
@@ -31,7 +30,6 @@ function emptyForm() {
     monthlyMinutes: '',
     emailDraft: '',
     members: [],
-    linkedGroupIds: [],
     personaIds: [],
   }
 }
@@ -81,9 +79,8 @@ export default function TrainingGroupsPage() {
 
   const tabRows = useMemo(() => {
     if (tab === 'members') return form.members
-    if (tab === 'groups') return groups
     return personas || []
-  }, [form.members, groups, personas, tab])
+  }, [form.members, personas, tab])
 
   const pageCount = Math.max(1, Math.ceil(tabRows.length / PAGE_SIZE) || 1)
   const safePage = Math.min(page, pageCount)
@@ -158,14 +155,6 @@ export default function TrainingGroupsPage() {
     patchForm({ members: form.members.filter((member) => member.id !== id) })
   }
 
-  function toggleLinkedGroup(id) {
-    patchForm({
-      linkedGroupIds: form.linkedGroupIds.includes(id)
-        ? form.linkedGroupIds.filter((item) => item !== id)
-        : [...form.linkedGroupIds, id],
-    })
-  }
-
   function togglePersona(id) {
     patchForm({
       personaIds: form.personaIds.includes(id)
@@ -185,10 +174,12 @@ export default function TrainingGroupsPage() {
     setError('')
     try {
       const userIds = form.members.filter((member) => !member.pending).map((member) => member.id)
+      const monthlyMinutes = form.monthlyMinutes ? Number(form.monthlyMinutes) : null
       const created = await trainingApi.createGroup({
         name,
         description: form.description.trim(),
         status: 'active',
+        monthlyMinutes,
         userIds,
       })
 
@@ -242,8 +233,7 @@ export default function TrainingGroupsPage() {
   }
 
   if (creating) {
-    const tabLabel =
-      tab === 'members' ? `Membros (${form.members.length})` : tab === 'groups' ? 'Grupos' : 'Personas'
+    const tabLabel = tab === 'members' ? `Membros (${form.members.length})` : 'Personas'
     const nextLabel = tab === 'personas' ? (saving ? 'Salvando...' : 'Salvar') : 'Próximo'
 
     return (
@@ -379,33 +369,6 @@ export default function TrainingGroupsPage() {
                         </span>
                       </li>
                     ))}
-                  </ul>
-                )
-              ) : null}
-
-              {tab === 'groups' ? (
-                groups.length === 0 ? (
-                  <div className="training-ai__empty training-ai__group-create-empty">
-                    <p>Nenhum grupo existente para vincular.</p>
-                  </div>
-                ) : (
-                  <ul className="training-ai__group-pick-list">
-                    {pageRows.map((group) => {
-                      const selected = form.linkedGroupIds.includes(group.id)
-                      return (
-                        <li key={group.id}>
-                          <button
-                            type="button"
-                            className={`training-ai__group-pick ${selected ? 'is-selected' : ''}`}
-                            onClick={() => toggleLinkedGroup(group.id)}
-                            aria-pressed={selected}
-                          >
-                            <strong>{group.name}</strong>
-                            <small>{group.description || 'Sem descrição'}</small>
-                          </button>
-                        </li>
-                      )
-                    })}
                   </ul>
                 )
               ) : null}
@@ -566,6 +529,10 @@ export default function TrainingGroupsPage() {
                   <div>
                     <span className="training-ai__tile-label">Personas</span>
                     <strong>{group.personaCount ?? 0}</strong>
+                  </div>
+                  <div>
+                    <span className="training-ai__tile-label">Limite/mês</span>
+                    <strong>{group.monthlyMinutes == null ? '∞' : `${group.monthlyMinutes} min`}</strong>
                   </div>
                   <div>
                     <span className="training-ai__tile-label">Status</span>

@@ -12,7 +12,10 @@ import {
   dashboardsController,
   deleteGroupController,
   directoryController,
+  getGroupController,
+  getSettingsController,
   patchDirectoryUserController,
+  patchSettingsController,
   finishSessionController,
   getPersonaController,
   getScenarioController,
@@ -47,8 +50,11 @@ trainingAiRouter.get('/dashboards', asyncHandler(dashboardsController))
 
 trainingAiRouter.get('/groups', asyncHandler(listGroupsController))
 trainingAiRouter.post('/groups', asyncHandler(createGroupController))
+trainingAiRouter.get('/groups/:groupId', asyncHandler(getGroupController))
 trainingAiRouter.patch('/groups/:groupId', asyncHandler(updateGroupController))
 trainingAiRouter.delete('/groups/:groupId', asyncHandler(deleteGroupController))
+trainingAiRouter.get('/settings', asyncHandler(getSettingsController))
+trainingAiRouter.patch('/settings', asyncHandler(patchSettingsController))
 trainingAiRouter.get('/directory', asyncHandler(directoryController))
 trainingAiRouter.patch('/directory/:userId', asyncHandler(patchDirectoryUserController))
 

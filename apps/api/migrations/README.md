@@ -46,6 +46,8 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `013_training_persona_scope.sql` | On `training_personas`: `visibility`, `owner_user_id`, `group_id`, `scenario_type`, `evaluation_template_id` |
 | `014_training_session_recording.sql` | Nullable `training_sessions.scenario_id`; `duration_ms` and `audio_path` on sessions; `offset_ms` and `duration_ms` on `training_session_messages` |
 | `015_training_groups_detail.sql` | `description` and `status` on `training_groups` |
+| `016_training_group_minutes.sql` | `monthly_minutes` on `training_groups` (NULL = unlimited) |
+| `017_training_customer_settings.sql` | `training_customer_settings` (`require_2fa`) |
 
 ## How Webinar plans work
 

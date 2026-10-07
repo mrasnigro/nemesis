@@ -129,7 +129,13 @@ export async function listPersonas(
     OR visibility = 'company'
     OR (visibility = 'individual' AND owner_user_id = :viewerId)
     OR (visibility = 'group' AND group_id IN (
-      SELECT group_id FROM training_group_members WHERE customer_id = :customerId AND user_id = :viewerId
+      SELECT m.group_id
+      FROM training_group_members m
+      JOIN training_groups g ON g.id = m.group_id AND g.customer_id = m.customer_id
+      WHERE m.customer_id = :customerId
+        AND m.user_id = :viewerId
+        AND g.deleted_at IS NULL
+        AND g.status = 'active'
     ))
   )`)
   const term = likeTerm(query.q)
@@ -766,15 +772,21 @@ export async function listGroups(customerId: string) {
      ORDER BY g.created_at DESC, g.name ASC`,
     { customerId },
   )
-  return rows.map((row) => ({
+  return rows.map((row) => mapGroupRow(row))
+}
+
+function mapGroupRow(row: JsonRow, members?: { id: string; name: string; email: string }[]) {
+  return {
     id: String(row.id),
     name: String(row.name),
     description: row.description == null ? '' : String(row.description),
     status: row.status == null ? 'active' : String(row.status),
-    memberCount: Number(row.member_count ?? 0),
-    personaCount: Number(row.persona_count ?? 0),
-    createdAt: iso(row.created_at),
-  }))
+    monthlyMinutes: row.monthly_minutes == null ? null : Number(row.monthly_minutes),
+    memberCount: row.member_count == null ? undefined : Number(row.member_count),
+    personaCount: row.persona_count == null ? undefined : Number(row.persona_count),
+    createdAt: row.created_at == null ? undefined : iso(row.created_at),
+    ...(members ? { members } : {}),
+  }
 }
 
 export async function getGroup(customerId: string, id: string) {
@@ -791,18 +803,25 @@ export async function getGroup(customerId: string, id: string) {
      ORDER BY u.name`,
     { id, customerId },
   )
-  return {
-    id: String(rows[0].id),
-    name: String(rows[0].name),
-    description: rows[0].description == null ? '' : String(rows[0].description),
-    status: rows[0].status == null ? 'active' : String(rows[0].status),
-    members: members.map((row) => ({ id: String(row.id), name: String(row.name), email: row.email == null ? '' : String(row.email) })),
-  }
+  return mapGroupRow(
+    rows[0],
+    members.map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      email: row.email == null ? '' : String(row.email),
+    })),
+  )
 }
 
 export async function insertGroup(
   customerId: string,
-  input: { name: string; description?: string; status?: string; userIds: string[] },
+  input: {
+    name: string
+    description?: string
+    status?: string
+    monthlyMinutes?: number | null
+    userIds: string[]
+  },
 ) {
   const id = ulid()
   const now = new Date()
@@ -810,14 +829,16 @@ export async function insertGroup(
   try {
     await connection.beginTransaction()
     await connection.query(
-      `INSERT INTO training_groups (id, customer_id, name, description, status, created_at, updated_at)
-       VALUES (:id, :customerId, :name, :description, :status, :now, :now)`,
+      `INSERT INTO training_groups
+         (id, customer_id, name, description, status, monthly_minutes, created_at, updated_at)
+       VALUES (:id, :customerId, :name, :description, :status, :monthlyMinutes, :now, :now)`,
       {
         id,
         customerId,
         name: input.name,
         description: input.description || null,
         status: input.status || 'active',
+        monthlyMinutes: input.monthlyMinutes ?? null,
         now,
       },
     )
@@ -842,7 +863,13 @@ export async function insertGroup(
 export async function updateGroup(
   customerId: string,
   id: string,
-  input: { name: string; description?: string; status?: string; userIds: string[] },
+  input: {
+    name: string
+    description?: string
+    status?: string
+    monthlyMinutes?: number | null
+    userIds: string[]
+  },
 ) {
   const existing = await getGroup(customerId, id)
   if (!existing) return null
@@ -852,7 +879,11 @@ export async function updateGroup(
     await connection.beginTransaction()
     await connection.query(
       `UPDATE training_groups
-       SET name = :name, description = :description, status = :status, updated_at = :now
+       SET name = :name,
+           description = :description,
+           status = :status,
+           monthly_minutes = :monthlyMinutes,
+           updated_at = :now
        WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL`,
       {
         id,
@@ -860,6 +891,7 @@ export async function updateGroup(
         name: input.name,
         description: input.description || null,
         status: input.status || 'active',
+        monthlyMinutes: input.monthlyMinutes ?? null,
         now,
       },
     )
@@ -882,6 +914,73 @@ export async function updateGroup(
     connection.release()
   }
   return getGroup(customerId, id)
+}
+
+export async function deleteGroupCascade(customerId: string, id: string) {
+  const existing = await getGroup(customerId, id)
+  if (!existing) return false
+  const now = new Date()
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
+    await connection.query(
+      `UPDATE training_personas
+       SET group_id = NULL,
+           visibility = CASE WHEN visibility = 'group' THEN 'company' ELSE visibility END,
+           updated_at = :now
+       WHERE customer_id = :customerId AND group_id = :id AND deleted_at IS NULL`,
+      { customerId, id, now },
+    )
+    await connection.query(`DELETE FROM training_group_members WHERE group_id = :id AND customer_id = :customerId`, {
+      id,
+      customerId,
+    })
+    await connection.query(
+      `UPDATE training_groups
+       SET deleted_at = :now, updated_at = :now
+       WHERE customer_id = :customerId AND id = :id AND deleted_at IS NULL`,
+      { customerId, id, now },
+    )
+    await connection.commit()
+    return true
+  } catch (error) {
+    await connection.rollback()
+    throw error
+  } finally {
+    connection.release()
+  }
+}
+
+export async function getCustomerSettings(customerId: string) {
+  const [rows] = await pool.query<JsonRow[]>(
+    `SELECT require_2fa, updated_at
+     FROM training_customer_settings
+     WHERE customer_id = :customerId
+     LIMIT 1`,
+    { customerId },
+  )
+  if (!rows[0]) {
+    return { require2fa: false, updatedAt: null as string | null }
+  }
+  return {
+    require2fa: Boolean(Number(rows[0].require_2fa)),
+    updatedAt: iso(rows[0].updated_at),
+  }
+}
+
+export async function upsertCustomerSettings(customerId: string, patch: { require2fa: boolean }) {
+  const now = new Date()
+  await pool.query(
+    `INSERT INTO training_customer_settings (customer_id, require_2fa, updated_at)
+     VALUES (:customerId, :require2fa, :now)
+     ON DUPLICATE KEY UPDATE require_2fa = VALUES(require_2fa), updated_at = VALUES(updated_at)`,
+    {
+      customerId,
+      require2fa: patch.require2fa ? 1 : 0,
+      now,
+    },
+  )
+  return getCustomerSettings(customerId)
 }
 
 export async function listDirectory(customerId: string) {
@@ -953,7 +1052,7 @@ export type AnalyticsRow = {
 export async function listAnalyticsRows(
   customerId: string,
   since: Date,
-  scope: { userId: string | null; groupId: string | null },
+  scope: { userId: string | null; groupId: string | null; personaId?: string | null },
 ): Promise<AnalyticsRow[]> {
   const filters = [
     's.customer_id = :customerId',
@@ -971,6 +1070,10 @@ export async function listAnalyticsRows(
       `s.user_id IN (SELECT user_id FROM training_group_members WHERE group_id = :groupId AND customer_id = :customerId)`,
     )
     params.groupId = scope.groupId
+  }
+  if (scope.personaId) {
+    filters.push('s.persona_id = :personaId')
+    params.personaId = scope.personaId
   }
   const [rows] = await pool.query<JsonRow[]>(
     `SELECT s.user_id, u.name AS user_name, s.score, s.duration_ms, s.completed_at, s.session_json

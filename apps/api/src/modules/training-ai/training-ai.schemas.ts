@@ -163,6 +163,7 @@ export const groupWrite = z.object({
   name: required(200),
   description: text(500).optional(),
   status: z.enum(['active', 'paused']).default('active'),
+  monthlyMinutes: z.number().int().min(1).max(100_000).nullable().optional(),
   userIds: z.array(z.string().trim().min(1)).max(200).default([]),
 })
 
@@ -178,4 +179,11 @@ export const dashboardQuery = z.object({
   days: z.coerce.number().int().min(1).max(365).default(30),
   groupId: z.string().optional(),
   userId: z.string().optional(),
+  personaId: z.string().optional(),
 })
+
+export const settingsPatch = z
+  .object({
+    require2fa: z.boolean(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: 'Nothing to update' })

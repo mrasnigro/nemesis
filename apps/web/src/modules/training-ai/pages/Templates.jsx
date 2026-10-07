@@ -46,14 +46,12 @@ export default function TrainingTemplatesPage() {
               <OutlineIcon name="search" />
             </span>
           </label>
-          <TrainingButton
-            to="/modules/training-ai/templates/novo"
-            variant="primary"
-            title={canManage ? undefined : 'Somente o administrador pode criar templates'}
-          >
-            <OutlineIcon name="plus" />
-            Criar Template
-          </TrainingButton>
+          {canManage ? (
+            <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
+              <OutlineIcon name="plus" />
+              Criar Template
+            </TrainingButton>
+          ) : null}
         </div>
       </header>
 
@@ -62,10 +60,12 @@ export default function TrainingTemplatesPage() {
           <div className="training-ai__empty">
             <h3>Nenhum template</h3>
             <p>Crie um template com perguntas sim/não e pesos que somem 100.</p>
-            <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
-              <OutlineIcon name="plus" />
-              Criar Template
-            </TrainingButton>
+            {canManage ? (
+              <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
+                <OutlineIcon name="plus" />
+                Criar Template
+              </TrainingButton>
+            ) : null}
           </div>
         ) : (
           <>
@@ -89,18 +89,20 @@ export default function TrainingTemplatesPage() {
                   >
                     <header>
                       <h3>{template.title}</h3>
-                      <TrainingButton
-                        variant="primary"
-                        iconOnly
-                        className="training-ai__template-edit-btn"
-                        aria-label={`Editar ${template.title}`}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          navigate(`/modules/training-ai/templates/${template.id}/editar`)
-                        }}
-                      >
-                        <OutlineIcon name="pencil" />
-                      </TrainingButton>
+                      {canManage ? (
+                        <TrainingButton
+                          variant="primary"
+                          iconOnly
+                          className="training-ai__template-edit-btn"
+                          aria-label={`Editar ${template.title}`}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            navigate(`/modules/training-ai/templates/${template.id}/editar`)
+                          }}
+                        >
+                          <OutlineIcon name="pencil" />
+                        </TrainingButton>
+                      ) : null}
                     </header>
                     <div className="training-ai__template-stats">
                       <div>

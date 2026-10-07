@@ -12,6 +12,8 @@ import {
   completeSession,
   countCatalog,
   countScenariosUsing,
+  deleteGroupCascade,
+  getCustomerSettings,
   getGroup,
   getMetrics,
   getPersona,
@@ -39,6 +41,7 @@ import {
   updatePersona,
   updateScenario,
   updateTemplate,
+  upsertCustomerSettings,
   userIdsInCustomer,
 } from './training-ai.repository.js'
 import {
@@ -86,7 +89,8 @@ async function personaVisible(actor: Actor, persona: Record<string, unknown>) {
   if (visibility === 'individual') return persona.ownerUserId === actor.userId
   if (visibility === 'group' && persona.groupId) {
     const group = await getGroup(customerOf(actor), String(persona.groupId))
-    return Boolean(group?.members.some((member) => member.id === actor.userId))
+    if (!group || group.status !== 'active') return false
+    return Boolean(group.members?.some((member) => member.id === actor.userId))
   }
   return false
 }
@@ -520,6 +524,12 @@ export async function listGroupsFor(actor: Actor) {
   return listGroups(managerCustomerOf(actor))
 }
 
+export async function getGroupFor(actor: Actor, id: string) {
+  const row = await getGroup(managerCustomerOf(actor), id)
+  if (!row) throw new AppError(404, 'NOT_FOUND', 'Grupo não encontrado')
+  return row
+}
+
 export async function createGroupFor(actor: Actor, input: z.infer<typeof groupWrite>) {
   const customerId = managerCustomerOf(actor)
   const userIds = await ownedUserIds(customerId, input.userIds)
@@ -527,6 +537,7 @@ export async function createGroupFor(actor: Actor, input: z.infer<typeof groupWr
     name: input.name,
     description: input.description,
     status: input.status,
+    monthlyMinutes: input.monthlyMinutes ?? null,
     userIds,
   })
 }
@@ -538,6 +549,7 @@ export async function updateGroupFor(actor: Actor, id: string, input: z.infer<ty
     name: input.name,
     description: input.description,
     status: input.status,
+    monthlyMinutes: input.monthlyMinutes ?? null,
     userIds,
   })
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Grupo não encontrado')
@@ -557,13 +569,20 @@ export async function patchDirectoryUserFor(
 
 export async function deleteGroupFor(actor: Actor, id: string) {
   const customerId = managerCustomerOf(actor)
-  const existing = await getGroup(customerId, id)
-  if (!existing) throw new AppError(404, 'NOT_FOUND', 'Grupo não encontrado')
-  await softDelete('training_groups', customerId, id)
+  const ok = await deleteGroupCascade(customerId, id)
+  if (!ok) throw new AppError(404, 'NOT_FOUND', 'Grupo não encontrado')
 }
 
 export function directoryFor(actor: Actor) {
   return listDirectory(managerCustomerOf(actor))
+}
+
+export async function getSettingsFor(actor: Actor) {
+  return getCustomerSettings(managerCustomerOf(actor))
+}
+
+export async function patchSettingsFor(actor: Actor, patch: { require2fa: boolean }) {
+  return upsertCustomerSettings(managerCustomerOf(actor), patch)
 }
 
 export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboardQuery>) {
@@ -571,7 +590,8 @@ export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboar
   const since = new Date(Date.now() - query.days * 24 * 60 * 60 * 1000)
   const rows = await listAnalyticsRows(customerId, since, {
     userId: actor.isManager ? query.userId ?? null : actor.userId,
-    groupId: query.groupId ?? null,
+    groupId: actor.isManager ? query.groupId ?? null : null,
+    personaId: query.personaId ?? null,
   })
   const dayKey = (iso: string) => iso.slice(0, 10)
   const distinct = (list: typeof rows) => new Set(list.map((row) => row.userId)).size

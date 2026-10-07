@@ -11,7 +11,10 @@ import {
   dashboardsFor,
   deleteGroupFor,
   directoryFor,
+  getGroupFor,
+  getSettingsFor,
   patchDirectoryUserFor,
+  patchSettingsFor,
   finishSessionFor,
   getPersonaFor,
   getScenarioFor,
@@ -41,6 +44,7 @@ import {
   directoryUserPatch,
   groupWrite,
   messageWrite,
+  settingsPatch,
   personaListQuery,
   personaWrite,
   scenarioListQuery,
@@ -184,6 +188,10 @@ export async function listGroupsController(req: Request, res: Response) {
   res.json({ data: await listGroupsFor(actor(req)) })
 }
 
+export async function getGroupController(req: Request, res: Response) {
+  res.json({ data: await getGroupFor(actor(req), req.params.groupId) })
+}
+
 export async function createGroupController(req: Request, res: Response) {
   res.status(201).json({ data: await createGroupFor(actor(req), groupWrite.parse(req.body)) })
 }
@@ -195,6 +203,14 @@ export async function updateGroupController(req: Request, res: Response) {
 export async function deleteGroupController(req: Request, res: Response) {
   await deleteGroupFor(actor(req), req.params.groupId)
   res.status(204).end()
+}
+
+export async function getSettingsController(req: Request, res: Response) {
+  res.json({ data: await getSettingsFor(actor(req)) })
+}
+
+export async function patchSettingsController(req: Request, res: Response) {
+  res.json({ data: await patchSettingsFor(actor(req), settingsPatch.parse(req.body)) })
 }
 
 export async function directoryController(req: Request, res: Response) {

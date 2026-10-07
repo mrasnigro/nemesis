@@ -16,6 +16,7 @@ export const trainingApi = {
   getDashboards: (query = {}) =>
     platformRequest(`${BASE}/dashboards`, { query }).then((payload) => payload.data),
   listGroups: () => platformRequest(`${BASE}/groups`).then((payload) => payload.data),
+  getGroup: (id) => platformRequest(`${BASE}/groups/${id}`).then((payload) => payload.data),
   listDirectory: () => platformRequest(`${BASE}/directory`).then((payload) => payload.data),
   patchDirectoryUser: (id, body) =>
     platformRequest(`${BASE}/directory/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),
@@ -23,6 +24,9 @@ export const trainingApi = {
   updateGroup: (id, body) =>
     platformRequest(`${BASE}/groups/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),
   deleteGroup: (id) => platformRequest(`${BASE}/groups/${id}`, { method: 'DELETE' }),
+  getSettings: () => platformRequest(`${BASE}/settings`).then((payload) => payload.data),
+  patchSettings: (body) =>
+    platformRequest(`${BASE}/settings`, { method: 'PATCH', body }).then((payload) => payload.data),
 
   createPersona: (body) => platformRequest(`${BASE}/personas`, { method: 'POST', body }),
   updatePersona: (id, body) => platformRequest(`${BASE}/personas/${id}`, { method: 'PATCH', body }),

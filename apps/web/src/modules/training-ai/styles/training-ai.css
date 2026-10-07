@@ -2954,6 +2954,11 @@
   line-height: 1;
 }
 
+.training-ai__consumo-meter--plain {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .training-ai__consumo-meter {
   display: flex;
   align-items: center;

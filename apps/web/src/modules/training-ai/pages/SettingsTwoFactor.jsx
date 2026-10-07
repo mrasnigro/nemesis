@@ -1,65 +1,52 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import TrainingPage from '../components/TrainingPage.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import { useWorkspace } from '../../../workspace/WorkspaceContext.jsx'
-
-function storageKey(customerId) {
-  return `training-ai:require-2fa:${customerId || 'default'}`
-}
 
 export default function TrainingSettingsTwoFactorPage() {
   const { canManage } = useTrainingAi()
-  const { currentCustomer } = useWorkspace()
-  const customerId = currentCustomer?.id || ''
-
-  const [people, setPeople] = useState([])
+  const [peopleCount, setPeopleCount] = useState(0)
   const [required, setRequired] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    try {
-      setRequired(localStorage.getItem(storageKey(customerId)) === '1')
-    } catch {
-      setRequired(false)
-    }
-    setLoaded(true)
-  }, [customerId])
 
   useEffect(() => {
     if (!canManage) return undefined
     let cancelled = false
-    trainingApi
-      .listDirectory()
-      .then((directory) => {
-        if (!cancelled) setPeople(directory || [])
+    Promise.all([trainingApi.getSettings(), trainingApi.listDirectory()])
+      .then(([settings, directory]) => {
+        if (cancelled) return
+        setRequired(Boolean(settings?.require2fa))
+        setPeopleCount((directory || []).length)
+        setError('')
+        setLoaded(true)
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Não foi possível carregar os usuários.')
+        if (!cancelled) {
+          setError(err?.message || 'Não foi possível carregar as configurações.')
+          setLoaded(true)
+        }
       })
     return () => {
       cancelled = true
     }
   }, [canManage])
 
-  const withoutTwoFactor = useMemo(() => {
-    // Enrollment is not persisted yet — every directory user counts as without 2FA.
-    return people.length
-  }, [people])
-
-  function toggleRequired() {
-    if (!canManage) return
-    setRequired((current) => {
-      const next = !current
-      try {
-        localStorage.setItem(storageKey(customerId), next ? '1' : '0')
-      } catch {
-        /* ignore quota / private mode */
-      }
-      return next
-    })
+  async function toggleRequired() {
+    if (!canManage || saving) return
+    const next = !required
+    setSaving(true)
+    setError('')
+    try {
+      const settings = await trainingApi.patchSettings({ require2fa: next })
+      setRequired(Boolean(settings?.require2fa))
+    } catch (err) {
+      setError(err?.message || 'Não foi possível salvar a configuração.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!canManage) {
@@ -90,7 +77,7 @@ export default function TrainingSettingsTwoFactorPage() {
             <strong>Exigir autenticação em dois fatores</strong>
             <p>
               {loaded
-                ? `${withoutTwoFactor} usuário(s) sem autenticação em dois fatores cadastrada.`
+                ? `${peopleCount} usuário(s) no diretório. O cadastro individual de 2FA será exigido no login quando a autenticação estiver disponível.`
                 : 'Carregando...'}
             </p>
           </div>
@@ -100,6 +87,7 @@ export default function TrainingSettingsTwoFactorPage() {
             role="switch"
             aria-checked={required}
             aria-label="Exigir autenticação em dois fatores"
+            disabled={!loaded || saving}
             onClick={toggleRequired}
           >
             <span className="training-ai__switch-thumb" />

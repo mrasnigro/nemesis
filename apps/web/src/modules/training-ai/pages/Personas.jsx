@@ -126,13 +126,11 @@ export default function TrainingPersonasPage() {
               <OutlineIcon name="refresh" />
             </TrainingButton>
 
-            <TrainingButton
-              to="/modules/training-ai/personas/nova"
-              variant="primary"
-              title={canManage ? undefined : 'Somente o administrador pode criar personas'}
-            >
-              + Criar Persona
-            </TrainingButton>
+            {canManage ? (
+              <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
+                + Criar Persona
+              </TrainingButton>
+            ) : null}
           </div>
         </div>
       </header>
@@ -162,9 +160,11 @@ export default function TrainingPersonasPage() {
           <div className="training-ai__empty">
             <h3>Nenhuma persona</h3>
             <p>Crie a primeira persona para iniciar uma simulação por voz.</p>
-            <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
-              + Criar Persona
-            </TrainingButton>
+            {canManage ? (
+              <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
+                + Criar Persona
+              </TrainingButton>
+            ) : null}
           </div>
         ) : (
           <>

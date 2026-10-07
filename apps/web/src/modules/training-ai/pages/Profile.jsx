@@ -43,17 +43,22 @@ export default function TrainingProfilePage() {
         </p>
       </div>
 
-      <div className="imp-panel training-ai__profile-card">
-        <div className="training-ai__page-header" style={{ marginBottom: 0 }}>
-          <div>
-            <h3>Autenticação em dois fatores</h3>
-            <p>Desativada</p>
+      {canManage ? (
+        <div className="imp-panel training-ai__profile-card">
+          <div className="training-ai__page-header" style={{ marginBottom: 0 }}>
+            <div>
+              <h3>Autenticação em dois fatores</h3>
+              <p>A política da empresa é gerenciada em Configurações.</p>
+            </div>
+            <Link
+              to="/modules/training-ai/configuracoes/dois-fatores"
+              className="imp-btn imp-btn--primary"
+            >
+              Abrir configurações
+            </Link>
           </div>
-          <button type="button" className="imp-btn imp-btn--primary" disabled title="Disponível em breve">
-            Ativar
-          </button>
         </div>
-      </div>
+      ) : null}
     </TrainingPage>
   )
 }

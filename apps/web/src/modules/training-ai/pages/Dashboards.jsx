@@ -33,10 +33,9 @@ const DEFAULT_FILTERS = {
   userId: '',
   groupId: '',
   scopeLabel: '',
+  personaId: '',
   personaQuery: '',
 }
-
-const CREDIT_LIMIT = 30000
 
 function toLocalIsoDate(date) {
   const year = date.getFullYear()
@@ -444,40 +443,30 @@ function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR')
 }
 
-function nextResetLabel() {
-  const reset = new Date()
-  reset.setMonth(reset.getMonth() + 1, 1)
-  return reset.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-}
-
-function ConsumoCreditsPanel({ consumption, detailed, onToggleDetailed }) {
+function ConsumoUsagePanel({ consumption, detailed, onToggleDetailed }) {
+  const days = Number(consumption?.days || 30)
   const used = Number(consumption?.minutes || 0)
-  const limit = CREDIT_LIMIT
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 1000) / 10) : 0
-  const markerLeft = `${Math.min(96, Math.max(0, pct))}%`
 
   return (
     <div className="training-ai__consumo-panel">
       <div className="training-ai__consumo-panel-head">
         <h3>
-          Consumo (Créditos/Mês)
-          <span className="training-ai__info-dot" title="Créditos mensais usados em simulações (minutos).">i</span>
+          Consumo no período
+          <span
+            className="training-ai__info-dot"
+            title="Minutos de simulação concluídos no período filtrado (não é cota mensal de créditos)."
+          >
+            i
+          </span>
         </h3>
-        <p>Reinicia em {nextResetLabel()}</p>
+        <p>Últimos {days} dias</p>
       </div>
 
-      <div className="training-ai__consumo-meter">
-        <div className="training-ai__consumo-track-wrap">
-          <span className="training-ai__consumo-bubble" style={{ left: markerLeft }}>
-            {String(pct).replace('.', ',')}%
-          </span>
-          <div className="training-ai__consumo-track" aria-hidden="true">
-            <span className="training-ai__consumo-fill" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
-        <strong className="training-ai__consumo-fraction">
-          {formatCredits(used)} / {formatCredits(limit)}
-        </strong>
+      <div className="training-ai__consumo-meter training-ai__consumo-meter--plain">
+        <strong className="training-ai__consumo-fraction">{formatCredits(used)} min</strong>
+        <span className="training-ai__meta">
+          {consumption?.simulations || 0} simulações · {consumption?.activeUsers || 0} usuários ativos
+        </span>
       </div>
 
       <button type="button" className="training-ai__consumo-detail-link" onClick={onToggleDetailed}>
@@ -553,6 +542,7 @@ export default function TrainingDashboardsPage() {
         days: appliedFilters.days,
         userId: appliedFilters.scopeType === 'user' && appliedFilters.userId ? appliedFilters.userId : undefined,
         groupId: appliedFilters.scopeType === 'group' && appliedFilters.groupId ? appliedFilters.groupId : undefined,
+        personaId: appliedFilters.personaId || undefined,
       })
       .then((payload) => {
         if (!cancelled) {
@@ -683,8 +673,8 @@ export default function TrainingDashboardsPage() {
     if (consumption) {
       lines.push(`consumo,simulations,${consumption.simulations}`)
       lines.push(`consumo,minutes,${consumption.minutes}`)
-      lines.push(`consumo,creditsUsed,${consumption.minutes}`)
-      lines.push(`consumo,creditsLimit,${CREDIT_LIMIT}`)
+      lines.push(`consumo,averageMinutes,${consumption.averageMinutes}`)
+      lines.push(`consumo,activeUsers,${consumption.activeUsers}`)
     }
     ranking.forEach((row, index) => {
       lines.push(`ranking,${index + 1},${row.userName},${row.averageScore}`)
@@ -719,7 +709,10 @@ export default function TrainingDashboardsPage() {
   }
 
   function selectPersona(persona) {
-    patchDraft({ personaQuery: persona.name || '' })
+    patchDraft({
+      personaId: persona.id,
+      personaQuery: persona.name || '',
+    })
     setPersonaSuggestOpen(false)
   }
 
@@ -801,6 +794,7 @@ export default function TrainingDashboardsPage() {
                     </span>
                   </label>
 
+                  {canManage ? (
                   <label className="training-ai__filter-field">
                     <span className="sr-only">Categoria</span>
                     <span className="training-ai__filter-prefix" aria-hidden="true">
@@ -827,7 +821,9 @@ export default function TrainingDashboardsPage() {
                       <OutlineIcon name="chevron" className="training-ai__outline-icon--chevron" />
                     </span>
                   </label>
+                  ) : null}
 
+                  {canManage ? (
                   <div
                     className="training-ai__filter-suggest"
                     onBlur={(event) => handleSuggestBlur(event, () => setUserSuggestOpen(false))}
@@ -902,6 +898,7 @@ export default function TrainingDashboardsPage() {
                       </div>
                     ) : null}
                   </div>
+                  ) : null}
 
                   <div
                     className="training-ai__filter-suggest"
@@ -912,7 +909,7 @@ export default function TrainingDashboardsPage() {
                       <input
                         value={draftFilters.personaQuery}
                         onChange={(event) => {
-                          patchDraft({ personaQuery: event.target.value })
+                          patchDraft({ personaQuery: event.target.value, personaId: '' })
                           setUserSuggestOpen(false)
                           setPersonaSuggestOpen(true)
                         }}
@@ -981,7 +978,7 @@ export default function TrainingDashboardsPage() {
               aria-label="Fechar consumo"
               onClick={toggleConsumo}
             />
-            <ConsumoCreditsPanel
+            <ConsumoUsagePanel
               consumption={consumption}
               detailed={consumoDetailed}
               onToggleDetailed={() => setConsumoDetailed((value) => !value)}
