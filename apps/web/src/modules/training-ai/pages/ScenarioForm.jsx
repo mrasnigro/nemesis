@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import {
   DIFFICULTY_LABELS,
   FUNNEL_STAGE_OPTIONS,
@@ -63,19 +64,19 @@ export default function TrainingScenarioFormPage() {
 
   if (!canManage) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="imp-empty">Sem permissão para gerenciar cenários.</div>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (isEdit && !existing) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="imp-empty">
           Cenário não encontrado. <Link to="/modules/training-ai/cenarios">Voltar</Link>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -100,7 +101,7 @@ export default function TrainingScenarioFormPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <div className="imp-actions">
         <Link
           to={
@@ -279,6 +280,6 @@ export default function TrainingScenarioFormPage() {
           </button>
         </div>
       </form>
-    </section>
+    </TrainingPage>
   )
 }

@@ -14,13 +14,85 @@ export const NEGOTIATOR_TYPES = [
 ]
 
 export const SCENARIO_TYPES = [
-  { id: 'cold_first', label: 'Prospecção ativa' },
-  { id: 'warm_first', label: 'Lead morno' },
-  { id: 'inbound', label: 'Inbound' },
-  { id: 'discovery', label: 'Diagnóstico' },
-  { id: 'presentation', label: 'Apresentação' },
-  { id: 'negotiation', label: 'Negociação e fechamento' },
-  { id: 'post_sale', label: 'Relacionamento' },
+  {
+    id: 'cold_first',
+    label: 'Prospecção ativa',
+    description: 'O vendedor faz o primeiro contato sem aviso. O cliente não conhece a empresa e não esperava a abordagem.',
+  },
+  {
+    id: 'warm_first',
+    label: 'Lead morno',
+    description: 'O cliente já deu um sinal de interesse, como baixar um material ou chegar por indicação, e o vendedor faz o contato a partir disso.',
+  },
+  {
+    id: 'inbound',
+    label: 'Inbound',
+    description: 'O cliente procurou a empresa por conta própria. O vendedor atende, entende o motivo e qualifica.',
+  },
+  {
+    id: 'discovery',
+    label: 'Diagnóstico',
+    description: 'Reunião marcada para o vendedor entender a situação e dar a quem decide do lado do cliente.',
+  },
+  {
+    id: 'presentation',
+    label: 'Apresentação',
+    description: 'Apresentação do produto para um cliente já qualificado, que pediu para ver como funciona.',
+  },
+  {
+    id: 'negotiation',
+    label: 'Negociação e fechamento',
+    description: 'Proposta na mesa. O vendedor negocia condições, trata as objeções finais e busca o fechamento.',
+  },
+  {
+    id: 'post_sale',
+    label: 'Relacionamento',
+    description: 'Conversa recorrente com cliente da carteira. O vendedor ouve o momento, respeita o padrão de compra e só amplia se mostrar vantagem clara sobre o que o cliente já tem.',
+  },
+]
+
+export const PROBLEM_AWARENESS_OPTIONS = [
+  {
+    id: 'unaware',
+    label: 'Não percebe o problema',
+    hint: 'Ainda não enxerga a dor; precisa ser educado sobre o impacto.',
+  },
+  {
+    id: 'aware_lives_with',
+    label: 'Sabe, mas convive com isso',
+    hint: 'Dá o fato, mas minimiza; só prioriza depois de ver o custo do problema.',
+  },
+  {
+    id: 'aware_searching',
+    label: 'Sabe e já busca solução',
+    hint: 'Reconhece a dor e compara alternativas ativamente.',
+  },
+  {
+    id: 'urgent',
+    label: 'Urgente / prioridade alta',
+    hint: 'Quer resolver rápido; tempo e risco pesam mais que curiosidade.',
+  },
+]
+
+export const LANGUAGE_OPTIONS = [
+  { id: 'pt-BR', label: 'BR Português (Brasil)' },
+  { id: 'en-US', label: 'EN English (US)' },
+  { id: 'es-ES', label: 'ES Español' },
+]
+
+export const SALES_MODEL_OPTIONS = [
+  {
+    id: 'b2c',
+    label: 'B2C - Pessoa Física',
+    description: 'Vendas diretas para consumidores finais.',
+    icon: 'user',
+  },
+  {
+    id: 'b2b',
+    label: 'B2B - Empresa',
+    description: 'Vendas para empresas e organizações.',
+    icon: 'building',
+  },
 ]
 
 export function scenarioTypeLabel(id) {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
+import TrainingButton from '../components/TrainingButton.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -588,7 +590,7 @@ export default function TrainingDashboardsPage() {
   }
 
   return (
-    <section className="imp-module training-ai__dashboards">
+    <TrainingPage className="training-ai__dashboards">
       <header className="training-ai__page-header">
         <div>
           <h2>{title}</h2>
@@ -621,20 +623,21 @@ export default function TrainingDashboardsPage() {
             </div>
           </div>
           <div className="training-ai__dash-actions">
-            <button
-              type="button"
-              className={`imp-btn imp-btn--ghost training-ai__filter-btn ${showFilters ? 'is-active' : ''}`}
+            <TrainingButton
+              variant="ghost"
+              iconOnly
+              active={showFilters}
               onClick={() => (showFilters ? closeFilters({ discard: true }) : openFilters())}
               aria-expanded={showFilters}
               aria-label="Filtros"
             >
               <OutlineIcon name="filter" />
               <OutlineIcon name="chevron" className="training-ai__outline-icon--chevron" />
-            </button>
-            <button type="button" className="imp-btn imp-btn--primary" onClick={exportCsv}>
+            </TrainingButton>
+            <TrainingButton variant="primary" onClick={exportCsv}>
               <OutlineIcon name="export" />
               Exportar
-            </button>
+            </TrainingButton>
 
             {showFilters ? (
               <div className="training-ai__filter-modal" role="dialog" aria-modal="true" aria-label="Filtros do painel">
@@ -1012,6 +1015,6 @@ export default function TrainingDashboardsPage() {
         </div>
       ) : null}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

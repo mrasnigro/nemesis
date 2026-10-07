@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import ModuleWorkspaceLayout from '../../layouts/ModuleWorkspaceLayout.jsx'
 import OutlineIcon from './components/OutlineIcon.jsx'
+import TrainingPage from './components/TrainingPage.jsx'
 import { TrainingAiProvider, useTrainingAi } from './context/TrainingAiContext.jsx'
 import './styles/training-ai.css'
 
@@ -51,23 +52,24 @@ function TrainingWorkspace() {
 
   if (!catalogReady) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <p>Carregando treinamento...</p>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (catalogError) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <h2>Treinamento IA</h2>
         <p>{catalogError}</p>
-      </section>
+      </TrainingPage>
     )
   }
 
   return (
     <ModuleWorkspaceLayout
+      className="module-workspace--training-ai"
       title="Treinamento IA"
       badge="IA"
       basePath="/modules/training-ai"

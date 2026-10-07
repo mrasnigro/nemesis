@@ -11,7 +11,7 @@ export const TRAINING_PERMISSION_KEYS = [
  */
 export function getTrainingPermissionsForUser(user, hasModuleAccess = true) {
   if (!hasModuleAccess) return []
-  const manager = user?.profile === 'customer_admin'
+  const manager = user?.profile === 'customer_admin' || user?.role === 'admin'
   return TRAINING_PERMISSION_KEYS.filter((key) => key !== 'training.manage' || manager)
 }
 

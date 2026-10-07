@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import {
   CONTACT_TYPE_OPTIONS,
   PASS_RULE_TYPES,
@@ -49,19 +50,19 @@ export default function TrainingTemplateFormPage() {
 
   if (!canManage) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="imp-empty">Sem permissão para gerenciar templates.</div>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (isEdit && !existing) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="imp-empty">
           Template não encontrado. <Link to="/modules/training-ai/templates">Voltar</Link>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -158,7 +159,7 @@ export default function TrainingTemplateFormPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>{isEdit ? 'Editar playbook' : 'Novo playbook de score'}</h2>
@@ -442,6 +443,6 @@ export default function TrainingTemplateFormPage() {
         </p>
       </aside>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

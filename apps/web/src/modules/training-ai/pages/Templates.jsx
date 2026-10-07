@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import { flattenCriteria } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -22,7 +23,7 @@ export default function TrainingTemplatesPage() {
   const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Templates de Avaliação</h2>
@@ -117,6 +118,6 @@ export default function TrainingTemplatesPage() {
           </>
         )}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

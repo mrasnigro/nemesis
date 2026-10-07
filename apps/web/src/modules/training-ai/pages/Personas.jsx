@@ -1,29 +1,36 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
+import TrainingButton from '../components/TrainingButton.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
-import { SCENARIO_TYPES, scenarioTypeLabel } from '../data/personas.js'
+import OutlineIcon from '../components/OutlineIcon.jsx'
+import { NEGOTIATOR_TYPES, SCENARIO_TYPES, scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
 const PAGE_SIZE = 9
 
 export default function TrainingPersonasPage() {
   const navigate = useNavigate()
-  const { personas, canManage } = useTrainingAi()
+  const { personas, canManage, reloadCatalog } = useTrainingAi()
   const [query, setQuery] = useState('')
   const [scenarioFilter, setScenarioFilter] = useState('all')
+  const [negotiatorFilter, setNegotiatorFilter] = useState('all')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
     return personas.filter((persona) => {
       if (scenarioFilter !== 'all' && persona.scenarioType !== scenarioFilter) return false
+      if (negotiatorFilter !== 'all' && persona.negotiatorType !== negotiatorFilter) return false
       if (!term) return true
       const haystack = [persona.name, persona.location, persona.negotiatorType, scenarioTypeLabel(persona.scenarioType)]
         .join(' ')
         .toLowerCase()
       return haystack.includes(term)
     })
-  }, [personas, query, scenarioFilter])
+  }, [personas, query, scenarioFilter, negotiatorFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -34,14 +41,26 @@ export default function TrainingPersonasPage() {
     setPage(1)
   }
 
+  async function handleRefresh() {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await reloadCatalog()
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   return (
-    <section className="imp-module">
-      <header className="training-ai__page-header">
-        <div>
+    <TrainingPage className="training-ai__personas-page">
+      <header className="training-ai__page-header training-ai__personas-header">
+        <div className="training-ai__personas-title">
+          <OutlineIcon name="user" />
           <h2>Minhas Personas</h2>
         </div>
-        <div className="training-ai__page-header-actions">
-          <label className="training-ai__search training-ai__search--action">
+        <div className="training-ai__page-header-actions training-ai__personas-actions">
+          <label className="training-ai__search training-ai__search--action training-ai__search--personas">
+            <span className="sr-only">Pesquisar personas</span>
             <input
               value={query}
               onChange={(event) => {
@@ -50,24 +69,81 @@ export default function TrainingPersonasPage() {
               }}
               placeholder="Pesquisar..."
             />
-            <span className="training-ai__search-btn" aria-hidden="true">⌕</span>
+            <span className="training-ai__search-btn" aria-hidden="true">
+              <OutlineIcon name="search" />
+            </span>
           </label>
-          {canManage ? (
-            <Link to="/modules/training-ai/personas/nova" className="imp-btn imp-btn--primary">
+
+          <div className="training-ai__personas-toolbar">
+            <div className="training-ai__personas-icon-wrap">
+              <TrainingButton
+                variant="ghost"
+                iconOnly
+                active={filterOpen || negotiatorFilter !== 'all'}
+                aria-label="Filtrar personas"
+                aria-expanded={filterOpen}
+                onClick={() => setFilterOpen((value) => !value)}
+              >
+                <OutlineIcon name="sliders" />
+              </TrainingButton>
+              {filterOpen ? (
+                <div className="training-ai__personas-filter-panel" role="dialog" aria-label="Filtros">
+                  <p>Negociador</p>
+                  <button
+                    type="button"
+                    className={negotiatorFilter === 'all' ? 'is-active' : ''}
+                    onClick={() => {
+                      setNegotiatorFilter('all')
+                      setPage(1)
+                    }}
+                  >
+                    Todos
+                  </button>
+                  {NEGOTIATOR_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={negotiatorFilter === type ? 'is-active' : ''}
+                      onClick={() => {
+                        setNegotiatorFilter(type)
+                        setPage(1)
+                      }}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <TrainingButton
+              variant="ghost"
+              iconOnly
+              aria-label="Atualizar lista"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <OutlineIcon name="refresh" />
+            </TrainingButton>
+
+            <TrainingButton
+              to="/modules/training-ai/personas/nova"
+              variant="primary"
+              title={canManage ? undefined : 'Somente o administrador pode criar personas'}
+            >
               + Criar Persona
-            </Link>
-          ) : null}
+            </TrainingButton>
+          </div>
         </div>
       </header>
 
       <div className="training-ai__scenario-tabs" role="tablist" aria-label="Cenários">
-        <span className="training-ai__scenario-legend">Cenários</span>
         <button
           type="button"
-          className={`training-ai__scenario-tab ${scenarioFilter === 'all' ? 'is-active' : ''}`}
+          className={`training-ai__scenario-legend ${scenarioFilter === 'all' ? 'is-active' : ''}`}
           onClick={() => setFilter('all')}
         >
-          Todos
+          Cenários
         </button>
         {SCENARIO_TYPES.map((item) => (
           <button
@@ -81,16 +157,14 @@ export default function TrainingPersonasPage() {
         ))}
       </div>
 
-      <div className="imp-panel">
+      <div className="training-ai__personas-stage">
         {pageRows.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhuma persona</h3>
             <p>Crie a primeira persona para iniciar uma simulação por voz.</p>
-            {canManage ? (
-              <Link to="/modules/training-ai/personas/nova" className="imp-btn imp-btn--primary">
-                + Criar Persona
-              </Link>
-            ) : null}
+            <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
+              + Criar Persona
+            </TrainingButton>
           </div>
         ) : (
           <>
@@ -132,6 +206,6 @@ export default function TrainingPersonasPage() {
           </>
         )}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

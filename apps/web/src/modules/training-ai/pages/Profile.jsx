@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import { useAuth } from '../../../auth/AuthContext'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -8,7 +9,7 @@ export default function TrainingProfilePage() {
   const roleLabel = user?.profile === 'customer_admin' ? 'Administrador do Sistema' : 'Usuário Comum'
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Meu Perfil</h2>
@@ -53,6 +54,6 @@ export default function TrainingProfilePage() {
           </button>
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

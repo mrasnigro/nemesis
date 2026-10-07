@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import DeleteAction from '../components/DeleteAction.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
@@ -27,7 +28,7 @@ export default function TrainingPersonaDetailPage() {
 
   if (!persona) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Agente não encontrado</h3>
           <div className="imp-actions">
@@ -36,7 +37,7 @@ export default function TrainingPersonaDetailPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -50,7 +51,7 @@ export default function TrainingPersonaDetailPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div className="training-ai__chip-row">
           <AgentAvatar id={persona.id} name={persona.name} size="lg" photo={persona.avatarData} />
@@ -230,6 +231,6 @@ export default function TrainingPersonaDetailPage() {
           ))}
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

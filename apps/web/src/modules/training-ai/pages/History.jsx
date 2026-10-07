@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { scenarioTypeLabel } from '../data/personas.js'
@@ -92,17 +93,17 @@ export default function TrainingHistoryPage() {
 
   if (!canReport) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
           <p>Você não tem acesso ao histórico.</p>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>{scope === 'all' ? 'Histórico dos Vendedores' : 'Minhas Simulações'}</h2>
@@ -227,6 +228,6 @@ export default function TrainingHistoryPage() {
           </table>
         )}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

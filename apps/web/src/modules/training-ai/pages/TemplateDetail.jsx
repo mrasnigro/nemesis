@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import DeleteAction from '../components/DeleteAction.jsx'
 import WeightRing from '../components/WeightRing.jsx'
 import {
@@ -33,7 +34,7 @@ export default function TrainingTemplateDetailPage() {
 
   if (!template) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Playbook não encontrado</h3>
           <div className="imp-actions">
@@ -42,12 +43,12 @@ export default function TrainingTemplateDetailPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>{template.title}</h2>
@@ -204,6 +205,6 @@ export default function TrainingTemplateDetailPage() {
           </div>
         )}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

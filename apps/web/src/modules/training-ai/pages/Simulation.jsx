@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import PersonaCallStage from '../components/PersonaCallStage.jsx'
 import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
@@ -307,7 +308,7 @@ export default function TrainingSimulationPage() {
 
   if (bootError) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Não foi possível iniciar</h3>
           <p>{bootError}</p>
@@ -317,13 +318,13 @@ export default function TrainingSimulationPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (!scenario || phase === 'idle') {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>{scenario ? 'Preparando simulação…' : 'Cenário não encontrado'}</h3>
           <p>
@@ -339,7 +340,7 @@ export default function TrainingSimulationPage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -361,7 +362,7 @@ export default function TrainingSimulationPage() {
         : 'idle'
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Simulação IA</h2>
@@ -680,6 +681,6 @@ export default function TrainingSimulationPage() {
           ) : null}
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

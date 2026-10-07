@@ -1,4 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import DeleteAction from '../components/DeleteAction.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
@@ -23,7 +24,7 @@ export default function TrainingScenarioDetailPage() {
 
   if (!scenario) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Cenário não encontrado</h3>
           <p>Volte à lista e selecione um cenário válido.</p>
@@ -33,7 +34,7 @@ export default function TrainingScenarioDetailPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -42,7 +43,7 @@ export default function TrainingScenarioDetailPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>{scenario.title}</h2>
@@ -159,6 +160,6 @@ export default function TrainingScenarioDetailPage() {
           </div>
         ) : null}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -7,7 +8,7 @@ export default function TrainingScenariosPage() {
   const { scenarios, canManage, getPersona, getEvaluationTemplate } = useTrainingAi()
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Cenários</h2>
@@ -85,6 +86,6 @@ export default function TrainingScenariosPage() {
           </div>
         )}
       </div>
-    </section>
+    </TrainingPage>
   )
 }

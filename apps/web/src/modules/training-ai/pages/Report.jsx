@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import { PLATFORM_API_BASE } from '../../../core/api/platformClient.js'
 import { trainingApi } from '../services/api/client.js'
 import SectionRadar from '../components/SectionRadar.jsx'
@@ -103,26 +104,26 @@ export default function TrainingReportPage() {
 
   if (!canReport) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
           <p>Você não tem acesso à Central de Insights.</p>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (loading) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <p>Carregando análise…</p>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (!report) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Análise indisponível</h3>
           <p>{loadError || 'Não encontramos um relatório para esta sessão.'}</p>
@@ -132,7 +133,7 @@ export default function TrainingReportPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -148,7 +149,7 @@ export default function TrainingReportPage() {
   const judgeLabel = JUDGE_LABELS[report.judgeSource] || null
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Central de Insights · Análise</h2>
@@ -490,6 +491,6 @@ export default function TrainingReportPage() {
           </div>
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

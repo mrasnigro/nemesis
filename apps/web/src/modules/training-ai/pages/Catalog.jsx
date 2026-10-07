@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
@@ -40,7 +41,7 @@ export default function TrainingCatalogPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Catálogo de simulações</h2>
@@ -216,6 +217,6 @@ export default function TrainingCatalogPage() {
           )}
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

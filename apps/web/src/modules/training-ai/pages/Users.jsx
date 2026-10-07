@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import TrainingPage from '../components/TrainingPage.jsx'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
@@ -49,12 +50,12 @@ export default function TrainingUsersPage() {
 
   if (!canManage) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
           <p>Somente o administrador da empresa gerencia usuários.</p>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -73,7 +74,7 @@ export default function TrainingUsersPage() {
   }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
           <h2>Usuários</h2>
@@ -197,6 +198,6 @@ export default function TrainingUsersPage() {
           )}
         </div>
       </div>
-    </section>
+    </TrainingPage>
   )
 }

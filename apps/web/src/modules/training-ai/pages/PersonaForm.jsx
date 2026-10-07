@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
+import OutlineIcon from '../components/OutlineIcon.jsx'
 import {
   DIFFICULTY_LABELS,
   INDUSTRY_OPTIONS,
+  LANGUAGE_OPTIONS,
   NEGOTIATOR_TYPES,
   PERSONA_DIFFICULTIES,
+  PROBLEM_AWARENESS_OPTIONS,
+  SALES_MODEL_OPTIONS,
   SALES_MODELS,
   SCENARIO_TYPES,
   VISIBILITY_OPTIONS,
@@ -111,21 +116,77 @@ export default function TrainingPersonaFormPage() {
   const [stepIndex, setStepIndex] = useState(0)
   const [errors, setErrors] = useState([])
   const [saving, setSaving] = useState(false)
+  const [createMode, setCreateMode] = useState(isEdit ? 'wizard' : 'brief')
+  const [brief, setBrief] = useState({
+    scenarioType: initial.scenarioType || 'cold_first',
+    description: '',
+    transcriptName: '',
+    problemAwareness: PROBLEM_AWARENESS_OPTIONS[1]?.id || 'aware_lives_with',
+    language: initial.language || 'pt-BR',
+    salesModel: initial.salesModel || 'b2b',
+    productDescription: '',
+    catalogName: '',
+  })
+
+  function patchBrief(field, value) {
+    setBrief((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function applyBriefToForm() {
+    const awareness = PROBLEM_AWARENESS_OPTIONS.find((item) => item.id === brief.problemAwareness)
+    const derivedName = brief.description
+      .split(/[.!\n]/)
+      .map((part) => part.trim())
+      .find(Boolean)
+    setForm((prev) => ({
+      ...prev,
+      scenarioType: brief.scenarioType,
+      language: brief.language,
+      salesModel: brief.salesModel,
+      trainingObjective: brief.description.trim() || prev.trainingObjective,
+      behavior: brief.description.trim() || prev.behavior,
+      companyInfo: brief.productDescription.trim() || prev.companyInfo,
+      problemAwareness: awareness?.label || prev.problemAwareness,
+      name: prev.name || (derivedName ? derivedName.slice(0, 48) : ''),
+      role: prev.role || 'Decisor',
+    }))
+  }
+
+  function goToManualWizard() {
+    applyBriefToForm()
+    setCreateMode('wizard')
+    setStepIndex(0)
+    setErrors([])
+  }
+
+  function handleBriefNext() {
+    if (!brief.description.trim()) {
+      setErrors(['Descreva a persona para continuar.'])
+      return
+    }
+    goToManualWizard()
+  }
+
+  function handleFilePick(field, event) {
+    const file = event.target.files?.[0]
+    patchBrief(field, file ? file.name : '')
+    event.target.value = ''
+  }
 
   if (!canManage) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
           <p>Você não pode gerenciar agentes.</p>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
   if (isEdit && !existing) {
     return (
-      <section className="imp-module">
+      <TrainingPage>
         <div className="training-ai__empty">
           <h3>Agente não encontrado</h3>
           <div className="imp-actions">
@@ -134,7 +195,7 @@ export default function TrainingPersonaFormPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </TrainingPage>
     )
   }
 
@@ -163,26 +224,218 @@ export default function TrainingPersonaFormPage() {
 
   const step = WIZARD_STEPS[stepIndex]
   const progress = Math.round(((stepIndex + 1) / WIZARD_STEPS.length) * 100)
+  const selectedAwareness = PROBLEM_AWARENESS_OPTIONS.find((item) => item.id === brief.problemAwareness)
+
+  if (!isEdit && createMode === 'brief') {
+    return (
+      <TrainingPage className="training-ai__persona-create">
+        <header className="training-ai__page-header training-ai__persona-create-header">
+          <div>
+            <h2>+ Criar Persona</h2>
+          </div>
+          <div className="training-ai__page-header-actions">
+            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary training-ai__back-personas-btn">
+              <OutlineIcon name="user" />
+              Minhas personas
+            </Link>
+          </div>
+        </header>
+
+        {errors.length ? (
+          <ul className="training-ai__form-errors">
+            {errors.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        <section className="imp-panel training-ai__create-card">
+          <div className="training-ai__create-card-head">
+            <h3>Selecione o cenário</h3>
+            <p>Selecione o escopo designado à persona.</p>
+          </div>
+          <div className="training-ai__scenario-choice-grid" role="radiogroup" aria-label="Cenário">
+            {SCENARIO_TYPES.map((item) => {
+              const selected = brief.scenarioType === item.id
+              return (
+                <label
+                  key={item.id}
+                  className={`training-ai__scenario-choice ${selected ? 'is-selected' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="scenarioType"
+                    checked={selected}
+                    onChange={() => patchBrief('scenarioType', item.id)}
+                  />
+                  <span className="training-ai__scenario-choice-mark" aria-hidden="true" />
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.description}</small>
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="imp-panel training-ai__create-card">
+          <div className="training-ai__create-card-head">
+            <h3>Criar a persona com IA</h3>
+            <p>
+              Forneça as informações que você possui sobre o cliente e o produto. A IA combina esses dados
+              para criar uma persona completa, com perfil, objetivos, comportamentos e necessidades. Ou se
+              preferir preencha a persona manualmente.
+            </p>
+          </div>
+
+          <div className="training-ai__create-fields">
+            <label className="imp-field">
+              <span>Descreva a persona*</span>
+              <textarea
+                rows={5}
+                value={brief.description}
+                onChange={(event) => patchBrief('description', event.target.value)}
+                placeholder="Ex: Gerente comercial de uma empresa de médio porte, busca automatizar o processo de vendas e melhorar o acompanhamento da equipe. Tem pouco tempo, valoriza soluções práticas e costuma pesquisar diferentes ferramentas antes de tomar uma decisão."
+              />
+            </label>
+
+            <div className="imp-field">
+              <span>Anexe transcrição da ligação ou arquivo de ICP (Opcional)</span>
+              <label className="training-ai__file-drop">
+                <input
+                  type="file"
+                  accept=".txt,.pdf,text/plain,application/pdf"
+                  onChange={(event) => handleFilePick('transcriptName', event)}
+                />
+                <OutlineIcon name="paperclip" />
+                <span>
+                  {brief.transcriptName
+                    ? brief.transcriptName
+                    : 'Clique ou arraste um arquivo. Formatos aceitos: TXT ou PDF. Tamanho máximo: 30 MB.'}
+                </span>
+              </label>
+            </div>
+
+            <label className="imp-field">
+              <span>Como ele encara esse problema hoje?</span>
+              <select
+                value={brief.problemAwareness}
+                onChange={(event) => patchBrief('problemAwareness', event.target.value)}
+              >
+                {PROBLEM_AWARENESS_OPTIONS.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+              {selectedAwareness ? (
+                <small className="training-ai__field-hint">{selectedAwareness.hint}</small>
+              ) : null}
+            </label>
+
+            <label className="imp-field">
+              <span>Idioma*</span>
+              <select
+                value={brief.language}
+                onChange={(event) => patchBrief('language', event.target.value)}
+              >
+                {LANGUAGE_OPTIONS.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="imp-field">
+              <span>Modelo de negócio*</span>
+              <div className="training-ai__sales-model-grid" role="radiogroup" aria-label="Modelo de negócio">
+                {SALES_MODEL_OPTIONS.map((item) => {
+                  const selected = brief.salesModel === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`training-ai__sales-model-card ${selected ? 'is-selected' : ''}`}
+                      onClick={() => patchBrief('salesModel', item.id)}
+                      aria-pressed={selected}
+                    >
+                      <OutlineIcon name={item.icon} />
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <label className="imp-field">
+              <span>Descreva o catálogo ou produto (Opcional)</span>
+              <textarea
+                rows={3}
+                value={brief.productDescription}
+                onChange={(event) => patchBrief('productDescription', event.target.value)}
+                placeholder="Ex: Software de gestão financeira para pequenas empresas, com emissão de boletos e controle de fluxo de caixa."
+              />
+            </label>
+
+            <div className="imp-field">
+              <span>Anexe o catálogo ou produto (Opcional)</span>
+              <label className="training-ai__file-drop">
+                <input
+                  type="file"
+                  accept=".txt,.pdf,text/plain,application/pdf"
+                  onChange={(event) => handleFilePick('catalogName', event)}
+                />
+                <OutlineIcon name="paperclip" />
+                <span>
+                  {brief.catalogName
+                    ? brief.catalogName
+                    : 'Clique ou arraste um arquivo. Formatos aceitos: TXT ou PDF. Tamanho máximo: 30 MB.'}
+                </span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <div className="training-ai__create-footer">
+          <Link to="/modules/training-ai/personas" className="imp-btn training-ai__btn-cancel">
+            <OutlineIcon name="x" />
+            Cancelar
+          </Link>
+          <button type="button" className="imp-btn imp-btn--ghost" onClick={goToManualWizard}>
+            Preencher Manualmente
+          </button>
+          <button type="button" className="imp-btn imp-btn--primary" onClick={handleBriefNext}>
+            Próximo
+          </button>
+        </div>
+      </TrainingPage>
+    )
+  }
 
   return (
-    <section className="imp-module">
+    <TrainingPage>
       <header className="training-ai__page-header">
         <div>
-          <h2>{isEdit ? 'Editar Agente' : 'Criar Novo Agente'}</h2>
+          <h2>{isEdit ? 'Editar Agente' : '+ Criar Persona'}</h2>
           <p>
             Configure o comportamento do agente: quem ele é, como reage e quais objeções levanta.
           </p>
         </div>
         <div className="training-ai__page-header-actions">
+          {!isEdit ? (
+            <button type="button" className="imp-btn imp-btn--ghost" onClick={() => setCreateMode('brief')}>
+              ← Voltar
+            </button>
+          ) : null}
           <Link
             to={
               isEdit
                 ? `/modules/training-ai/personas/${personaId}`
                 : '/modules/training-ai/personas'
             }
-            className="imp-btn imp-btn--ghost"
+            className="imp-btn imp-btn--primary training-ai__back-personas-btn"
           >
-            ← Cancelar
+            <OutlineIcon name="user" />
+            Minhas personas
           </Link>
         </div>
       </header>
@@ -721,6 +974,6 @@ export default function TrainingPersonaFormPage() {
           </div>
         </aside>
       </form>
-    </section>
+    </TrainingPage>
   )
 }

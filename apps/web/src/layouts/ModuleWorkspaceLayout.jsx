@@ -41,6 +41,7 @@ export default function ModuleWorkspaceLayout({
   basePath,
   nav = [],
   headerActions = null,
+  className = '',
 }) {
   const { user, logout } = useAuth()
   const { currentCustomer, currentUser } = useWorkspace()
@@ -71,7 +72,7 @@ export default function ModuleWorkspaceLayout({
   }
 
   return (
-    <div className="module-workspace">
+    <div className={['module-workspace', className].filter(Boolean).join(' ')}>
       <aside className="module-workspace__sidebar">
         <div className="module-workspace__brand">
           <span className="module-workspace__mark">IMP</span>
