@@ -1,4 +1,9 @@
-import { PLATFORM_API_BASE, platformListAll, platformRequest } from '../../../../core/api/platformClient.js'
+import {
+  PLATFORM_API_BASE,
+  PlatformApiError,
+  platformListAll,
+  platformRequest,
+} from '../../../../core/api/platformClient.js'
 
 const BASE = '/api/modules/training-ai'
 
@@ -8,6 +13,7 @@ export const trainingApi = {
   getMetrics: () => platformRequest(`${BASE}/metrics`).then((payload) => payload.data),
 
   listPersonas: () => platformListAll(`${BASE}/personas`),
+  getPersona: (id) => platformRequest(`${BASE}/personas/${id}`).then((payload) => payload.data),
   listScenarios: () => platformListAll(`${BASE}/scenarios`),
   listTemplates: () => platformListAll(`${BASE}/templates`),
   /** Completed sessions page. Returns `{ data, page }` so callers can paginate. */
@@ -54,14 +60,29 @@ export const trainingApi = {
   rejudgeSession: (id) =>
     platformRequest(`${BASE}/sessions/${id}/rejudge`, { method: 'POST' }).then((payload) => payload.data),
   uploadSessionAudio: async (id, blob) => {
-    const response = await fetch(`${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': blob.type || 'audio/webm' },
-      body: blob,
-    })
-    if (!response.ok) throw new Error('Não foi possível guardar a gravação.')
-    return response.json()
+    let response
+    try {
+      response = await fetch(`${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      })
+    } catch {
+      throw new PlatformApiError('Não foi possível conectar à API da plataforma.', {
+        status: 0,
+        code: 'NETWORK_ERROR',
+      })
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null)
+      throw new PlatformApiError(payload?.error?.message || 'Não foi possível guardar a gravação.', {
+        status: response.status,
+        code: payload?.error?.code || 'AUDIO_UPLOAD_FAILED',
+        details: payload?.error?.details,
+      })
+    }
+    return response.json().then((payload) => payload?.data ?? payload)
   },
   sessionAudioUrl: (id) => `${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`,
 }

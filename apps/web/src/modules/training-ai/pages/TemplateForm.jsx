@@ -238,7 +238,7 @@ export default function TrainingTemplateFormPage() {
         <div className="training-ai__page-header-actions">
           <TrainingButton type="button" variant="primary" onClick={requestLeave}>
             <OutlineIcon name="clipboard" />
-            Meus Templates de Avaliação
+            Playbooks de Score
           </TrainingButton>
         </div>
       </header>
@@ -255,10 +255,10 @@ export default function TrainingTemplateFormPage() {
         <section className="imp-panel training-ai__create-card">
           <div className="training-ai__create-card-head">
             <h3>Informações Básicas</h3>
-            <p>Reúna os dados primários do template de avaliação.</p>
+            <p>Defina o playbook que a IA usará como régua de score da simulação.</p>
           </div>
           <label className="imp-field">
-            <span>Nome do Template*</span>
+            <span>Nome do Playbook*</span>
             <input
               value={form.title}
               onChange={(event) => patchRoot('title', event.target.value)}
@@ -270,11 +270,11 @@ export default function TrainingTemplateFormPage() {
 
         <section className="imp-panel training-ai__create-card">
           <div className="training-ai__create-card-head">
-            <h3>Critérios de Avaliação</h3>
+            <h3>Timeline de Vendas</h3>
             <p>
-              Organize os critérios em seções. Cada critério é uma pergunta de Sim ou Não que a IA
-              usará pra avaliar a transcrição da simulação. O peso define o impacto no score final
-              (somam 100).
+              Organize o roteiro por etapas (Abertura, Rapport, Qualificação, Fechamento). Cada
+              critério é uma pergunta de Sim ou Não que a IA verifica na transcrição. Os pesos
+              personalizados somam 100 e geram a nota final.
             </p>
             <p className="training-ai__weight-live">
               Pesos totais: {weightTotal}/100
@@ -284,11 +284,11 @@ export default function TrainingTemplateFormPage() {
 
           <div className="training-ai__section-composer">
             <label className="imp-field training-ai__section-composer-field">
-              <span>Nome da seção</span>
+              <span>Nome da etapa</span>
               <input
                 value={sectionDraft}
                 onChange={(event) => setSectionDraft(event.target.value)}
-                placeholder="Ex.: Prospecção"
+                placeholder="Ex.: Abertura"
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
@@ -301,7 +301,7 @@ export default function TrainingTemplateFormPage() {
               type="button"
               variant="primary"
               iconOnly
-              aria-label="Adicionar seção"
+              aria-label="Adicionar etapa"
               onClick={addSectionFromDraft}
             >
               <OutlineIcon name="plus" />
@@ -309,7 +309,7 @@ export default function TrainingTemplateFormPage() {
           </div>
 
           {(form.sections || []).length === 0 ? (
-            <p className="training-ai__meta">Adicione uma seção para começar os critérios.</p>
+            <p className="training-ai__meta">Adicione uma etapa da timeline para começar os critérios.</p>
           ) : null}
 
           {(form.sections || []).map((section, sectionIndex) => {

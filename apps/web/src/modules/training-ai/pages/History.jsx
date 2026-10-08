@@ -386,7 +386,7 @@ export default function TrainingHistoryPage() {
       <header className="training-ai__page-header">
         <div className="training-ai__page-title-row">
           <OutlineIcon name="notebook" />
-          <h2>{scope === 'all' ? 'Histórico de Simulações' : 'Minhas Simulações'}</h2>
+          <h2>Central de Insights</h2>
         </div>
       </header>
 
@@ -412,7 +412,7 @@ export default function TrainingHistoryPage() {
                   className="training-ai__history-filter-modal"
                   role="dialog"
                   aria-modal="true"
-                  aria-label="Filtros – Histórico de Simulação"
+                  aria-label="Filtros – Central de Insights"
                 >
                   <button
                     type="button"
@@ -423,7 +423,7 @@ export default function TrainingHistoryPage() {
                   <div className="training-ai__history-filter-panel">
                     <div className="training-ai__history-filter-head">
                       <OutlineIcon name="filter" />
-                      <strong>Filtros – Histórico de Simulação</strong>
+                      <strong>Filtros – Central de Insights</strong>
                     </div>
 
                     <div className="training-ai__history-filter-section">
@@ -601,7 +601,7 @@ export default function TrainingHistoryPage() {
                 variant="primary"
                 onClick={() => setScope((value) => (value === 'all' ? 'mine' : 'all'))}
               >
-                {scope === 'all' ? 'Minhas Simulações' : 'Histórico de Simulações'}
+                {scope === 'all' ? 'Minhas Simulações' : 'Visão da equipe'}
               </TrainingButton>
             ) : (
               <TrainingButton variant="primary" disabled>

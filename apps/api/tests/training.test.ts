@@ -592,6 +592,94 @@ describe('AI provider', () => {
     expect(seen[0].history.map((item) => item.role)).toEqual(['ai', 'user'])
     expect(seen[0].history[1].text).toBe('Bom dia')
   })
+
+  it('stores sellerInstructions and avatarData on personas for the Ligação UI', async () => {
+    const avatarData =
+      'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    const created = await create(
+      manager,
+      'personas',
+      persona({
+        sellerInstructions: 'Você está ligando para um Lead que se cadastrou no site da IMP.',
+        avatarData,
+        interactionMode: 'both',
+        scenarioType: 'cold_first',
+      }),
+    )
+    const detail = await operator.get(`${BASE}/personas/${created.id}`)
+    expect(detail.status).toBe(200)
+    expect(detail.body.data.sellerInstructions).toContain('Lead que se cadastrou')
+    expect(detail.body.data.avatarData).toBe(avatarData)
+    expect(detail.body.data.interactionMode).toBe('both')
+  })
+
+  it('uploads and downloads session audio for voice calls', async () => {
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    const payload = Buffer.from('fake-webm-audio-bytes')
+    const uploaded = await operator
+      .post(`${BASE}/sessions/${session.id}/audio`)
+      .set('Content-Type', 'audio/webm')
+      .send(payload)
+    expect(uploaded.status, JSON.stringify(uploaded.body)).toBe(201)
+    expect(uploaded.body.data.hasAudio).toBe(true)
+
+    const downloaded = await operator
+      .get(`${BASE}/sessions/${session.id}/audio`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+        res.on('end', () => callback(null, Buffer.concat(chunks)))
+      })
+    expect(downloaded.status).toBe(200)
+    expect(String(downloaded.headers['content-type'] || '')).toMatch(/audio\/webm/)
+    expect(downloaded.body).toEqual(payload)
+  })
+
+  it('blocks a new voice session when the group monthly minute quota is exhausted', async () => {
+    // Fresh user so earlier suite sessions do not already consume the quota.
+    const trainee = await createUser(customerId, 'sdr_bdr')
+    const me = await trainee.get('/api/auth/me')
+    expect(me.status).toBe(200)
+    const traineeId = String(me.body.data.id)
+
+    const ids = await setup()
+    const group = await manager.post(`${BASE}/groups`).send({
+      name: unique('Quota '),
+      monthlyMinutes: 1000,
+      status: 'active',
+      userIds: [traineeId],
+    })
+    expect(group.status, JSON.stringify(group.body)).toBe(201)
+
+    const spent = await startSession(trainee, ids.scenario, { mediaMode: 'voice' })
+    await trainee.post(`${BASE}/sessions/${spent.id}/messages`).send({ text: 'Bom dia, posso falar?' })
+    const finished = await trainee.post(`${BASE}/sessions/${spent.id}/finish`)
+    expect(finished.status).toBe(200)
+
+    await pool.query(`UPDATE training_sessions SET duration_ms = :ms WHERE id = :id`, {
+      id: spent.id,
+      ms: 120_000,
+    })
+
+    const tightened = await manager.patch(`${BASE}/groups/${group.body.data.id}`).send({
+      name: group.body.data.name,
+      description: group.body.data.description || '',
+      status: 'active',
+      monthlyMinutes: 1,
+      userIds: [traineeId],
+    })
+    expect(tightened.status, JSON.stringify(tightened.body)).toBe(200)
+
+    const blocked = await trainee.post(`${BASE}/sessions`).send({
+      personaId: ids.persona,
+      mediaMode: 'voice',
+    })
+    expect(blocked.status).toBe(409)
+    expect(blocked.body.error.code).toBe('GROUP_QUOTA_EXCEEDED')
+    expect(String(blocked.body.error.message || '')).toMatch(/minuto/i)
+  })
 })
 
 describe('rubric', () => {

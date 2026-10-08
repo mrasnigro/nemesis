@@ -29,7 +29,7 @@ export default function TrainingTemplatesPage() {
       <header className="training-ai__page-header training-ai__templates-header">
         <div className="training-ai__page-title-row">
           <OutlineIcon name="clipboard" />
-          <h2>Templates de Avaliação</h2>
+          <h2>Playbooks de Score</h2>
         </div>
         <div className="training-ai__page-header-actions training-ai__templates-actions">
           <label className="training-ai__search training-ai__search--action training-ai__search--personas">
@@ -49,7 +49,7 @@ export default function TrainingTemplatesPage() {
           {canManage ? (
             <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
               <OutlineIcon name="plus" />
-              Criar Template
+              Criar Playbook
             </TrainingButton>
           ) : null}
         </div>
@@ -58,12 +58,12 @@ export default function TrainingTemplatesPage() {
       <div className="imp-panel training-ai__templates-stage">
         {pageRows.length === 0 ? (
           <div className="training-ai__empty">
-            <h3>Nenhum template</h3>
-            <p>Crie um template com perguntas sim/não e pesos que somem 100.</p>
+            <h3>Nenhum playbook</h3>
+            <p>Crie um playbook com etapas da timeline, perguntas sim/não e pesos que somem 100.</p>
             {canManage ? (
               <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
                 <OutlineIcon name="plus" />
-                Criar Template
+                Criar Playbook
               </TrainingButton>
             ) : null}
           </div>
@@ -106,7 +106,7 @@ export default function TrainingTemplatesPage() {
                     </header>
                     <div className="training-ai__template-stats">
                       <div>
-                        <span className="training-ai__tile-label">Seções</span>
+                        <span className="training-ai__tile-label">Etapas</span>
                         <strong>{String(template.sections?.length || 0).padStart(2, '0')}</strong>
                       </div>
                       <div>

@@ -40,7 +40,7 @@ export default function AgentAvatar({ id = '', name = '', size = 'md', className
       style={{ background: `linear-gradient(145deg, ${from}, ${to})` }}
       aria-hidden="true"
     >
-      {initials}
+      <span className="training-ai__avatar-initials">{initials}</span>
     </span>
   )
 }

@@ -9,7 +9,11 @@ export function sectionWeightsFromTemplate(template) {
 
 const TRAIT_FROM_NEGOTIATOR = {
   'Cliente Analítico': ['Analítico', 'Objetivo'],
+  'Cliente Agressivo': ['Agressivo', 'Direto'],
+  'Cliente Cético': ['Cético', 'Exigente'],
+  'Cliente Inseguro': ['Inseguro', 'Cauteloso'],
   'Cliente Dominante': ['Dominante', 'Direto'],
+  'Cliente Comunicativo': ['Comunicativo', 'Expressivo'],
   'Cliente Expressivo': ['Expressivo', 'Energético'],
   'Cliente Amigável': ['Amigável', 'Colaborativo'],
 }

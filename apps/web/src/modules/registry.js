@@ -6,7 +6,8 @@ export const modules = [
   {
     id: 'training-ai',
     title: 'Treinamento IA',
-    description: 'Capacitação e simulações com inteligência artificial.',
+    description:
+      'Pratique em ambiente seguro com agentes de IA, playbooks de score e insights antes do contato real.',
     path: '/modules/training-ai',
     status: 'available',
     accent: 'amber',
@@ -14,10 +15,10 @@ export const modules = [
     icon: 'sparkles',
     actionLabel: 'Iniciar treinamento',
     features: [
-      'Seleção de cenários de capacitação',
-      'Simulação de atendimento com IA',
-      'Relatório de avaliação e score',
-      'Histórico de evolução na sessão',
+      'Configurador de Agentes (Personas) com DNA comportamental',
+      'Playbooks de Score com critérios sim/não e pesos 0–100',
+      'Central de Insights: transcrição, radar e repositório de áudio',
+      'Simulação por voz ou texto antes do cliente real',
     ],
     info: {
       category: 'Capacitação',

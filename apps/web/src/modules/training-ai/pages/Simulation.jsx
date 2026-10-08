@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
 import PersonaCallStage from '../components/PersonaCallStage.jsx'
 import VoicePracticeChrome from '../components/VoicePracticeChrome.jsx'
+import CallPreflight, { LimitExceededModal, PreparingCallOverlay } from '../components/CallPreflight.jsx'
 import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
 
@@ -55,6 +57,8 @@ export default function TrainingSimulationPage() {
     canSimulate,
     startSimulation,
     startPersonaSimulation,
+    ensurePersona,
+    catalogReady,
     selectPersonaForSession,
     confirmPersonaSetup,
     beginConversation,
@@ -82,10 +86,16 @@ export default function TrainingSimulationPage() {
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
   const [bootError, setBootError] = useState('')
+  const [callStep, setCallStep] = useState('setup')
+  const [preparing, setPreparing] = useState(false)
+  const [limitExceeded, setLimitExceeded] = useState(false)
   const lastSpokenMessageIdRef = useRef(null)
   const bootAttemptRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
+  const startCancelledRef = useRef(false)
+  const micTest = useMicTest()
+  const handleCallStepChange = useCallback((next) => setCallStep(next), [])
 
   // Own the simulation boot here. Entry points only navigate to this route —
   // never bounce silently back to the catalog on a failed/racy start.
@@ -150,11 +160,33 @@ export default function TrainingSimulationPage() {
       setBootError('Sem permissão para iniciar simulações.')
       return
     }
+    if (!catalogReady) return
     if (bootAttemptRef.current === personaRouteId) return
     bootAttemptRef.current = personaRouteId
-    const started = startPersonaSimulation(personaRouteId, location.state?.mediaMode)
-    if (!started) setBootError('Não foi possível abrir esta persona.')
-  }, [canSimulate, location.state, personaRouteId, phase, scenarioId, selectedPersona?.id, startPersonaSimulation])
+    setCallStep('setup')
+    setPreparing(false)
+    setLimitExceeded(false)
+    let cancelled = false
+    ;(async () => {
+      await ensurePersona(personaRouteId)
+      if (cancelled) return
+      const started = startPersonaSimulation(personaRouteId, location.state?.mediaMode)
+      if (!started) setBootError('Não foi possível abrir esta persona.')
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    canSimulate,
+    catalogReady,
+    ensurePersona,
+    location.state,
+    personaRouteId,
+    phase,
+    scenarioId,
+    selectedPersona?.id,
+    startPersonaSimulation,
+  ])
 
   // Drive the persona call stage: whenever a new AI line lands while in voice mode, the avatar engine
   // speaks it (browser voice, or silent timing where the browser cannot speak) so the stage can animate
@@ -284,16 +316,11 @@ export default function TrainingSimulationPage() {
     if (!result.ok && result.error) setFinishHint(result.error)
   }
 
-  async function handleBegin() {
-    setStartError('')
-    const result = await beginConversation()
-    if (!result.ok && result.error) {
-      setStartError(result.error)
-      return
-    }
+  async function startSessionRecorder() {
     if (practiceMediaMode !== 'voice' || !navigator.mediaDevices?.getUserMedia) return
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const audioConstraint = micTest.micId ? { deviceId: { exact: micTest.micId } } : true
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint })
       const recorder = new MediaRecorder(stream)
       audioChunksRef.current = []
       recorder.addEventListener('dataavailable', (event) => {
@@ -304,6 +331,49 @@ export default function TrainingSimulationPage() {
     } catch {
       setVoiceNotice('O microfone não foi gravado. A transcrição da conversa continua disponível.')
     }
+  }
+
+  async function handleBegin() {
+    if (startCancelledRef.current) return { ok: false, cancelled: true }
+    setStartError('')
+    setLimitExceeded(false)
+    const result = await beginConversation()
+    if (startCancelledRef.current) return { ok: false, cancelled: true }
+    if (!result.ok) {
+      if (result.code === 'GROUP_QUOTA_EXCEEDED') {
+        setPreparing(false)
+        setLimitExceeded(true)
+        return result
+      }
+      if (result.error) setStartError(result.error)
+      setPreparing(false)
+      return result
+    }
+    setPreparing(false)
+    await startSessionRecorder()
+    return result
+  }
+
+  async function handleStartCallSimulation() {
+    startCancelledRef.current = false
+    setStartError('')
+    setLimitExceeded(false)
+    setPreparing(true)
+    micTest.cancelTest()
+    // Brief connection beat so the "Preparando sua chamada" screen is visible.
+    await new Promise((resolve) => window.setTimeout(resolve, 1200))
+    if (startCancelledRef.current) {
+      setPreparing(false)
+      return
+    }
+    await handleBegin()
+  }
+
+  function handleHangupPreparing() {
+    startCancelledRef.current = true
+    setPreparing(false)
+    setCallStep('setup')
+    navigate('/modules/training-ai/personas')
   }
 
   if (bootError) {
@@ -360,6 +430,47 @@ export default function TrainingSimulationPage() {
       : listening
         ? 'listening'
         : 'idle'
+
+  const voiceCallEntry =
+    Boolean(personaRouteId) && practiceMediaMode === 'voice' && phase === 'briefing'
+
+  if (limitExceeded) {
+    return (
+      <TrainingPage className="training-ai__sim-page">
+        <LimitExceededModal open onHome={() => navigate('/modules/training-ai')} />
+      </TrainingPage>
+    )
+  }
+
+  if (preparing && voiceCallEntry) {
+    return (
+      <TrainingPage className="training-ai__sim-page">
+        <PreparingCallOverlay
+          personaName={persona?.name}
+          listening={listening}
+          onToggleMic={() => setListening((value) => !value)}
+          onToggleChat={() => setShowTranscript((value) => !value)}
+          onHangup={handleHangupPreparing}
+        />
+      </TrainingPage>
+    )
+  }
+
+  if (voiceCallEntry) {
+    return (
+      <TrainingPage className="training-ai__sim-page">
+        <CallPreflight
+          persona={persona}
+          step={callStep}
+          mic={micTest}
+          onStepChange={handleCallStepChange}
+          onStartSimulation={handleStartCallSimulation}
+          starting={isStarting || preparing}
+        />
+        {startError ? <p className="training-ai__composer-hint">{startError}</p> : null}
+      </TrainingPage>
+    )
+  }
 
   return (
     <TrainingPage>

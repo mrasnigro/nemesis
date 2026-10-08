@@ -5,11 +5,13 @@ import { DIFFICULTY_LABELS } from './catalogs.js'
  * Visual: initials avatar (report R7). Voice deferred (R4).
  */
 
+/** Behavioral DNA — primary personality kit used by the agent configurator. */
 export const NEGOTIATOR_TYPES = [
   'Cliente Analítico',
+  'Cliente Agressivo',
   'Cliente Cético',
-  'Cliente Comunicativo',
   'Cliente Inseguro',
+  'Cliente Comunicativo',
   'Cliente Dominante',
 ]
 

@@ -29,7 +29,7 @@ const NO_PERMISSION = {
 }
 
 function failure(error, fallback) {
-  return { ok: false, error: error?.message || fallback }
+  return { ok: false, error: error?.message || fallback, code: error?.code }
 }
 
 function mediaModeFor(persona) {
@@ -112,6 +112,23 @@ export function TrainingAiProvider({ children }) {
   const findTemplate = useCallback(
     (id) => evaluationTemplates.find((item) => item.id === id) || null,
     [evaluationTemplates],
+  )
+
+  /** Deep-link / stale-cache: fetch one persona and merge into the catalog when missing. */
+  const ensurePersona = useCallback(
+    async (personaId) => {
+      const existing = findPersona(personaId)
+      if (existing) return existing
+      try {
+        const row = await trainingApi.getPersona(personaId)
+        if (!row?.id) return null
+        setPersonas((prev) => (prev.some((item) => item.id === row.id) ? prev : [row, ...prev]))
+        return row
+      } catch {
+        return null
+      }
+    },
+    [findPersona],
   )
 
   const selectedScenario = useMemo(
@@ -501,6 +518,7 @@ export function TrainingAiProvider({ children }) {
     personas,
     evaluationTemplates,
     getPersona: findPersona,
+    ensurePersona,
     getScenario: findScenario,
     getEvaluationTemplate: findTemplate,
     getScenariosForPersona,

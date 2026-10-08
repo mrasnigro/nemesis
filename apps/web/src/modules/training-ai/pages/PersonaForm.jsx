@@ -24,7 +24,7 @@ const WIZARD_STEPS = [
   { id: 'basics', label: 'Informações básicas', hint: 'Nome, papel e objetivo' },
   { id: 'scenario', label: 'Construção do cenário', hint: 'Instruções e contexto' },
   { id: 'modes', label: 'Modos de interação', hint: 'Texto ou voz' },
-  { id: 'behavior', label: 'Características comportamentais', hint: 'Objeções e DNA' },
+  { id: 'behavior', label: 'DNA comportamental', hint: 'Traços, objeções e consciência' },
   { id: 'advanced', label: 'Configurações avançadas', hint: 'Consciência e B2B' },
   { id: 'review', label: 'Revisão e publicação', hint: 'Confirme e publique' },
 ]
@@ -231,7 +231,7 @@ export default function TrainingPersonaFormPage() {
       <TrainingPage className="training-ai__persona-create">
         <header className="training-ai__page-header training-ai__persona-create-header">
           <div>
-            <h2>+ Criar Persona</h2>
+            <h2>+ Criar Agente</h2>
           </div>
           <div className="training-ai__page-header-actions">
             <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary training-ai__back-personas-btn">
@@ -415,7 +415,7 @@ export default function TrainingPersonaFormPage() {
     <TrainingPage>
       <header className="training-ai__page-header">
         <div>
-          <h2>{isEdit ? 'Editar Agente' : '+ Criar Persona'}</h2>
+          <h2>{isEdit ? 'Editar Agente' : '+ Criar Agente'}</h2>
           <p>
             Configure o comportamento do agente: quem ele é, como reage e quais objeções levanta.
           </p>
@@ -744,7 +744,7 @@ export default function TrainingPersonaFormPage() {
           {step.id === 'behavior' ? (
             <div className="training-ai__form-grid">
               <label className="imp-field">
-                <span>Tipo de negociador</span>
+                <span>DNA comportamental (tipo)</span>
                 <select
                   value={form.negotiatorType}
                   onChange={(e) => patch('negotiatorType', e.target.value)}
