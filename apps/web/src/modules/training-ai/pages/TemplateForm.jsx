@@ -42,6 +42,7 @@ export default function TrainingTemplateFormPage() {
     const draft = createEmptyTemplateDraft()
     return {
       ...draft,
+      status: 'published',
       scenarioTypes: ['cold_first', 'warm_first', 'inbound', 'discovery'],
       sections: [],
     }
@@ -265,6 +266,16 @@ export default function TrainingTemplateFormPage() {
               required
               placeholder="Ex.: Contato Telefônico - Cold"
             />
+          </label>
+          <label className="imp-field">
+            <span>Status</span>
+            <select value={form.status === 'draft' ? 'draft' : 'published'} onChange={(event) => patchRoot('status', event.target.value)}>
+              <option value="published">Publicado</option>
+              <option value="draft">Rascunho</option>
+            </select>
+            <small className="training-ai__field-hint">
+              Só um template publicado pode ser usado para iniciar uma simulação.
+            </small>
           </label>
         </section>
 

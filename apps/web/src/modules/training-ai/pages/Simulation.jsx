@@ -129,11 +129,15 @@ export default function TrainingSimulationPage() {
 
     if (!canSimulate) {
       setBootError('Sem permissão para iniciar simulações.')
-      return
+      return undefined
     }
 
+    // The catalog arrives after the first paint. Failing before that locks the page
+    // on "not found" because the attempt ref would block the retry.
+    if (!catalogReady) return undefined
+
     // Avoid retry loops if start already failed for this scenarioId.
-    if (bootAttemptRef.current === scenarioId) return
+    if (bootAttemptRef.current === scenarioId) return undefined
     bootAttemptRef.current = scenarioId
     setBootError('')
 
@@ -144,14 +148,22 @@ export default function TrainingSimulationPage() {
         personaIdFromNav ? { personaId: personaIdFromNav } : {},
       )
       if (!started) {
-        setBootError('Não foi possível iniciar este cenário. Volte ao catálogo e tente de novo.')
+        setBootError('Não foi possível iniciar este cenário. Volte às personas e tente de novo.')
+        return undefined
       }
     } catch (error) {
       console.error('[training-ai] startSimulation failed', error)
       setBootError('Erro ao iniciar a simulação. Veja o console para detalhes.')
+      return undefined
+    }
+
+    return () => {
+      // Development runs this effect twice. Drop the in-flight mark so the second run can start.
+      if (bootAttemptRef.current === scenarioId) bootAttemptRef.current = null
     }
   }, [
     canSimulate,
+    catalogReady,
     location.state,
     phase,
     scenarioId,
@@ -167,8 +179,8 @@ export default function TrainingSimulationPage() {
       setBootError('Sem permissão para iniciar simulações.')
       return
     }
-    if (!catalogReady) return
-    if (bootAttemptRef.current === personaRouteId) return
+    if (!catalogReady) return undefined
+    if (bootAttemptRef.current === personaRouteId) return undefined
     bootAttemptRef.current = personaRouteId
     setCallStep('setup')
     setPreparing(false)
@@ -178,10 +190,14 @@ export default function TrainingSimulationPage() {
       await ensurePersona(personaRouteId)
       if (cancelled) return
       const started = startPersonaSimulation(personaRouteId, location.state?.mediaMode)
+      if (cancelled) return
       if (!started) setBootError('Não foi possível abrir esta persona.')
     })()
     return () => {
       cancelled = true
+      // The first run is cancelled while the persona is still loading. Clearing the mark
+      // lets the replay (and a catalog refresh) open the briefing instead of staying idle.
+      if (bootAttemptRef.current === personaRouteId) bootAttemptRef.current = null
     }
   }, [
     canSimulate,
@@ -435,23 +451,30 @@ export default function TrainingSimulationPage() {
     )
   }
 
+  const waitingForCatalog = Boolean(scenarioId || personaRouteId) && !catalogReady && !bootError
+  const waitingForPersona = Boolean(personaRouteId) && !scenarioId && phase === 'idle' && !bootError
+  if (waitingForCatalog || waitingForPersona || (scenario && phase === 'idle')) {
+    return (
+      <TrainingPage>
+        <div className="training-ai__empty">
+          <h3>Preparando simulação…</h3>
+          <p>Carregando agente e briefing.</p>
+        </div>
+      </TrainingPage>
+    )
+  }
+
   if (!scenario || phase === 'idle') {
     return (
       <TrainingPage>
         <div className="training-ai__empty">
-          <h3>{scenario ? 'Preparando simulação…' : 'Cenário não encontrado'}</h3>
-          <p>
-            {scenario
-              ? 'Carregando agente e briefing.'
-              : 'Volte ao catálogo e selecione um treinamento válido.'}
-          </p>
-          {!scenario ? (
-            <div className="imp-actions">
-              <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
-                Ir às personas
-              </Link>
-            </div>
-          ) : null}
+          <h3>Cenário não encontrado</h3>
+          <p>Essa simulação não está disponível. Volte às personas e escolha um agente ativo.</p>
+          <div className="imp-actions">
+            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
+              Ir às personas
+            </Link>
+          </div>
         </div>
       </TrainingPage>
     )
