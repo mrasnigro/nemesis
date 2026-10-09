@@ -40,7 +40,7 @@ function PersonaHero({ persona, overlay = null }) {
   )
 }
 
-function TestPlayback({ url, durationLabel }) {
+function TestPlayback({ url, durationLabel, speakerId }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -49,6 +49,13 @@ function TestPlayback({ url, durationLabel }) {
     setPlaying(false)
     setProgress(0)
   }, [url])
+
+  // Play the test through the chosen output device where the browser allows it (Chrome, Edge).
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio || !speakerId || typeof audio.setSinkId !== 'function') return
+    audio.setSinkId(speakerId).catch(() => null)
+  }, [speakerId, url])
 
   function togglePlay() {
     const audio = audioRef.current
@@ -165,9 +172,9 @@ export default function CallPreflight({
   const overlay =
     step === 'testing' ? (
       <div className="training-ai__call-hero-controls" aria-label="Controles do teste">
-        <button type="button" className="training-ai__call-hero-mic is-on" aria-label="Microfone ativo">
+        <span className="training-ai__call-hero-mic is-on" role="status" aria-label="Microfone gravando">
           <OutlineIcon name="mic" size={18} />
-        </button>
+        </span>
         <button
           type="button"
           className="training-ai__call-hero-hangup"
@@ -260,7 +267,7 @@ export default function CallPreflight({
             <>
               <h3>Teste concluído</h3>
               <p>Confira sua gravação abaixo. Se precisar, refaça o teste antes de continuar.</p>
-              <TestPlayback url={testUrl} durationLabel={testDurationLabel} />
+              <TestPlayback url={testUrl} durationLabel={testDurationLabel} speakerId={speakerId} />
               <DeviceSelect icon="mic" label="Microfone" value={micId} onChange={setMicId} options={mics} />
               <DeviceSelect
                 icon="volume"
@@ -296,7 +303,15 @@ export default function CallPreflight({
   )
 }
 
-export function PreparingCallOverlay({ personaName, listening, onToggleMic, onToggleChat, onHangup }) {
+export function PreparingCallOverlay({
+  personaName,
+  listening,
+  chatOpen = false,
+  micSupported = true,
+  onToggleMic,
+  onToggleChat,
+  onHangup,
+}) {
   return (
     <div className="training-ai__preparing-stage">
       <header className="training-ai__call-preflight-head">
@@ -319,12 +334,28 @@ export function PreparingCallOverlay({ personaName, listening, onToggleMic, onTo
         <button
           type="button"
           className={`training-ai__preparing-tool ${listening ? 'is-on' : ''}`}
-          aria-label={listening ? 'Silenciar microfone' : 'Ativar microfone'}
+          aria-label={listening ? 'Não abrir o microfone automaticamente' : 'Abrir o microfone quando a persona terminar de falar'}
+          title={
+            micSupported
+              ? listening
+                ? 'Microfone automático ligado'
+                : 'Abrir o microfone automaticamente na chamada'
+              : 'Este navegador não reconhece voz'
+          }
+          aria-pressed={listening}
+          disabled={!micSupported}
           onClick={onToggleMic}
         >
           <OutlineIcon name="mic" size={18} />
         </button>
-        <button type="button" className="training-ai__preparing-tool" aria-label="Chat" onClick={onToggleChat}>
+        <button
+          type="button"
+          className={`training-ai__preparing-tool ${chatOpen ? 'is-on' : ''}`}
+          aria-label={chatOpen ? 'Ocultar transcrição na chamada' : 'Mostrar transcrição na chamada'}
+          title={chatOpen ? 'Transcrição visível na chamada' : 'Mostrar transcrição na chamada'}
+          aria-pressed={chatOpen}
+          onClick={onToggleChat}
+        >
           <OutlineIcon name="chat" size={18} />
         </button>
         <button type="button" className="training-ai__preparing-hangup" aria-label="Encerrar" onClick={onHangup}>
@@ -335,7 +366,7 @@ export function PreparingCallOverlay({ personaName, listening, onToggleMic, onTo
   )
 }
 
-export function LimitExceededModal({ open, onHome }) {
+export function LimitExceededModal({ open, message, onHome }) {
   if (!open) return null
   return (
     <div className="training-ai__limit-modal" role="dialog" aria-modal="true" aria-labelledby="training-ai-limit-title">
@@ -345,9 +376,14 @@ export function LimitExceededModal({ open, onHome }) {
           <OutlineIcon name="alert" size={28} />
         </span>
         <h3 id="training-ai-limit-title">Limite excedido</h3>
-        <p>Você atingiu o limite do seu plano atual. Entre em contato com o suporte para fazer um upgrade</p>
+        <p>
+          {typeof message === 'string' && message
+            ? message
+            : 'Você atingiu o limite de minutos de simulação deste mês.'}{' '}
+          Fale com o administrador da sua empresa para ampliar o limite do grupo.
+        </p>
         <button type="button" className="training-ai__call-btn training-ai__call-btn--muted" onClick={onHome}>
-          Página inicial
+          Voltar às personas
         </button>
       </div>
     </div>

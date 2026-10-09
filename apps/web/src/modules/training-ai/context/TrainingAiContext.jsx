@@ -173,8 +173,6 @@ export function TrainingAiProvider({ children }) {
       const normalized = normalizePersonaInput({
         ...existing,
         ...input,
-        objectionsText: input.objectionsText != null ? input.objectionsText : (existing.objections || []).join('\n'),
-        prioritiesText: input.prioritiesText != null ? input.prioritiesText : (existing.priorities || []).join('\n'),
       })
       if (!normalized.ok) return { ok: false, errors: normalized.errors }
       try {
@@ -281,7 +279,7 @@ export function TrainingAiProvider({ children }) {
   const updateTemplate = useCallback(
     async (templateId, input) => {
       if (!hasTrainingPermission(permissions, 'training.manage')) return { ok: false, error: NO_PERMISSION.template }
-      if (!findTemplate(templateId)) return { ok: false, error: 'Playbook não encontrado.' }
+      if (!findTemplate(templateId)) return { ok: false, error: 'Template não encontrado.' }
       const normalized = normalizeTemplateInput(input)
       if (!normalized.ok) return { ok: false, errors: normalized.errors }
       try {
@@ -487,7 +485,15 @@ export function TrainingAiProvider({ children }) {
     try {
       const stored = await trainingApi.getSession(sessionId)
       if (!stored.report) return { ok: false, error: 'Esta sessão ainda não foi concluída.' }
-      return { ok: true, report: stored.report }
+      return {
+        ok: true,
+        report: {
+          ...stored.report,
+          durationMs: stored.durationMs,
+          hasAudio: stored.hasAudio,
+          completedAt: stored.report.completedAt || stored.completedAt,
+        },
+      }
     } catch (error) {
       return failure(error, 'Não foi possível carregar a análise.')
     }

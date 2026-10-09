@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
@@ -15,7 +15,15 @@ import {
 } from '../data/personas.js'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
-import { VOICE_OPTIONS } from '../utils/voiceSession.js'
+import { getVoiceOption, sampleTextFor, VOICE_OPTIONS } from '../utils/voiceSession.js'
+import { speakVoiceSample, stopVoiceSample } from '../services/avatar/browserAvatarProvider.js'
+
+const PERSONA_STATUS_OPTIONS = [
+  { id: 'active', label: 'Ativa' },
+  { id: 'paused', label: 'Pausada' },
+  { id: 'inactive', label: 'Inativa' },
+  { id: 'draft', label: 'Rascunho' },
+]
 
 function languageBadge(code = 'pt-BR') {
   if (code.startsWith('en')) return 'EN-US'
@@ -36,9 +44,26 @@ function Section({ title, description, children }) {
 }
 
 function TagPicker({ values = [], knownTags = [], onChange }) {
+  const rootRef = useRef(null)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState('')
+
+  useEffect(() => {
+    if (!open) return undefined
+    function onPointerDown(event) {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    function onKeyDown(event) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
 
   const options = useMemo(() => {
     const merged = Array.from(new Set([...(knownTags || []), ...values].map((item) => String(item).trim()).filter(Boolean)))
@@ -60,7 +85,7 @@ function TagPicker({ values = [], knownTags = [], onChange }) {
   }
 
   return (
-    <div className={`training-ai__tag-picker${open ? ' is-open' : ''}`}>
+    <div className={`training-ai__tag-picker${open ? ' is-open' : ''}`} ref={rootRef}>
       <button type="button" className="training-ai__tag-picker-trigger" onClick={() => setOpen((v) => !v)}>
         <span>
           {values.length
@@ -203,6 +228,7 @@ export default function TrainingPersonaFormPage() {
     }
     return {
       ...createEmptyPersonaDraft(),
+      status: 'active',
       negotiatorType: '',
       scenarioType: '',
     }
@@ -213,6 +239,8 @@ export default function TrainingPersonaFormPage() {
   useEffect(() => {
     setForm(initial)
   }, [initial])
+
+  useEffect(() => () => stopVoiceSample(), [])
 
   const knownTags = useMemo(() => {
     const set = new Set()
@@ -241,24 +269,20 @@ export default function TrainingPersonaFormPage() {
   }
 
   function previewVoice() {
-    if (!window.speechSynthesis) return
     if (previewPlaying) {
-      window.speechSynthesis.cancel()
+      stopVoiceSample()
       setPreviewPlaying(false)
       return
     }
-    const option = VOICE_OPTIONS.find((item) => item.id === form.voiceRef)
-    const utter = new SpeechSynthesisUtterance(
-      form.language?.startsWith('en')
-        ? `Hello, I am ${form.name || 'your training persona'}.`
-        : `Olá, eu sou ${form.name || 'a persona desta simulação'}.`,
-    )
-    utter.lang = option?.lang || form.language || 'pt-BR'
-    utter.onend = () => setPreviewPlaying(false)
-    utter.onerror = () => setPreviewPlaying(false)
-    window.speechSynthesis.cancel()
+    const option = getVoiceOption(form.voiceRef)
+    const lang = option?.lang || form.language || 'pt-BR'
     setPreviewPlaying(true)
-    window.speechSynthesis.speak(utter)
+    speakVoiceSample({
+      voiceRef: form.voiceRef,
+      text: sampleTextFor(lang),
+      onEnd: () => setPreviewPlaying(false),
+      onError: () => setPreviewPlaying(false),
+    })
   }
 
   async function save() {
@@ -266,7 +290,7 @@ export default function TrainingPersonaFormPage() {
     setErrors([])
     const payload = {
       ...form,
-      status: form.status === 'draft' || !isEdit ? 'active' : form.status,
+      status: form.status || 'active',
       company: form.salesModel === 'b2c' ? form.company || form.name || 'Pessoa Física' : form.company,
       industry: form.salesModel === 'b2c' ? form.industry || 'Consumidor' : form.industry,
       negotiatorType: form.negotiatorType || 'Cliente Analítico',
@@ -377,6 +401,17 @@ export default function TrainingPersonaFormPage() {
               </select>
             </label>
           ) : null}
+          <label className="imp-field">
+            <span>Status</span>
+            <select value={form.status || 'active'} onChange={(event) => patch('status', event.target.value)}>
+              {PERSONA_STATUS_OPTIONS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <small className="training-ai__meta">Somente personas ativas aparecem liberadas para simulação.</small>
+          </label>
         </Section>
 
         <Section title="Informações básicas" description="Reúna os dados primários da persona.">
@@ -452,7 +487,7 @@ export default function TrainingPersonaFormPage() {
               />
               <div className="training-ai__cp-avatar-preview-meta">
                 <strong>{form.name || 'Nome da persona'}</strong>
-                <span>{form.location || 'Localização'}</span>
+                <span className="training-ai__cp-avatar-location">{form.location || 'Localização'}</span>
                 <span className="training-ai__cp-lang-badge">{languageBadge(form.language)}</span>
                 <div className="training-ai__cp-voice-bar">
                   <button
@@ -463,8 +498,11 @@ export default function TrainingPersonaFormPage() {
                   >
                     <OutlineIcon name={previewPlaying ? 'minus' : 'play'} size={14} />
                   </button>
-                  <span className="training-ai__cp-voice-track" aria-hidden="true" />
-                  <small>0:00 / 0:00</small>
+                  <span
+                    className={`training-ai__cp-voice-track${previewPlaying ? ' is-playing' : ''}`}
+                    aria-hidden="true"
+                  />
+                  <small aria-live="polite">{previewPlaying ? 'Tocando…' : voiceLabel}</small>
                 </div>
               </div>
             </div>
@@ -558,7 +596,9 @@ export default function TrainingPersonaFormPage() {
                     onClick={() => patch('interactionMode', item.id)}
                     aria-pressed={selected}
                   >
-                    <OutlineIcon name={item.icon} size={22} />
+                    <span className="training-ai__cp-mode-icon" aria-hidden="true">
+                      <OutlineIcon name={item.icon} size={18} />
+                    </span>
                     <strong>{item.label}</strong>
                     <small>{item.description}</small>
                   </button>

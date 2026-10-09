@@ -31,6 +31,12 @@ export const trainingApi = {
   listDirectory: () => platformRequest(`${BASE}/directory`).then((payload) => payload.data),
   patchDirectoryUser: (id, body) =>
     platformRequest(`${BASE}/directory/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),
+  /** Creates a platform account in the caller's company with access to this module. */
+  inviteUser: (body) =>
+    platformRequest('/api/admin/users', {
+      method: 'POST',
+      body: { role: 'imp', status: 'invited', moduleIds: ['training-ai'], ...body },
+    }).then((payload) => payload.data),
   createGroup: (body) => platformRequest(`${BASE}/groups`, { method: 'POST', body }).then((payload) => payload.data),
   updateGroup: (id, body) =>
     platformRequest(`${BASE}/groups/${id}`, { method: 'PATCH', body }).then((payload) => payload.data),

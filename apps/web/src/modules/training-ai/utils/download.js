@@ -6,10 +6,25 @@ export function downloadTextFile(filename, content, mime = 'text/csv;charset=utf
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = filename
+  document.body.appendChild(anchor)
   anchor.click()
-  URL.revokeObjectURL(url)
+  anchor.remove()
+  // Some browsers start the download after the click handler returns.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** One CSV cell: quoted when it holds a separator, quote or line break. */
+export function csvCell(value) {
+  const text = value == null ? '' : String(value)
+  return /[",;\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+export function csvRow(values) {
+  return values.map(csvCell).join(',')
+}
+
+/** `lines` are ready-made rows; a BOM keeps accents intact when the file opens in Excel. */
 export function downloadCsv(filename, lines) {
-  downloadTextFile(filename, Array.isArray(lines) ? lines.join('\n') : String(lines || ''))
+  const body = Array.isArray(lines) ? lines.join('\r\n') : String(lines || '')
+  downloadTextFile(filename, `\uFEFF${body}`)
 }

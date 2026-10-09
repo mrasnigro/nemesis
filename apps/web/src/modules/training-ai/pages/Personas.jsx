@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import Pager from '../components/Pager.jsx'
 import TrainingButton from '../components/TrainingButton.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { NEGOTIATOR_TYPES, SCENARIO_TYPES, scenarioTypeLabel } from '../data/personas.js'
+import { personaStatus } from '../utils/agentDisplay.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
 const PAGE_SIZE = 9
@@ -56,8 +59,8 @@ function PersonaDetailPanel({
   const canStart = canVoice || canText
 
   function handlePrimaryStart() {
-    if (canVoice) onStart('voice')
-    else if (canText) onStart('text')
+    if (canVoice) onStart('voice', audioOnly)
+    else if (canText) onStart('text', false)
   }
 
   return (
@@ -105,7 +108,7 @@ function PersonaDetailPanel({
 
       <dl className="training-ai__persona-detail-fields">
         <div>
-          <dt>DNA comportamental</dt>
+          <dt>Negociador</dt>
           <dd>{persona.negotiatorType || '—'}</dd>
         </div>
         <div>
@@ -123,6 +126,21 @@ function PersonaDetailPanel({
           Escolha um template de avaliação nesta persona para iniciar a simulação.
         </p>
       ) : null}
+      {persona.status !== 'active' ? (
+        <p className="training-ai__meta training-ai__persona-detail-hint">
+          Persona com status “{personaStatus(persona).label}”.{' '}
+          {canManage ? 'Edite e marque como ativa para liberar simulações.' : 'Ainda não liberada para simulação.'}
+        </p>
+      ) : null}
+      {!canSimulate ? (
+        <p className="training-ai__meta training-ai__persona-detail-hint">
+          Seu perfil não tem permissão para iniciar simulações.
+        </p>
+      ) : null}
+
+      <Link className="training-ai__persona-detail-more" to={`/modules/training-ai/personas/${persona.id}`}>
+        Ver perfil completo e cenários
+      </Link>
 
       {actionError ? (
         <p className="training-ai__composer-hint" role="alert">
@@ -173,7 +191,7 @@ function PersonaDetailPanel({
               <button
                 type="button"
                 className="training-ai__persona-ligacao-main"
-                onClick={() => onStart('voice')}
+                onClick={() => onStart('voice', audioOnly)}
                 disabled={busy}
               >
                 <span className="training-ai__persona-ligacao-icon" aria-hidden="true">
@@ -197,8 +215,7 @@ function PersonaDetailPanel({
             disabled={!canStart || busy}
             onClick={handlePrimaryStart}
           >
-            <span>Iniciar simulação</span>
-            {canVoice ? <OutlineIcon name="chevronDown" size={18} /> : null}
+            <span>{canVoice ? 'Iniciar simulação' : 'Iniciar por texto'}</span>
           </button>
         </div>
       </footer>
@@ -214,9 +231,13 @@ export default function TrainingPersonasPage() {
     canSimulate,
     createPersona,
     deletePersona,
+    installStarterCatalog,
   } = useTrainingAi()
   const [query, setQuery] = useState('')
   const [scenarioFilter, setScenarioFilter] = useState('all')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [installing, setInstalling] = useState(false)
+  const [installError, setInstallError] = useState('')
   const [negotiatorFilter, setNegotiatorFilter] = useState('all')
   const [filterOpen, setFilterOpen] = useState(false)
   const [page, setPage] = useState(1)
@@ -263,16 +284,24 @@ export default function TrainingPersonasPage() {
     setSelectedId((current) => (current === personaId ? current : personaId))
   }
 
-  function handleStart(mediaMode) {
+  function handleStart(mediaMode, audioOnly = false) {
     if (!selected) return
     navigate(`/modules/training-ai/simulacao/persona/${selected.id}`, {
-      state: { mediaMode },
+      state: { mediaMode, audioOnly: mediaMode === 'voice' ? audioOnly : false },
     })
+  }
+
+  async function handleInstallStarter() {
+    setInstalling(true)
+    setInstallError('')
+    const result = await installStarterCatalog()
+    setInstalling(false)
+    if (!result.ok) setInstallError(result.error || 'Não foi possível instalar o catálogo inicial.')
   }
 
   async function handleDelete() {
     if (!selected) return
-    if (!window.confirm(`Excluir o agente ${selected.name}? Essa ação não pode ser desfeita.`)) return
+    setConfirmDelete(false)
     setBusy(true)
     setActionError('')
     const result = await deletePersona(selected.id)
@@ -304,7 +333,7 @@ export default function TrainingPersonasPage() {
       <header className="training-ai__page-header training-ai__personas-header">
         <div className="training-ai__personas-title">
           <OutlineIcon name="user" />
-          <h2>Configurador de Agentes</h2>
+          <h2>Minhas Personas</h2>
         </div>
         <div className="training-ai__page-header-actions training-ai__personas-actions">
           <label className="training-ai__search training-ai__search--action training-ai__search--personas">
@@ -325,14 +354,14 @@ export default function TrainingPersonasPage() {
           <div className="training-ai__personas-toolbar">
             <div className="training-ai__personas-icon-wrap">
               <TrainingButton
-                variant="ghost"
+                variant="primary"
                 iconOnly
                 active={filterOpen || negotiatorFilter !== 'all'}
                 aria-label="Filtrar personas"
                 aria-expanded={filterOpen}
                 onClick={() => setFilterOpen((value) => !value)}
               >
-                <OutlineIcon name="sliders" />
+                <OutlineIcon name="filter" />
               </TrainingButton>
               {filterOpen ? (
                 <div className="training-ai__personas-filter-panel" role="dialog" aria-label="Filtros">
@@ -366,7 +395,7 @@ export default function TrainingPersonasPage() {
 
             <TrainingButton
               to="/modules/training-ai/historico"
-              variant="ghost"
+              variant="primary"
               iconOnly
               aria-label="Minhas Simulações"
               title="Minhas Simulações"
@@ -376,44 +405,62 @@ export default function TrainingPersonasPage() {
 
             {canManage ? (
               <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
-                + Criar Agente
+                + Criar Persona
               </TrainingButton>
             ) : null}
           </div>
         </div>
       </header>
 
-      <div className="training-ai__scenario-tabs" role="tablist" aria-label="Cenários">
-        <button
-          type="button"
-          className={`training-ai__scenario-legend ${scenarioFilter === 'all' ? 'is-active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          Cenários
-        </button>
-        {SCENARIO_TYPES.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`training-ai__scenario-tab ${scenarioFilter === item.id ? 'is-active' : ''}`}
-            onClick={() => setFilter(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <div className="imp-panel training-ai__personas-board">
+        <div className="training-ai__scenario-tabs" role="tablist" aria-label="Cenários">
+          <span className="training-ai__scenario-legend">Cenários</span>
+          {[{ id: 'all', label: 'Todos' }, ...SCENARIO_TYPES].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={scenarioFilter === item.id}
+              className={`training-ai__scenario-tab ${scenarioFilter === item.id ? 'is-active' : ''}`}
+              onClick={() => setFilter(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
       <div
         className={`training-ai__personas-stage${selected ? ' training-ai__personas-stage--split' : ''}`}
       >
         {pageRows.length === 0 ? (
           <div className="training-ai__empty">
-            <h3>Nenhum agente</h3>
-            <p>Crie o primeiro agente com DNA comportamental para iniciar uma simulação.</p>
+            <h3>{personas.length ? 'Nenhuma persona encontrada' : 'Nenhuma persona'}</h3>
+            <p>
+              {personas.length
+                ? 'Ajuste a busca, o cenário ou o filtro de DNA comportamental.'
+                : canManage
+                  ? 'Comece com o catálogo inicial (personas, templates e cenários prontos) ou crie a sua.'
+                  : 'Peça ao administrador da sua empresa para cadastrar as personas de treino.'}
+            </p>
             {canManage ? (
-              <TrainingButton to="/modules/training-ai/personas/nova" variant="primary">
-                + Criar Agente
-              </TrainingButton>
+              <div className="imp-actions">
+                {!personas.length ? (
+                  <TrainingButton variant="primary" onClick={handleInstallStarter} disabled={installing}>
+                    {installing ? 'Instalando…' : 'Instalar catálogo inicial'}
+                  </TrainingButton>
+                ) : null}
+                <TrainingButton
+                  to="/modules/training-ai/personas/nova"
+                  variant={personas.length ? 'primary' : 'ghost'}
+                >
+                  + Criar Persona
+                </TrainingButton>
+              </div>
+            ) : null}
+            {installError ? (
+              <p className="training-ai__composer-hint" role="alert">
+                {installError}
+              </p>
             ) : null}
           </div>
         ) : (
@@ -460,7 +507,7 @@ export default function TrainingPersonasPage() {
                         </div>
                         <div className="training-ai__persona-tile-meta">
                           <div>
-                            <span className="training-ai__tile-label">DNA</span>
+                            <span className="training-ai__tile-label">Negociador</span>
                             <strong>{persona.negotiatorType || '—'}</strong>
                           </div>
                           <div>
@@ -473,41 +520,7 @@ export default function TrainingPersonasPage() {
                   )
                 })}
               </div>
-              <div className="training-ai__pagination">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage(1)}
-                  aria-label="Primeira página"
-                >
-                  «
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  aria-label="Anterior"
-                >
-                  ‹
-                </button>
-                <span className="training-ai__page-num">{currentPage}</span>
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  aria-label="Próxima"
-                >
-                  ›
-                </button>
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage(totalPages)}
-                  aria-label="Última página"
-                >
-                  »
-                </button>
-              </div>
+              <Pager page={currentPage} pageCount={totalPages} onPage={setPage} label="Paginação de personas" />
             </div>
 
             {selected ? (
@@ -516,7 +529,7 @@ export default function TrainingPersonasPage() {
                 canManage={canManage}
                 canSimulate={canSimulate}
                 onClose={closeDetail}
-                onDelete={handleDelete}
+                onDelete={() => setConfirmDelete(true)}
                 onDuplicate={handleDuplicate}
                 onEdit={() => navigate(`/modules/training-ai/personas/${selected.id}/editar`)}
                 onStart={handleStart}
@@ -527,6 +540,17 @@ export default function TrainingPersonasPage() {
           </>
         )}
       </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDelete && Boolean(selected)}
+        title="Excluir persona?"
+        message={selected ? `O agente ${selected.name} será excluído. Essa ação não pode ser desfeita.` : ''}
+        cancelLabel="Cancelar"
+        confirmLabel="Excluir"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+      />
     </TrainingPage>
   )
 }

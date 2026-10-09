@@ -9,6 +9,7 @@ import {
 } from '../data/evaluationTemplates.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { sectionWeightsFromTemplate } from '../utils/agentDisplay.js'
+import { RING_COLORS } from '../utils/chartMath.js'
 
 function contactLabel(contactType) {
   return CONTACT_TYPE_OPTIONS.find((item) => item.id === contactType)?.label || contactType
@@ -25,10 +26,12 @@ function ruleLabel(passRule) {
 export default function TrainingTemplateDetailPage() {
   const { templateId } = useParams()
   const navigate = useNavigate()
-  const { getEvaluationTemplate, getScenariosForTemplate, canManage, deleteTemplate } = useTrainingAi()
+  const { getEvaluationTemplate, getScenariosForTemplate, canManage, deleteTemplate, personas } = useTrainingAi()
 
   const template = getEvaluationTemplate(templateId)
   const linkedScenarios = template ? getScenariosForTemplate(template.id) : []
+  const linkedPersonas = template ? (personas || []).filter((persona) => persona.evaluationTemplateId === template.id) : []
+  const published = template?.status !== 'draft'
   const criteria = template ? flattenCriteria(template) : []
   const sectionWeights = template ? sectionWeightsFromTemplate(template) : []
 
@@ -36,7 +39,7 @@ export default function TrainingTemplateDetailPage() {
     return (
       <TrainingPage>
         <div className="training-ai__empty">
-          <h3>Playbook não encontrado</h3>
+          <h3>Template não encontrado</h3>
           <div className="imp-actions">
             <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--primary">
               Voltar aos playbooks
@@ -53,21 +56,21 @@ export default function TrainingTemplateDetailPage() {
         <div>
           <h2>{template.title}</h2>
           <p>
-            Modelo ativo · {contactLabel(template.contactType)} ·{' '}
+            {published ? 'Publicado' : 'Rascunho'} · {contactLabel(template.contactType)} ·{' '}
             {template.sections?.length || 0} etapas · {criteria.length} critérios · score{' '}
             {totalTemplateWeight(template)}
           </p>
         </div>
         <div className="training-ai__page-header-actions">
           <Link to="/modules/training-ai/templates" className="imp-btn imp-btn--ghost">
-            ← Playbooks
+            ← Templates de Avaliação
           </Link>
           {canManage ? (
             <Link
               to={`/modules/training-ai/templates/${template.id}/editar`}
               className="imp-btn imp-btn--primary"
             >
-              Editar playbook
+              Editar template
             </Link>
           ) : null}
           {canManage ? (
@@ -82,9 +85,11 @@ export default function TrainingTemplateDetailPage() {
 
       <div className="imp-module__metrics">
         <article className="imp-metric">
-          <p>Modelo ativo</p>
-          <strong className="accent">Ativo</strong>
-          <span>{template.title}</span>
+          <p>Status</p>
+          <strong className={published ? 'success' : 'accent'}>{published ? 'Publicado' : 'Rascunho'}</strong>
+          <span>
+            {linkedPersonas.length} persona(s) · {linkedScenarios.length} cenário(s)
+          </span>
         </article>
         <article className="imp-metric">
           <p>Total de etapas</p>
@@ -110,7 +115,6 @@ export default function TrainingTemplateDetailPage() {
               <h2>Timeline de etapas</h2>
               <p>{template.description}</p>
             </div>
-            <span className="imp-pill imp-pill--blue">Lista</span>
           </div>
 
           <div className="training-ai__timeline">
@@ -161,15 +165,24 @@ export default function TrainingTemplateDetailPage() {
           <h3>Distribuição por etapa</h3>
           <WeightRing sections={sectionWeights} />
           <ul className="training-ai__dist-list">
-            {sectionWeights.map((item) => (
+            {sectionWeights.map((item, index) => (
               <li key={item.id}>
-                <span>{item.name}</span>
+                <span>
+                  <i
+                    className="training-ai__dist-swatch"
+                    style={{ background: RING_COLORS[index % RING_COLORS.length] }}
+                    aria-hidden="true"
+                  />
+                  {item.name}
+                </span>
                 <strong>{item.weight}%</strong>
               </li>
             ))}
           </ul>
           <p className="training-ai__meta" style={{ textAlign: 'center' }}>
-            Playbook publicado para uso em cenários.
+            {published
+              ? 'Publicado: disponível para personas e cenários.'
+              : 'Rascunho: publique o template para usá-lo nas simulações.'}
           </p>
         </aside>
       </div>
@@ -181,6 +194,16 @@ export default function TrainingTemplateDetailPage() {
             <p>Sessões usam este playbook ao gerar o relatório.</p>
           </div>
         </div>
+        {linkedPersonas.length ? (
+          <div className="training-ai__chip-row training-ai__template-personas">
+            <span className="training-ai__tile-label">Personas que usam este template:</span>
+            {linkedPersonas.map((persona) => (
+              <Link key={persona.id} to={`/modules/training-ai/personas/${persona.id}`} className="imp-pill imp-pill--blue">
+                {persona.name}
+              </Link>
+            ))}
+          </div>
+        ) : null}
         {linkedScenarios.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhum cenário vinculado</h3>

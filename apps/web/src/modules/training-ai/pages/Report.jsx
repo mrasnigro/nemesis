@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import AgentAvatar from '../components/AgentAvatar.jsx'
+import OutlineIcon from '../components/OutlineIcon.jsx'
 import { PLATFORM_API_BASE } from '../../../core/api/platformClient.js'
 import { trainingApi } from '../services/api/client.js'
 import SectionRadar from '../components/SectionRadar.jsx'
 import SessionAudioPlayer from '../components/SessionAudioPlayer.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
+import { scenarioTypeLabel } from '../data/personas.js'
 import { estimateSessionMetrics } from '../utils/agentDisplay.js'
+import { formatDuration } from '../utils/dates.js'
 import { estimateMessageSentiment } from '../utils/voiceSession.js'
 
 function formatClock(iso) {
@@ -22,18 +26,39 @@ function formatClock(iso) {
   }
 }
 
-const JUDGE_LABELS = {
-  openai: 'IA',
-  'openai+rules': 'IA com regras do playbook',
-  rules: 'regras do playbook',
+function formatWhen(iso) {
+  if (!iso) return ''
+  try {
+    return new Date(iso)
+      .toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      .replace(',', ' às')
+  } catch {
+    return ''
+  }
+}
+
+function scoreTone(score) {
+  const value = Number(score)
+  if (!Number.isFinite(value) || value <= 0) return 'muted'
+  if (value >= 70) return 'green'
+  if (value >= 40) return 'amber'
+  return 'rose'
 }
 
 export default function TrainingReportPage() {
+  const navigate = useNavigate()
   const { scenarioId, sessionId } = useParams()
   const {
     evaluation,
     history,
     canReport,
+    getPersona,
     resetSimulation,
     showConversation,
     setShowConversation,
@@ -45,6 +70,7 @@ export default function TrainingReportPage() {
   const [tab, setTab] = useState('resultados')
   const [audioUrl, setAudioUrl] = useState('')
   const [rejudging, setRejudging] = useState(false)
+  const [rejudgeError, setRejudgeError] = useState('')
 
   // /relatorio/sessao/:id opens that session; /relatorio/:scenarioId opens the latest one for the scenario.
   const targetId =
@@ -107,7 +133,7 @@ export default function TrainingReportPage() {
       <TrainingPage>
         <div className="training-ai__empty">
           <h3>Sem permissão</h3>
-          <p>Você não tem acesso à Central de Insights.</p>
+          <p>Você não tem acesso ao histórico.</p>
         </div>
       </TrainingPage>
     )
@@ -129,7 +155,7 @@ export default function TrainingReportPage() {
           <p>{loadError || 'Não encontramos um relatório para esta sessão.'}</p>
           <div className="imp-actions">
             <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--primary">
-              Voltar aos insights
+              Histórico de Simulações
             </Link>
           </div>
         </div>
@@ -137,7 +163,6 @@ export default function TrainingReportPage() {
     )
   }
 
-  const band = report.band || { label: '—', tone: 'muted' }
   const communication = report.communication
   const redoTo = report.scenarioId
     ? `/modules/training-ai/simulacao/${report.scenarioId}`
@@ -145,101 +170,163 @@ export default function TrainingReportPage() {
   const metrics = estimateSessionMetrics(report)
   const feedback = report.coachFeedback || []
   const nextSteps = report.nextSteps || []
-  const mediaLabel = report.mediaMode === 'voice' ? 'Voz' : 'Texto'
-  const judgeLabel = JUDGE_LABELS[report.judgeSource] || null
+  const persona = report.personaId ? getPersona(report.personaId) : null
+  const positives = report.positives || report.strengths || []
+  const negatives = report.negatives || []
+  const suggestions = report.suggestions || report.improvements || []
+  const durationLabel = formatDuration(
+    report.durationMs || (communication?.durationSec ? communication.durationSec * 1000 : 0),
+  )
+  const roleLine =
+    persona?.role && persona?.company
+      ? `${persona.role} em ${persona.company}`
+      : persona?.role || persona?.company || '—'
+  const scenarioLabel = persona?.scenarioType ? scenarioTypeLabel(persona.scenarioType) : report.scenarioTitle
+  const sessionIndex = history.findIndex((item) => item.id === report.sessionId)
+  const previousSession = sessionIndex > 0 ? history[sessionIndex - 1] : null
+  const nextSession = sessionIndex >= 0 && sessionIndex < history.length - 1 ? history[sessionIndex + 1] : null
+
+  async function handleRejudge() {
+    if (!report.sessionId || rejudging) return
+    setRejudging(true)
+    setRejudgeError('')
+    try {
+      const stored = await trainingApi.rejudgeSession(report.sessionId)
+      setLoaded({
+        id: report.sessionId,
+        report: {
+          ...stored.report,
+          durationMs: stored.durationMs ?? report.durationMs,
+          hasAudio: report.hasAudio,
+          completedAt: stored.report?.completedAt || stored.completedAt || report.completedAt,
+        },
+        error: '',
+      })
+    } catch (error) {
+      setRejudgeError(error?.message || 'Não foi possível gerar um novo feedback.')
+    } finally {
+      setRejudging(false)
+    }
+  }
 
   return (
-    <TrainingPage>
+    <TrainingPage className="training-ai__sim-report">
       <header className="training-ai__page-header">
-        <div>
-          <h2>Central de Insights · Análise</h2>
-          <p>
-            {report.scenarioTitle} · Agente {report.personaName} ·{' '}
-            {new Date(report.completedAt).toLocaleString('pt-BR')}
-          </p>
+        <div className="training-ai__page-title-row">
+          <OutlineIcon name="history" />
+          <h2>Relatório de Simulação</h2>
         </div>
         <div className="training-ai__page-header-actions">
-          <span className={`imp-pill imp-pill--${band.tone}`}>Concluída</span>
-          <Link
-            to="/modules/training-ai/historico"
-            className="imp-btn imp-btn--ghost"
-            onClick={resetSimulation}
-          >
-            ← Insights
-          </Link>
-          <button
-            type="button"
-            className="imp-btn imp-btn--ghost"
-            onClick={() => setShowConversation((value) => !value)}
-          >
-            {showConversation ? 'Ocultar transcrição' : 'Ver conversa'}
-          </button>
-          <button
-            type="button"
-            className="imp-btn imp-btn--ghost"
-            disabled={rejudging}
-            onClick={async () => {
-              if (!report.sessionId) return
-              setRejudging(true)
-              try {
-                const stored = await trainingApi.rejudgeSession(report.sessionId)
-                setLoaded({ id: report.sessionId, report: stored.report, error: '' })
-              } finally {
-                setRejudging(false)
-              }
-            }}
-          >
-            {rejudging ? 'Gerando…' : 'Novo feedback'}
-          </button>
-          <Link to={redoTo} className="imp-btn imp-btn--primary" onClick={resetSimulation}>
-            Refazer simulação
+          <Link to="/modules/training-ai/historico" className="imp-btn imp-btn--primary" onClick={resetSimulation}>
+            <OutlineIcon name="history" />
+            Histórico de Simulações
           </Link>
         </div>
       </header>
 
-      <div className="training-ai__report-hero">
-        <div className="training-ai__report-hero-main">
-          <h2>{report.scenarioTitle}</h2>
-          <p>
-            Agente: {report.personaName} · Playbook: {report.templateTitle} · {mediaLabel}
-            {judgeLabel ? ` · Avaliação: ${judgeLabel}` : ''}
-          </p>
+      <section className="imp-panel training-ai__sim-report-card">
+        <div className="training-ai__sim-report-top">
+          <div>
+            <h3>{report.personaName}</h3>
+            <p>{formatWhen(report.completedAt)}</p>
+          </div>
+          <div className="training-ai__sim-report-tabs" role="tablist">
+            {[
+              ['resultados', 'Resultados'],
+              ['comunicacao', 'Métricas de Comunicação'],
+              ['template', report.templateTitle || 'Template'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                className={tab === id ? 'is-selected' : ''}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="training-ai__report-score">
-          <strong>{report.score}</strong>
-          <span className={`imp-pill imp-pill--${band.tone}`}>{band.label}</span>
-          <span className="training-ai__meta">Score final / 100</span>
-        </div>
-      </div>
 
-      <div className="training-ai__tabs">
-        {[
-          ['resultados', 'Resultados'],
-          ['comunicacao', 'Métricas de comunicação'],
-          ['template', report.templateTitle || 'Template'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={`imp-btn ${tab === id ? 'imp-btn--primary' : 'imp-btn--ghost'}`}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'resultados' ? (
-        <div className="imp-panel">
-          {report.sellerInstructions ? <p>{report.sellerInstructions}</p> : null}
-          <h3>Pontos positivos</h3>
-          <ul className="training-ai__list">{(report.positives || report.strengths || []).map((item) => <li key={item}>{item}</li>)}</ul>
-          <h3>Pontos negativos</h3>
-          <ul className="training-ai__list">{(report.negatives || []).map((item) => <li key={item}>{item}</li>)}</ul>
-          <h3>Sugestões de melhoria</h3>
-          <ul className="training-ai__list">{(report.suggestions || report.improvements || []).map((item) => <li key={item}>{item}</li>)}</ul>
-        </div>
-      ) : null}
+        {tab === 'resultados' ? (
+          <div className="training-ai__sim-report-grid">
+            <div className="training-ai__sim-report-side">
+              <div className="training-ai__sim-report-stats">
+                <article>
+                  <span>Tempo de Negociação</span>
+                  <strong>{durationLabel}</strong>
+                </article>
+                <article>
+                  <span>Desempenho</span>
+                  <b className={`training-ai__score-badge training-ai__score-badge--lg training-ai__score-badge--${scoreTone(report.score)}`}>
+                    {Number(report.score) || 0}
+                  </b>
+                </article>
+              </div>
+              <div className="training-ai__sim-report-persona">
+                <AgentAvatar
+                  id={report.personaId || report.personaName}
+                  name={report.personaName}
+                  size="md"
+                  photo={persona?.avatarData}
+                />
+                <div>
+                  <strong>{report.personaName}</strong>
+                  <span>{persona?.location || '—'}</span>
+                </div>
+              </div>
+              <div className="training-ai__sim-report-instructions">
+                <span>
+                  <OutlineIcon name="star" size={14} />
+                  Instruções ao Vendedor
+                </span>
+                <p>{report.sellerInstructions || persona?.sellerInstructions || '—'}</p>
+              </div>
+              <dl className="training-ai__sim-report-fields">
+                <div>
+                  <dt>Negociador</dt>
+                  <dd>{report.negotiatorType || persona?.negotiatorType || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Cargo &amp; Empresa</dt>
+                  <dd>{roleLine}</dd>
+                </div>
+                <div>
+                  <dt>Cenário da Simulação</dt>
+                  <dd>{scenarioLabel || '—'}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="training-ai__sim-report-feedback">
+              <article>
+                <h4>Pontos Positivos</h4>
+                {positives.length ? (
+                  <ul>{positives.map((item) => <li key={item}>{item}</li>)}</ul>
+                ) : (
+                  <p>Nenhum ponto positivo registrado.</p>
+                )}
+              </article>
+              <article>
+                <h4>Pontos Negativos</h4>
+                {negatives.length ? (
+                  <ul>{negatives.map((item) => <li key={item}>{item}</li>)}</ul>
+                ) : (
+                  <p>Nenhum ponto negativo registrado.</p>
+                )}
+              </article>
+              <article>
+                <h4>Sugestões de Melhoria</h4>
+                {suggestions.length ? (
+                  <ul>{suggestions.map((item) => <li key={item}>{item}</li>)}</ul>
+                ) : (
+                  <p>Nenhuma sugestão registrada.</p>
+                )}
+              </article>
+            </div>
+          </div>
+        ) : null}
 
       {tab === 'comunicacao' ? (
         <div className="imp-panel">
@@ -271,6 +358,7 @@ export default function TrainingReportPage() {
         </div>
       ) : null}
 
+      {(tab === 'comunicacao' || showConversation) ? (
       <div className="imp-panel training-ai__session-player-panel">
         <div className="imp-panel__header">
           <div>
@@ -287,6 +375,7 @@ export default function TrainingReportPage() {
           onSeekMessage={handleSeekMessage}
         />
       </div>
+      ) : null}
 
       <div className="training-ai__insights-split" hidden={tab !== 'template'}>
         <div className="imp-panel">
@@ -491,6 +580,80 @@ export default function TrainingReportPage() {
           </div>
         </div>
       </div>
+      </section>
+
+      {showConversation && tab !== 'template' ? (
+        <div className="imp-panel">
+          <div className="imp-panel__header">
+            <div>
+              <h2>Conversa</h2>
+              <p>Transcrição da simulação.</p>
+            </div>
+          </div>
+          <div className="imp-chat training-ai__chat-scroll">
+            {(report.messages || []).map((message) => {
+              const sentiment = estimateMessageSentiment(message)
+              return (
+                <div
+                  key={message.id}
+                  id={`msg-${message.id}`}
+                  className={`imp-chat__bubble imp-chat__bubble--${message.role === 'ai' ? 'ai' : 'user'} ${activeMessageId === message.id ? 'is-player-active' : ''}`}
+                >
+                  <span className="imp-chat__meta">
+                    {message.speaker || (message.role === 'ai' ? report.personaName : 'Vendedor')}
+                    {message.timestamp ? ` · ${formatClock(message.timestamp)}` : ''}
+                    <span className={`training-ai__sentiment-chip training-ai__sentiment-chip--${sentiment.tone}`}>
+                      {sentiment.label}
+                    </span>
+                  </span>
+                  {message.text}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <footer className="training-ai__sim-report-footer">
+        <div className="training-ai__sim-report-footer-start">
+          <button type="button" className="imp-btn imp-btn--ghost" onClick={() => setShowConversation((value) => !value)}>
+            <OutlineIcon name="chat" />
+            {showConversation ? 'Ocultar conversa' : 'Ver conversa'}
+          </button>
+          <Link to={redoTo} className="imp-btn imp-btn--ghost" onClick={resetSimulation}>
+            <OutlineIcon name="redo" />
+            Refazer simulação
+          </Link>
+        </div>
+        <div className="training-ai__sim-report-footer-end">
+          {rejudgeError ? (
+            <span className="training-ai__composer-hint" role="alert">
+              {rejudgeError}
+            </span>
+          ) : null}
+          <button type="button" className="imp-btn imp-btn--primary" disabled={rejudging} onClick={handleRejudge}>
+            {rejudging ? 'Gerando…' : 'Novo feedback'}
+          </button>
+          <button
+            type="button"
+            className="imp-btn imp-btn--ghost training-ai__btn--icon"
+            aria-label="Simulação anterior"
+            disabled={!previousSession}
+            onClick={() => previousSession && navigate(`/modules/training-ai/relatorio/sessao/${previousSession.id}`)}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="imp-btn imp-btn--ghost training-ai__btn--icon"
+            aria-label="Próxima simulação"
+            disabled={!nextSession}
+            onClick={() => nextSession && navigate(`/modules/training-ai/relatorio/sessao/${nextSession.id}`)}
+          >
+            ›
+          </button>
+        </div>
+      </footer>
     </TrainingPage>
   )
 }

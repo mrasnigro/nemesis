@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import Pager from '../components/Pager.jsx'
 import TrainingButton from '../components/TrainingButton.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
@@ -8,7 +9,7 @@ import { trainingApi } from '../services/api/client.js'
 import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { formatBrDate, formatDuration, toLocalIsoDate } from '../utils/dates.js'
-import { downloadCsv } from '../utils/download.js'
+import { csvRow, downloadCsv } from '../utils/download.js'
 
 const WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 const MONTHS = [
@@ -27,31 +28,19 @@ const EMPTY_FILTERS = {
 }
 
 function scoreTone(score) {
-  if (score == null) return 'muted'
-  if (score >= 80) return 'green'
-  if (score >= 40) return 'amber'
+  const value = Number(score)
+  if (!Number.isFinite(value) || value <= 0) return 'muted'
+  if (value >= 70) return 'green'
+  if (value >= 40) return 'amber'
   return 'rose'
 }
 
-function ScoreRing({ score }) {
-  const value = Number(score) || 0
-  const radius = 18
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (Math.min(100, Math.max(0, value)) / 100) * circumference
+function ScoreBadge({ score }) {
+  const value = Number(score)
+  const shown = Number.isFinite(value) ? value : 0
   return (
-    <span className={`training-ai__score-ring training-ai__score-ring--${scoreTone(value)}`} title={`${value}`}>
-      <svg viewBox="0 0 44 44" aria-hidden="true">
-        <circle cx="22" cy="22" r={radius} className="training-ai__score-ring-track" />
-        <circle
-          cx="22"
-          cy="22"
-          r={radius}
-          className="training-ai__score-ring-value"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <strong>{value}</strong>
+    <span className={`training-ai__score-badge training-ai__score-badge--${scoreTone(shown)}`} title={`${shown}`}>
+      {shown}
     </span>
   )
 }
@@ -201,6 +190,7 @@ function MonthCalendar({
 }
 
 export default function TrainingHistoryPage() {
+  const navigate = useNavigate()
   const { canReport, canManage, getPersona } = useTrainingAi()
   const [scope, setScope] = useState('mine')
   const [showFilters, setShowFilters] = useState(false)
@@ -220,6 +210,7 @@ export default function TrainingHistoryPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (!canManage) return undefined
@@ -347,22 +338,41 @@ export default function TrainingHistoryPage() {
     setYearMenuOpen(false)
   }
 
-  function exportCsv() {
-    const lines = ['usuario,persona,negociador,cenario,conclusao,duracao,tipo,pontuacao']
-    for (const item of rows) {
-      const persona = item.personaId ? getPersona(item.personaId) : null
-      lines.push([
-        item.userName || '',
-        item.personaName || '',
-        item.negotiatorType || persona?.negotiatorType || '',
-        item.scenarioTitle || scenarioTypeLabel(persona?.scenarioType),
-        item.completedAt || '',
-        formatDuration(item.durationMs),
-        item.mediaMode === 'voice' ? 'voz' : 'texto',
-        item.score ?? '',
-      ].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+  async function exportCsv() {
+    if (exporting) return
+    setExporting(true)
+    setError('')
+    try {
+      const listScope = canManage && scope === 'all' ? 'all' : 'mine'
+      const all = await trainingApi.listSessionsAll({
+        scope: listScope,
+        from: applied.from || undefined,
+        to: applied.to || undefined,
+        groupId: listScope === 'all' && applied.scopeType === 'group' ? applied.groupId || undefined : undefined,
+        userId: listScope === 'all' && applied.scopeType === 'user' ? applied.userId || undefined : undefined,
+      })
+      const lines = [csvRow(['usuario', 'persona', 'negociador', 'cenario', 'conclusao', 'duracao', 'tipo', 'pontuacao'])]
+      for (const item of all || []) {
+        const persona = item.personaId ? getPersona(item.personaId) : null
+        lines.push(
+          csvRow([
+            item.userName || '',
+            item.personaName || '',
+            item.negotiatorType || persona?.negotiatorType || '',
+            persona?.scenarioType ? scenarioTypeLabel(persona.scenarioType) : item.scenarioTitle || '',
+            item.completedAt || '',
+            formatDuration(item.durationMs),
+            item.mediaMode === 'voice' ? 'voz' : 'texto',
+            item.score ?? '',
+          ]),
+        )
+      }
+      downloadCsv(`historico-simulacoes-${toLocalIsoDate(new Date())}.csv`, lines)
+    } catch (err) {
+      setError(err?.message || 'Não foi possível exportar o histórico.')
+    } finally {
+      setExporting(false)
     }
-    downloadCsv(`historico-simulacoes-${toLocalIsoDate(new Date())}.csv`, lines)
   }
 
   const pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE) || 1)
@@ -379,40 +389,35 @@ export default function TrainingHistoryPage() {
     )
   }
 
-  const showUserColumn = canManage && scope === 'all'
+  const teamView = canManage && scope === 'all'
+  const showUserColumn = teamView
 
   return (
     <TrainingPage className="training-ai__history-page">
-      <header className="training-ai__page-header">
+      <header className="training-ai__page-header training-ai__history-header">
         <div className="training-ai__page-title-row">
-          <OutlineIcon name="notebook" />
-          <h2>Central de Insights</h2>
+          <OutlineIcon name="history" />
+          <h2>{teamView ? 'Histórico de Simulações' : 'Minhas Simulações'}</h2>
         </div>
-      </header>
-
-      {error ? <p>{error}</p> : null}
-
-      <div className="imp-panel training-ai__history-stage">
-        <div className="training-ai__history-toolbar">
-          <div className="training-ai__history-actions">
+        <div className="training-ai__page-header-actions training-ai__history-actions">
             <div className="training-ai__history-filter-wrap">
-              <TrainingButton
-                variant="ghost"
-                iconOnly
-                active={showFilters}
+              <button
+                type="button"
+                className={`imp-btn imp-btn--primary training-ai__history-filter-trigger${showFilters ? ' is-active' : ''}`}
                 aria-label="Filtros"
                 aria-expanded={showFilters}
                 onClick={() => (showFilters ? closeFilters() : openFilters())}
               >
-                <OutlineIcon name="filter" />
-              </TrainingButton>
+                <OutlineIcon name="filter" size={16} />
+                <OutlineIcon name="chevronDown" size={14} />
+              </button>
 
               {showFilters ? (
                 <div
                   className="training-ai__history-filter-modal"
                   role="dialog"
                   aria-modal="true"
-                  aria-label="Filtros – Central de Insights"
+                  aria-label="Filtros do histórico"
                 >
                   <button
                     type="button"
@@ -423,7 +428,7 @@ export default function TrainingHistoryPage() {
                   <div className="training-ai__history-filter-panel">
                     <div className="training-ai__history-filter-head">
                       <OutlineIcon name="filter" />
-                      <strong>Filtros – Central de Insights</strong>
+                      <strong>Filtros</strong>
                     </div>
 
                     <div className="training-ai__history-filter-section">
@@ -591,26 +596,26 @@ export default function TrainingHistoryPage() {
               ) : null}
             </div>
 
-            <TrainingButton variant="primary" onClick={exportCsv}>
-              <OutlineIcon name="export" />
-              Exportar
+            <TrainingButton variant="primary" onClick={exportCsv} disabled={exporting || total === 0}>
+              <OutlineIcon name="download" />
+              {exporting ? 'Exportando…' : 'Exportar'}
             </TrainingButton>
-
             {canManage ? (
               <TrainingButton
                 variant="primary"
-                onClick={() => setScope((value) => (value === 'all' ? 'mine' : 'all'))}
+                aria-pressed={teamView}
+                onClick={() => setScope(teamView ? 'mine' : 'all')}
               >
-                {scope === 'all' ? 'Minhas Simulações' : 'Visão da equipe'}
+                <OutlineIcon name="history" />
+                {teamView ? 'Minhas Simulações' : 'Histórico dos Vendedores'}
               </TrainingButton>
-            ) : (
-              <TrainingButton variant="primary" disabled>
-                Minhas Simulações
-              </TrainingButton>
-            )}
+            ) : null}
           </div>
-        </div>
+      </header>
 
+      {error ? <p>{error}</p> : null}
+
+      <div className="imp-panel training-ai__history-stage">
         {rows.length === 0 ? (
           <div className="training-ai__empty">
             <h3>Nenhuma simulação</h3>
@@ -634,8 +639,20 @@ export default function TrainingHistoryPage() {
               <tbody>
                 {rows.map((item) => {
                   const persona = item.personaId ? getPersona(item.personaId) : null
+                  const openReport = () => navigate(`/modules/training-ai/relatorio/sessao/${item.id}`)
                   return (
-                    <tr key={item.id}>
+                    <tr
+                      key={item.id}
+                      className="training-ai__history-row"
+                      tabIndex={0}
+                      onClick={openReport}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          openReport()
+                        }
+                      }}
+                    >
                       {showUserColumn ? (
                         <td>
                           <span className="training-ai__history-user">
@@ -645,7 +662,7 @@ export default function TrainingHistoryPage() {
                         </td>
                       ) : null}
                       <td>
-                        <Link className="training-ai__history-persona" to={`/modules/training-ai/relatorio/sessao/${item.id}`}>
+                        <span className="training-ai__history-persona">
                           <AgentAvatar
                             id={item.personaId || item.id}
                             name={item.personaName || '—'}
@@ -656,10 +673,10 @@ export default function TrainingHistoryPage() {
                             <strong>{item.personaName || '—'}</strong>
                             <small>{persona?.location || ''}</small>
                           </span>
-                        </Link>
+                        </span>
                       </td>
                       <td>{item.negotiatorType || persona?.negotiatorType || '—'}</td>
-                      <td>{item.scenarioTitle || scenarioTypeLabel(persona?.scenarioType)}</td>
+                      <td>{persona?.scenarioType ? scenarioTypeLabel(persona.scenarioType) : (item.scenarioTitle || '—')}</td>
                       <td>
                         {item.completedAt
                           ? new Date(item.completedAt).toLocaleString('pt-BR', {
@@ -674,54 +691,17 @@ export default function TrainingHistoryPage() {
                       <td>{formatDuration(item.durationMs)}</td>
                       <td>
                         <span className={`training-ai__type-pill ${item.mediaMode === 'voice' ? 'is-voice' : 'is-text'}`}>
-                          <OutlineIcon name={item.mediaMode === 'voice' ? 'phone' : 'chat'} />
+                          <OutlineIcon name={item.mediaMode === 'voice' ? 'mic' : 'chat'} />
                           {item.mediaMode === 'voice' ? 'Voz' : 'Texto'}
                         </span>
                       </td>
-                      <td><ScoreRing score={item.score} /></td>
+                      <td><ScoreBadge score={item.score} /></td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-            {total > HISTORY_PAGE_SIZE ? (
-              <div className="training-ai__history-pagination">
-                <p className="training-ai__meta">
-                  Mostrando {(safePage - 1) * HISTORY_PAGE_SIZE + 1}–
-                  {Math.min(safePage * HISTORY_PAGE_SIZE, total)} de {total}
-                </p>
-                <div className="training-ai__group-pagination" aria-label="Paginação do histórico">
-                  <button type="button" disabled={safePage <= 1} onClick={() => setPage(1)} aria-label="Primeira página">
-                    <OutlineIcon name="chevronsLeft" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={safePage <= 1}
-                    onClick={() => setPage((value) => Math.max(1, value - 1))}
-                    aria-label="Página anterior"
-                  >
-                    <OutlineIcon name="chevron" className="is-flip" />
-                  </button>
-                  <span className="training-ai__group-page-current">{safePage}</span>
-                  <button
-                    type="button"
-                    disabled={safePage >= pageCount}
-                    onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-                    aria-label="Próxima página"
-                  >
-                    <OutlineIcon name="chevron" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={safePage >= pageCount}
-                    onClick={() => setPage(pageCount)}
-                    aria-label="Última página"
-                  >
-                    <OutlineIcon name="chevronsRight" />
-                  </button>
-                </div>
-              </div>
-            ) : null}
+            <Pager page={safePage} pageCount={pageCount} onPage={setPage} label="Paginação do histórico" />
           </div>
         )}
       </div>

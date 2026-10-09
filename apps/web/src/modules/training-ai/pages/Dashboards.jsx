@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
 import TrainingButton from '../components/TrainingButton.jsx'
+import { SmoothLineChart, SoftBarChart, SoftHBarList } from '../components/FluffyCharts.jsx'
+import { SERIES_TONES, niceMax, toneColor } from '../utils/chartMath.js'
 import { trainingApi } from '../services/api/client.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { formatBrDate, toLocalIsoDate } from '../utils/dates.js'
-import { downloadCsv } from '../utils/download.js'
+import { csvRow, downloadCsv } from '../utils/download.js'
+
+const BROWSER_TIME_ZONE = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+  } catch {
+    return undefined
+  }
+})()
+
+const MAX_TEMPLATE_LINES = 6
 
 const DASH_TABS = [
   { id: 'engajamento', label: 'Engajamento' },
@@ -62,39 +74,94 @@ function pointStep(days) {
   return 30
 }
 
-function labelStride(pointCount) {
-  if (pointCount <= 8) return 1
-  if (pointCount <= 16) return 2
-  return Math.ceil(pointCount / 8)
+function numberOrNull(value) {
+  return value == null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value)
 }
 
+/** One point per calendar day of the period; days the API did not report stay `null` (no data, not zero). */
 function fillDailySeries(days, sparseRows, keys) {
   const byDate = new Map((sparseRows || []).map((row) => [String(row.date).slice(0, 10), row]))
   return dateRange(days).map((date) => {
     const row = byDate.get(date)
     const point = { date }
     for (const key of keys) {
-      point[key] = row ? Number(row[key]) || 0 : 0
+      point[key] = row ? numberOrNull(row[key]) : null
     }
     return point
   })
 }
 
+/** Groups days into chart points for long periods, averaging only the days that had data. */
 function bucketSeries(days, sparseRows, keys) {
   const daily = fillDailySeries(days, sparseRows, keys)
   const step = pointStep(days)
-  if (step <= 1) return daily
+  if (step <= 1) return daily.map((point) => ({ ...point, from: point.date }))
   const out = []
-  for (let i = 0; i < daily.length; i += step) {
-    const chunk = daily.slice(i, Math.min(daily.length, i + step))
-    const point = { date: chunk[chunk.length - 1].date }
-    for (const key of keys) {
-      const sum = chunk.reduce((total, row) => total + (Number(row[key]) || 0), 0)
-      point[key] = Math.round((sum / chunk.length) * 10) / 10
-    }
-    out.push(point)
+  // Align buckets to the end so the last point is always "today".
+  const start = daily.length % step
+  if (start > 0) out.push(averageChunk(daily.slice(0, start), keys))
+  for (let i = start; i < daily.length; i += step) {
+    out.push(averageChunk(daily.slice(i, i + step), keys))
   }
   return out
+}
+
+function averageChunk(chunk, keys) {
+  const point = { date: chunk[chunk.length - 1].date, from: chunk[0].date }
+  for (const key of keys) {
+    const values = chunk.map((row) => row[key]).filter((value) => value != null)
+    point[key] = values.length ? Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10 : null
+  }
+  return point
+}
+
+function shortDate(iso) {
+  const [, month, day] = String(iso || '').slice(0, 10).split('-')
+  return day && month ? `${day}/${month}` : String(iso || '')
+}
+
+function pointLabel(point) {
+  return point.from && point.from !== point.date
+    ? `${shortDate(point.from)} – ${shortDate(point.date)}`
+    : formatBrDate(point.date)
+}
+
+function axisLabel(point) {
+  return shortDate(point.date)
+}
+
+function ChartLegend({ series }) {
+  return (
+    <ul className="training-ai__chart-legend">
+      {series.map((item) => (
+        <li key={item.key}>
+          <span className="training-ai__dot" style={{ background: toneColor(item.tone) }} />
+          {item.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Smooth time series for the dashboard period, bucketed for long ranges, with a tooltip label per bucket. */
+function PeriodLineChart({ points, series, days, valueSuffix = '', maxValue, ariaLabel }) {
+  const chartPoints = bucketSeries(days, points, series.map((item) => item.key))
+  return (
+    <SmoothLineChart
+      points={chartPoints}
+      series={series}
+      valueSuffix={valueSuffix}
+      maxValue={maxValue}
+      ariaLabel={ariaLabel}
+      formatLabel={pointLabel}
+      axisLabel={axisLabel}
+    />
+  )
+}
+
+function PeriodBarChart({ points, series, days, ariaLabel }) {
+  const chartPoints = bucketSeries(days, points, series.map((item) => item.key))
+  return <SoftBarChart points={chartPoints} series={series} ariaLabel={ariaLabel} formatLabel={pointLabel} axisLabel={axisLabel} />
 }
 
 function formatPct(value) {
@@ -127,14 +194,6 @@ function formatScore(value) {
 
 function formatCount(value) {
   return Number(value || 0).toLocaleString('pt-BR')
-}
-
-function niceMax(value) {
-  const n = Math.max(Number(value) || 0, 1)
-  if (n <= 4) return 4
-  if (n <= 10) return 10
-  if (n <= 100) return Math.ceil(n / 10) * 10
-  return Math.ceil(n / 25) * 25
 }
 
 function Metric({ label, value, hint, tone }) {
@@ -251,183 +310,6 @@ function RankingCompareChart({ title, rows, valueKey, selectedUserId, formatValu
   )
 }
 
-function SimpleBars({ points, valueKey, maxHint, tone = 'orange', days }) {
-  const chartPoints = days
-    ? bucketSeries(days, points, [valueKey])
-    : points
-  const values = chartPoints.map((item) => Number(item[valueKey]) || 0)
-  const max = Math.max(maxHint || 0, ...values, 1)
-  const step = labelStride(chartPoints.length)
-  return (
-    <div className="training-ai__bars" role="img" aria-label="Gráfico">
-      {chartPoints.map((item, index) => {
-        const showLabel = index === 0
-          || index === chartPoints.length - 1
-          || index % step === 0
-        return (
-          <div key={`${item.date}-${index}`} className="training-ai__bar">
-            <span className={`is-${tone}`} style={{ height: `${Math.max(4, (Number(item[valueKey]) / max) * 100)}%` }} />
-            {showLabel ? <small>{formatBrDate(item.date)}</small> : <small className="is-blank" />}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function SimpleLines({ points, series, days, valueSuffix = '' }) {
-  const width = 640
-  const height = 196
-  const padL = 34
-  const padR = 10
-  const padT = 12
-  const padB = 28
-  const chartPoints = days
-    ? bucketSeries(days, points, series.map((item) => item.key))
-    : points
-  const allValues = series.flatMap((s) => chartPoints.map((p) => Number(p[s.key]) || 0))
-  const max = niceMax(Math.max(...allValues, 0))
-  const plotW = width - padL - padR
-  const plotH = height - padT - padB
-  const stepX = chartPoints.length <= 1 ? 0 : plotW / (chartPoints.length - 1)
-  const labelStep = labelStride(chartPoints.length)
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => Math.round(max * ratio * 10) / 10)
-  const svgRef = useRef(null)
-  const [hoverIndex, setHoverIndex] = useState(null)
-
-  function xAt(index) {
-    return padL + index * stepX
-  }
-
-  function yAt(value) {
-    return padT + plotH - ((Number(value) || 0) / max) * plotH
-  }
-
-  function pathFor(key) {
-    return chartPoints
-      .map((point, index) => {
-        const x = xAt(index)
-        const y = yAt(point[key])
-        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
-      })
-      .join(' ')
-  }
-
-  function indexFromClientX(clientX) {
-    const svg = svgRef.current
-    if (!svg || chartPoints.length === 0) return null
-    const rect = svg.getBoundingClientRect()
-    if (rect.width <= 0) return null
-    const localX = ((clientX - rect.left) / rect.width) * width
-    const t = (localX - padL) / plotW
-    const index = Math.round(Math.max(0, Math.min(1, t)) * (chartPoints.length - 1))
-    return index
-  }
-
-  function handlePointer(event) {
-    setHoverIndex(indexFromClientX(event.clientX))
-  }
-
-  const hoverPoint = hoverIndex == null ? null : chartPoints[hoverIndex]
-  const hoverX = hoverIndex == null ? null : xAt(hoverIndex)
-
-  return (
-    <div className="training-ai__line-chart">
-      <div className="training-ai__line-chart-frame">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${width} ${height}`}
-          role="img"
-          aria-label="Série temporal"
-          onMouseMove={handlePointer}
-          onMouseLeave={() => setHoverIndex(null)}
-        >
-          {yTicks.map((tick) => (
-            <g key={`y-${tick}`}>
-              <line
-                x1={padL}
-                y1={yAt(tick)}
-                x2={width - padR}
-                y2={yAt(tick)}
-                className="training-ai__grid"
-              />
-              <text x={padL - 8} y={yAt(tick) + 3} textAnchor="end" className="training-ai__axis-label">
-                {tick}
-              </text>
-            </g>
-          ))}
-          <line x1={padL} y1={height - padB} x2={width - padR} y2={height - padB} className="training-ai__axis" />
-          <line x1={padL} y1={padT} x2={padL} y2={height - padB} className="training-ai__axis" />
-          {series.map((item) => (
-            <path
-              key={item.key}
-              d={pathFor(item.key)}
-              className={`training-ai__line training-ai__line--${item.tone}`}
-              fill="none"
-            />
-          ))}
-          {hoverPoint && hoverX != null ? (
-            <g className="training-ai__chart-hover">
-              <line
-                x1={hoverX}
-                y1={padT}
-                x2={hoverX}
-                y2={height - padB}
-                className="training-ai__crosshair"
-              />
-              {series.map((item) => (
-                <circle
-                  key={`dot-${item.key}`}
-                  cx={hoverX}
-                  cy={yAt(hoverPoint[item.key])}
-                  r={4}
-                  className={`training-ai__hover-dot training-ai__hover-dot--${item.tone}`}
-                />
-              ))}
-            </g>
-          ) : null}
-          {chartPoints.map((point, index) => {
-            const show = index === 0
-              || index === chartPoints.length - 1
-              || index % labelStep === 0
-            if (!show) return null
-            return (
-              <text
-                key={`x-${point.date}`}
-                x={xAt(index)}
-                y={height - 8}
-                textAnchor="middle"
-                className="training-ai__axis-label"
-              >
-                {formatBrDate(point.date)}
-              </text>
-            )
-          })}
-        </svg>
-        {hoverPoint && hoverX != null ? (
-          <div
-            className="training-ai__chart-tooltip"
-            style={{
-              left: `${(hoverX / width) * 100}%`,
-              transform: hoverX / width > 0.7 ? 'translate(-100%, 0)' : 'translate(8px, 0)',
-            }}
-          >
-            <strong>{formatBrDate(hoverPoint.date)}</strong>
-            <ul>
-              {series.map((item) => (
-                <li key={item.key}>
-                  <span className={`training-ai__dot training-ai__dot--${item.tone}`} />
-                  {(item.label || item.key)}: {Number(hoverPoint[item.key]) || 0}{valueSuffix}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 function formatCredits(value) {
   return Number(value || 0).toLocaleString('pt-BR')
 }
@@ -492,6 +374,8 @@ export default function TrainingDashboardsPage() {
   const [personaSuggestOpen, setPersonaSuggestOpen] = useState(false)
   const [consumoOpen, setConsumoOpen] = useState(false)
   const [consumoDetailed, setConsumoDetailed] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const activeView = DASH_TABS.some((tab) => tab.id === view) ? view : 'engajamento'
 
@@ -526,12 +410,14 @@ export default function TrainingDashboardsPage() {
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     trainingApi
       .getDashboards({
         days: appliedFilters.days,
         userId: appliedFilters.scopeType === 'user' && appliedFilters.userId ? appliedFilters.userId : undefined,
         groupId: appliedFilters.scopeType === 'group' && appliedFilters.groupId ? appliedFilters.groupId : undefined,
         personaId: appliedFilters.personaId || undefined,
+        tz: BROWSER_TIME_ZONE,
       })
       .then((payload) => {
         if (!cancelled) {
@@ -542,10 +428,13 @@ export default function TrainingDashboardsPage() {
       .catch((err) => {
         if (!cancelled) setError(err?.message || 'Não foi possível carregar o painel.')
       })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [appliedFilters])
+  }, [appliedFilters, reloadKey])
 
   const engagement = data?.engagement
   const consumption = data?.consumption
@@ -578,29 +467,44 @@ export default function TrainingDashboardsPage() {
     return rows.filter((group) => String(group.name || '').toLowerCase().includes(term)).slice(0, 12)
   }, [draftFilters.scopeLabel, groups])
 
-  const engagementSeries = useMemo(() => {
-    const sparse = (engagement?.series || []).map((row) => ({
-      date: row.date,
-      dauMau: Number(row.dauMau) || 0,
-      dauWau: Number(row.dauWau) || 0,
-      wauMau: Number(row.wauMau) || 0,
+  // A ratio over an empty month is undefined, not 0%: leave those days as gaps.
+  const engagementSeries = useMemo(
+    () =>
+      (engagement?.series || []).map((row) => ({
+        date: row.date,
+        dauMau: Number(row.mau) > 0 ? numberOrNull(row.dauMau) : null,
+        dauWau: Number(row.wau) > 0 ? numberOrNull(row.dauWau) : null,
+        wauMau: Number(row.mau) > 0 ? numberOrNull(row.wauMau) : null,
+      })),
+    [engagement],
+  )
+
+  const performanceSeries = useMemo(() => performance?.series || [], [performance])
+
+  const templateRows = useMemo(() => performance?.templates || [], [performance])
+
+  const templateLines = useMemo(() => {
+    const top = templateRows.slice(0, MAX_TEMPLATE_LINES)
+    const series = top.map((template, index) => ({
+      key: `t${index}`,
+      label: template.title,
+      tone: SERIES_TONES[index % SERIES_TONES.length],
     }))
-    return sparse
-  }, [engagement])
+    const byDate = new Map()
+    top.forEach((template, index) => {
+      for (const point of template.series || []) {
+        const row = byDate.get(point.date) || { date: point.date }
+        row[`t${index}`] = point.averageScore
+        byDate.set(point.date, row)
+      }
+    })
+    return { series, points: [...byDate.values()] }
+  }, [templateRows])
 
-  const performanceSeries = useMemo(
-    () => performance?.series || [],
-    [performance],
-  )
+  const communicationSeries = useMemo(() => communication?.series || [], [communication])
 
-  const communicationSeries = useMemo(
-    () => fillDailySeries(
-      appliedFilters.days,
-      communication?.series || [],
-      ['talkListenPct', 'wordsPerMinute', 'longestMonologueSec', 'fillersPerMinute'],
-    ),
-    [appliedFilters.days, communication],
-  )
+  const hasPerformanceData = performanceSeries.some((row) => Number(row.simulations) > 0)
+  const hasEngagementData = engagementSeries.some((row) => row.dauMau != null)
 
   function closeConsumo() {
     setConsumoOpen(false)
@@ -653,22 +557,36 @@ export default function TrainingDashboardsPage() {
   function exportCsv() {
     closeConsumo()
     closeFilters({ discard: true })
-    const lines = ['view,metric,value']
-    if (engagement) {
-      lines.push(`engajamento,simulations,${engagement.simulations}`)
-      lines.push(`engajamento,minutes,${engagement.minutes}`)
-      lines.push(`engajamento,dauMau,${engagement.dauMau}`)
+    if (!data) return
+    const lines = []
+    if (activeView === 'engajamento') {
+      lines.push(csvRow(['data', 'usuarios_dia', 'usuarios_7d', 'usuarios_30d', 'dau_mau_pct', 'dau_wau_pct', 'wau_mau_pct', 'simulacoes']))
+      for (const row of engagement?.series || []) {
+        lines.push(csvRow([row.date, row.dau, row.wau, row.mau, row.dauMau, row.dauWau, row.wauMau, row.simulations]))
+      }
+    } else if (activeView === 'ranking') {
+      lines.push(csvRow(['posicao', 'usuario', 'pontuacao_media', 'simulacoes', 'minutos', 'duracao_media_min']))
+      ranking.forEach((row, index) => {
+        lines.push(csvRow([index + 1, row.userName, row.averageScore, row.simulations, row.minutes, averageMinutes(row)]))
+      })
+    } else if (activeView === 'performance') {
+      lines.push(csvRow(['data', 'simulacoes', 'nota_media', 'minutos', 'duracao_media_min']))
+      for (const row of performanceSeries) {
+        lines.push(csvRow([row.date, row.simulations, row.averageScore, row.minutes, row.averageMinutes]))
+      }
+      lines.push('')
+      lines.push(csvRow(['template', 'nota_media', 'simulacoes']))
+      for (const row of templateRows) lines.push(csvRow([row.title, row.averageScore, row.simulations]))
+    } else {
+      lines.push(csvRow(['data', 'fala_escuta_pct', 'palavras_por_minuto', 'maior_monologo_s', 'vicios_por_minuto']))
+      for (const row of communicationSeries) {
+        lines.push(csvRow([row.date, row.talkListenPct, row.wordsPerMinute, row.longestMonologueSec, row.fillersPerMinute]))
+      }
     }
-    if (consumption) {
-      lines.push(`consumo,simulations,${consumption.simulations}`)
-      lines.push(`consumo,minutes,${consumption.minutes}`)
-      lines.push(`consumo,averageMinutes,${consumption.averageMinutes}`)
-      lines.push(`consumo,activeUsers,${consumption.activeUsers}`)
-    }
-    ranking.forEach((row, index) => {
-      lines.push(`ranking,${index + 1},${row.userName},${row.averageScore}`)
-    })
-    downloadCsv(`treinamento-${activeView}.csv`, lines)
+    lines.push('')
+    lines.push(csvRow(['periodo_dias', 'simulacoes', 'minutos', 'usuarios_ativos']))
+    lines.push(csvRow([appliedFilters.days, consumption?.simulations, consumption?.minutes, consumption?.activeUsers]))
+    downloadCsv(`treinamento-${activeView}-${toLocalIsoDate(new Date())}.csv`, lines)
   }
 
   function selectPerson(person) {
@@ -944,8 +862,15 @@ export default function TrainingDashboardsPage() {
         </div>
       </header>
 
-      {error ? <p>{error}</p> : null}
-      {!data && !error ? <p>Carregando…</p> : null}
+      {error ? (
+        <div className="training-ai__form-error" role="alert">
+          {error}{' '}
+          <button type="button" className="training-ai__linkish" onClick={() => setReloadKey((value) => value + 1)}>
+            Tentar novamente
+          </button>
+        </div>
+      ) : null}
+      {loading && !data && !error ? <p className="training-ai__meta">Carregando…</p> : null}
 
       <div className="training-ai__dash-stage">
         {consumoOpen && consumption ? (
@@ -981,16 +906,22 @@ export default function TrainingDashboardsPage() {
                     <span className="training-ai__info-dot" title="Indicadores de fidelização no período filtrado.">i</span>
                   </p>
                 </div>
-                <SimpleLines
-                  points={engagementSeries}
-                  days={appliedFilters.days}
-                  valueSuffix="%"
-                  series={[
-                    { key: 'dauMau', label: 'DAU/MAU', tone: 'orange' },
-                    { key: 'dauWau', label: 'DAU/WAU', tone: 'purple' },
-                    { key: 'wauMau', label: 'WAU/MAU', tone: 'blue' },
-                  ]}
-                />
+                {hasEngagementData ? (
+                  <PeriodLineChart
+                    points={engagementSeries}
+                    days={appliedFilters.days}
+                    valueSuffix="%"
+                    maxValue={100}
+                    ariaLabel="Evolução do engajamento"
+                    series={[
+                      { key: 'dauMau', label: 'DAU/MAU', tone: 'orange' },
+                      { key: 'dauWau', label: 'DAU/WAU', tone: 'purple' },
+                      { key: 'wauMau', label: 'WAU/MAU', tone: 'blue' },
+                    ]}
+                  />
+                ) : (
+                  <div className="training-ai__chart-empty">Sem simulações no período</div>
+                )}
               </div>
               <aside className="training-ai__legend-col" aria-label="Indicadores de engajamento">
                 <Metric label="DAU/MAU" value={formatPct(engagement.dauMau)} tone="orange" />
@@ -1166,44 +1097,80 @@ export default function TrainingDashboardsPage() {
         <div className="training-ai__dash-grid">
           <div className="imp-panel">
             <h3>Métricas de Performance</h3>
-            <p className="training-ai__meta">
-              <span className="training-ai__dot training-ai__dot--purple" /> Média de Notas
-              {' · '}
-              <span className="training-ai__dot training-ai__dot--orange" /> Média de Minutos
-            </p>
-            <SimpleBars points={performanceSeries} valueKey="averageScore" tone="purple" days={appliedFilters.days} />
+            <ChartLegend
+              series={[
+                { key: 'averageScore', label: 'Média de Notas (eixo esquerdo)', tone: 'purple' },
+                { key: 'averageMinutes', label: 'Média de Minutos (eixo direito)', tone: 'orange' },
+              ]}
+            />
+            {hasPerformanceData ? (
+              <PeriodBarChart
+                points={performanceSeries}
+                days={appliedFilters.days}
+                ariaLabel="Média de notas e de minutos por período"
+                series={[
+                  { key: 'averageScore', label: 'Média de Notas', tone: 'purple', max: 100 },
+                  { key: 'averageMinutes', label: 'Média de Minutos', tone: 'orange', axis: 'right', suffix: ' min' },
+                ]}
+              />
+            ) : (
+              <div className="training-ai__chart-empty">Sem simulações no período</div>
+            )}
           </div>
           <div className="imp-panel">
             <h3>Evolução de Performance</h3>
-            <p className="training-ai__meta"><span className="training-ai__dot training-ai__dot--purple" /> Evolução de Notas</p>
-            <SimpleLines
-              points={performanceSeries}
-              days={appliedFilters.days}
-              series={[{ key: 'averageScore', label: 'Média de Notas', tone: 'purple' }]}
-            />
+            <ChartLegend series={[{ key: 'averageScore', label: 'Evolução de Notas', tone: 'purple' }]} />
+            {hasPerformanceData ? (
+              <PeriodLineChart
+                points={performanceSeries}
+                days={appliedFilters.days}
+                maxValue={100}
+                ariaLabel="Evolução da nota média"
+                series={[{ key: 'averageScore', label: 'Média de Notas', tone: 'purple' }]}
+              />
+            ) : (
+              <div className="training-ai__chart-empty">Sem simulações no período</div>
+            )}
           </div>
           <div className="imp-panel">
             <h3>Métricas de Templates</h3>
-            {performance.templates.length === 0 ? (
-              <p className="training-ai__meta">Sem dados de critérios no período</p>
+            {templateRows.length === 0 ? (
+              <div className="training-ai__chart-empty">Sem dados de templates no período</div>
             ) : (
-              <ul className="training-ai__list">
-                {performance.templates.map((item) => (
-                  <li key={item.title}>
-                    <strong>{item.title}</strong> — média {item.averageScore} · {item.simulations === 1 ? '1 simulação' : `${item.simulations} simulações`}
-                  </li>
-                ))}
-              </ul>
+              <SoftHBarList
+                rows={templateRows.map((item) => ({
+                  key: item.title,
+                  label: item.title,
+                  value: item.averageScore,
+                  hint: item.simulations === 1 ? '1 simulação' : `${item.simulations} simulações`,
+                }))}
+                max={100}
+                tone="purple"
+                formatValue={formatScore}
+              />
             )}
           </div>
           <div className="imp-panel">
             <h3>Evolução de Performance em Templates</h3>
-            <p className="training-ai__meta"><span className="training-ai__dot training-ai__dot--purple" /> Templates de Avaliação</p>
-            <ul className="training-ai__list">
-              {performance.templates.map((item) => (
-                <li key={`${item.title}-evo`}>{item.title}: {item.averageScore}</li>
-              ))}
-            </ul>
+            {templateLines.series.length === 0 ? (
+              <div className="training-ai__chart-empty">Sem dados de templates no período</div>
+            ) : (
+              <>
+                <ChartLegend series={templateLines.series} />
+                <PeriodLineChart
+                  points={templateLines.points}
+                  days={appliedFilters.days}
+                  maxValue={100}
+                  ariaLabel="Evolução da nota por template"
+                  series={templateLines.series}
+                />
+                {templateRows.length > MAX_TEMPLATE_LINES ? (
+                  <p className="training-ai__meta">
+                    Mostrando os {MAX_TEMPLATE_LINES} templates mais usados de {templateRows.length}.
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}
@@ -1217,6 +1184,7 @@ export default function TrainingDashboardsPage() {
               key: 'talkListenPct',
               tone: 'purple',
               suffix: '%',
+              max: 100,
             },
             {
               id: 'pace',
@@ -1240,7 +1208,7 @@ export default function TrainingDashboardsPage() {
               suffix: '',
             },
           ].map((metric) => {
-            const hasData = communicationSeries.some((row) => Number(row[metric.key]) > 0)
+            const hasData = communicationSeries.some((row) => row[metric.key] != null)
             return (
               <section key={metric.id} className="imp-panel training-ai__comm-card">
                 <div className="training-ai__comm-card-head">
@@ -1251,10 +1219,12 @@ export default function TrainingDashboardsPage() {
                   </p>
                 </div>
                 {hasData ? (
-                  <SimpleLines
+                  <PeriodLineChart
                     points={communicationSeries}
                     days={appliedFilters.days}
                     valueSuffix={metric.suffix}
+                    maxValue={metric.max}
+                    ariaLabel={metric.label}
                     series={[{ key: metric.key, label: metric.label, tone: metric.tone }]}
                   />
                 ) : (

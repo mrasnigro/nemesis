@@ -15,7 +15,7 @@ async function listAudioDevices() {
  * Mic/speaker device picks + short test recording with a live level meter.
  * Used by the Ligação preflight screens before the real simulation starts.
  */
-export default function useMicTest() {
+export default function useMicTest({ enabled = true } = {}) {
   const [mics, setMics] = useState([])
   const [speakers, setSpeakers] = useState([])
   const [micId, setMicId] = useState('')
@@ -53,16 +53,25 @@ export default function useMicTest() {
     }
   }, [])
 
+  // Device labels need microphone permission, so only probe once the call screen is actually shown.
   useEffect(() => {
-    refreshDevices()
-    return () => {
+    if (enabled) refreshDevices()
+  }, [enabled, refreshDevices])
+
+  const testUrlRef = useRef('')
+  useEffect(() => {
+    testUrlRef.current = testUrl
+  }, [testUrl])
+
+  useEffect(
+    () => () => {
       cancelAnimationFrame(rafRef.current)
       streamRef.current?.getTracks().forEach((track) => track.stop())
       audioCtxRef.current?.close().catch(() => null)
-      if (testUrl) URL.revokeObjectURL(testUrl)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount
-  }, [])
+      if (testUrlRef.current) URL.revokeObjectURL(testUrlRef.current)
+    },
+    [],
+  )
 
   function stopMeter() {
     cancelAnimationFrame(rafRef.current)

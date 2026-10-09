@@ -3,18 +3,48 @@
  */
 
 export const VOICE_OPTIONS = [
-  { id: 'borges', label: 'Borges · pt-BR', lang: 'pt-BR', gender: 'm' },
-  { id: 'carla', label: 'Carla · pt-BR', lang: 'pt-BR', gender: 'f' },
-  { id: 'carlos', label: 'Carlos · pt-BR', lang: 'pt-BR', gender: 'm' },
-  { id: 'conrado', label: 'Conrado · pt-BR', lang: 'pt-BR', gender: 'm' },
-  { id: 'athena', label: 'Athena · en-US', lang: 'en-US', gender: 'f' },
-  { id: 'bella', label: 'Bella · en-US', lang: 'en-US', gender: 'f' },
-  { id: 'christopher', label: 'Christopher · en-US', lang: 'en-US', gender: 'm' },
-  { id: 'voice_neutral_f', label: 'Neutra · feminina', lang: 'pt-BR', gender: 'f' },
-  { id: 'voice_neutral_m', label: 'Neutra · masculina', lang: 'pt-BR', gender: 'm' },
-  { id: 'voice_warm_f', label: 'Acolhedora · feminina', lang: 'pt-BR', gender: 'f' },
-  { id: 'voice_firm_m', label: 'Firme · masculina', lang: 'pt-BR', gender: 'm' },
+  { id: 'carla', label: 'Carla · média', lang: 'pt-BR', gender: 'f', pitch: 1.12, rate: 1 },
+  { id: 'helena', label: 'Helena · grave', lang: 'pt-BR', gender: 'f', pitch: 0.9, rate: 0.92 },
+  { id: 'livia', label: 'Lívia · aguda', lang: 'pt-BR', gender: 'f', pitch: 1.38, rate: 1.06 },
+  { id: 'marina', label: 'Marina · calma', lang: 'pt-BR', gender: 'f', pitch: 1.02, rate: 0.86 },
+  { id: 'ana', label: 'Ana · jovem', lang: 'pt-BR', gender: 'f', pitch: 1.26, rate: 1.12 },
+  { id: 'borges', label: 'Borges · média', lang: 'pt-BR', gender: 'm', pitch: 0.74, rate: 0.96 },
+  { id: 'carlos', label: 'Carlos · clara', lang: 'pt-BR', gender: 'm', pitch: 0.88, rate: 1.04 },
+  { id: 'conrado', label: 'Conrado · grave', lang: 'pt-BR', gender: 'm', pitch: 0.56, rate: 0.9 },
+  { id: 'rafael', label: 'Rafael · jovem', lang: 'pt-BR', gender: 'm', pitch: 0.98, rate: 1.12 },
+  { id: 'diego', label: 'Diego · firme', lang: 'pt-BR', gender: 'm', pitch: 0.66, rate: 1.06 },
+  { id: 'lucia', label: 'Lucía · média', lang: 'es-ES', gender: 'f', pitch: 1.14, rate: 1 },
+  { id: 'sofia', label: 'Sofía · grave', lang: 'es-ES', gender: 'f', pitch: 0.92, rate: 0.9 },
+  { id: 'mateo', label: 'Mateo · média', lang: 'es-ES', gender: 'm', pitch: 0.76, rate: 0.98 },
+  { id: 'andres', label: 'Andrés · grave', lang: 'es-ES', gender: 'm', pitch: 0.58, rate: 0.92 },
+  { id: 'athena', label: 'Athena · média', lang: 'en-US', gender: 'f', pitch: 1.16, rate: 1 },
+  { id: 'bella', label: 'Bella · calma', lang: 'en-US', gender: 'f', pitch: 1.02, rate: 0.88 },
+  { id: 'luna', label: 'Luna · aguda', lang: 'en-US', gender: 'f', pitch: 1.36, rate: 1.08 },
+  { id: 'christopher', label: 'Christopher · média', lang: 'en-US', gender: 'm', pitch: 0.8, rate: 1 },
+  { id: 'james', label: 'James · grave', lang: 'en-US', gender: 'm', pitch: 0.58, rate: 0.9 },
+  { id: 'owen', label: 'Owen · jovem', lang: 'en-US', gender: 'm', pitch: 0.96, rate: 1.1 },
+  { id: 'voice_neutral_f', label: 'Neutra · feminina', lang: 'pt-BR', gender: 'f', pitch: 1.1, rate: 1 },
+  { id: 'voice_neutral_m', label: 'Neutra · masculina', lang: 'pt-BR', gender: 'm', pitch: 0.8, rate: 1 },
+  { id: 'voice_warm_f', label: 'Acolhedora · feminina', lang: 'pt-BR', gender: 'f', pitch: 1.05, rate: 0.9 },
+  { id: 'voice_firm_m', label: 'Firme · masculina', lang: 'pt-BR', gender: 'm', pitch: 0.62, rate: 1.02 },
 ]
+
+export function getVoiceOption(voiceRef) {
+  return VOICE_OPTIONS.find((item) => item.id === voiceRef) || null
+}
+
+const SAMPLE_TEXT = {
+  pt: 'Olá, eu sou a persona desta simulação. Posso falar um pouco mais devagar ou mais firme.',
+  es: 'Hola, soy la persona de esta simulación. Puedo hablar más despacio o con más firmeza.',
+  en: 'Hello, I am the persona for this simulation. I can speak more slowly, or with a firmer tone.',
+}
+
+export function sampleTextFor(lang = 'pt-BR') {
+  const code = String(lang || 'pt-BR').toLowerCase()
+  if (code.startsWith('en')) return SAMPLE_TEXT.en
+  if (code.startsWith('es')) return SAMPLE_TEXT.es
+  return SAMPLE_TEXT.pt
+}
 
 export const PRACTICE_MEDIA_MODES = [
   { id: 'text', label: 'Texto' },

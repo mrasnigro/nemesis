@@ -24,9 +24,10 @@ function buildNav(canManage) {
       label: 'Treinamento com IA',
       icon: <OutlineIcon name="headset" />,
       children: [
-        { id: 'personas', label: 'Configurador de Agentes', to: '/modules/training-ai/personas' },
-        { id: 'templates', label: 'Playbooks de Score', to: '/modules/training-ai/templates' },
-        { id: 'history', label: 'Central de Insights', to: '/modules/training-ai/historico' },
+        { id: 'personas', label: 'Minhas Personas', to: '/modules/training-ai/personas' },
+        { id: 'scenarios', label: 'Cenários', to: '/modules/training-ai/cenarios' },
+        { id: 'templates', label: 'Templates de Avaliação', to: '/modules/training-ai/templates' },
+        { id: 'history', label: 'Histórico', to: '/modules/training-ai/historico' },
       ],
     },
     {

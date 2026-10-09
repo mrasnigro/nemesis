@@ -15,6 +15,7 @@ export default function PersonaCallStage({
   showTranscript = false,
   onToggleTranscript,
   sttSupported = true,
+  audioOnly = false,
 }) {
   const speaking = callState === 'speaking'
   const connecting = callState === 'connecting'
@@ -34,16 +35,24 @@ export default function PersonaCallStage({
           <span className="training-ai__call-status-dot" aria-hidden="true" />
           {stateLabel}
         </span>
-        <span className="training-ai__meta">Chamada por voz</span>
+        <span className="training-ai__meta">{audioOnly ? 'Somente áudio' : 'Chamada por voz'}</span>
       </div>
 
       <div className="training-ai__call-persona">
-        <div
-          className={`training-ai__call-avatar-ring ${speaking ? 'is-speaking' : ''}`}
-          aria-hidden="true"
-        >
-          <AgentAvatar id={persona?.id} name={persona?.name} size="lg" className="training-ai__call-avatar" />
-        </div>
+        {audioOnly ? null : (
+          <div
+            className={`training-ai__call-avatar-ring ${speaking ? 'is-speaking' : ''}`}
+            aria-hidden="true"
+          >
+            <AgentAvatar
+              id={persona?.id}
+              name={persona?.name}
+              size="lg"
+              photo={persona?.avatarData}
+              className="training-ai__call-avatar"
+            />
+          </div>
+        )}
         <strong className="training-ai__call-persona-name">{persona?.name || 'Persona'}</strong>
         <span className="training-ai__call-persona-role">
           {persona?.role}

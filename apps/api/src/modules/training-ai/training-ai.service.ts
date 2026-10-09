@@ -599,23 +599,78 @@ async function assertGroupMinuteQuota(customerId: string, userId: string) {
   )
 }
 
+/** Calendar days (YYYY-MM-DD) ending today in `timeZone`, oldest first. */
+function calendarDays(count: number, timeZone: string, now = new Date()) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  const [year, month, day] = today.split('-').map(Number)
+  const keys: string[] = []
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    keys.push(new Date(Date.UTC(year, month - 1, day - offset)).toISOString().slice(0, 10))
+  }
+  return keys
+}
+
+const ENGAGEMENT_WEEK = 7
+const ENGAGEMENT_MONTH = 30
+
 export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboardQuery>) {
   const customerId = customerOf(actor)
-  const since = new Date(Date.now() - query.days * 24 * 60 * 60 * 1000)
-  const rows = await listAnalyticsRows(customerId, since, {
+  const timeZone = query.tz || config.PABX_TIMEZONE
+  const days = calendarDays(query.days, timeZone)
+  const firstDay = days[0]
+  const dayOf = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+  const dayKey = (iso: string) => dayOf.format(new Date(iso))
+
+  // Rolling WAU/MAU on the first day of the period look back up to 30 days before it.
+  const since = new Date(Date.now() - (query.days + ENGAGEMENT_MONTH + 1) * 24 * 60 * 60 * 1000)
+  const allRows = await listAnalyticsRows(customerId, since, {
     userId: actor.isManager ? query.userId ?? null : actor.userId,
     groupId: actor.isManager ? query.groupId ?? null : null,
     personaId: query.personaId ?? null,
   })
-  const dayKey = (iso: string) => iso.slice(0, 10)
-  const distinct = (list: typeof rows) => new Set(list.map((row) => row.userId)).size
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const dayAgo = Date.now() - 24 * 60 * 60 * 1000
-  const mau = distinct(rows)
-  const wau = distinct(rows.filter((row) => new Date(row.completedAt).getTime() >= weekAgo))
-  const dau = distinct(rows.filter((row) => new Date(row.completedAt).getTime() >= dayAgo))
+  const keyed = allRows.map((row) => ({ ...row, day: dayKey(row.completedAt) }))
+  const rows = keyed.filter((row) => row.day >= firstDay)
+
   const ratio = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 1000) / 10)
   const minutes = Math.round(rows.reduce((sum, row) => sum + row.durationMs, 0) / 60000)
+
+  const usersByDay = new Map<string, Set<string>>()
+  for (const row of keyed) {
+    const set = usersByDay.get(row.day) ?? new Set<string>()
+    set.add(row.userId)
+    usersByDay.set(row.day, set)
+  }
+  const activeUsers = (endDay: string, windowDays: number) => {
+    const [y, m, d] = endDay.split('-').map(Number)
+    const users = new Set<string>()
+    for (let back = 0; back < windowDays; back += 1) {
+      const key = new Date(Date.UTC(y, m - 1, d - back)).toISOString().slice(0, 10)
+      usersByDay.get(key)?.forEach((id) => users.add(id))
+    }
+    return users.size
+  }
+  const engagementSeries = days.map((date) => {
+    const dau = activeUsers(date, 1)
+    const wau = activeUsers(date, ENGAGEMENT_WEEK)
+    const mau = activeUsers(date, ENGAGEMENT_MONTH)
+    return {
+      date,
+      dau,
+      wau,
+      mau,
+      dauMau: ratio(dau, mau),
+      dauWau: ratio(dau, wau),
+      wauMau: ratio(wau, mau),
+      simulations: rows.filter((row) => row.day === date).length,
+    }
+  })
+  // Headline stickiness: the average daily ratio over the days that had any monthly activity.
+  const averageRatio = (key: 'dauMau' | 'dauWau' | 'wauMau', base: 'mau' | 'wau') => {
+    const counted = engagementSeries.filter((item) => item[base] > 0)
+    if (!counted.length) return 0
+    return Math.round((counted.reduce((sum, item) => sum + item[key], 0) / counted.length) * 10) / 10
+  }
+  const lastDay = engagementSeries[engagementSeries.length - 1]
 
   const byUser = new Map<string, { userId: string; userName: string; scores: number[]; durationMs: number; count: number }>()
   for (const row of rows) {
@@ -635,13 +690,14 @@ export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboar
     }))
     .sort((a, b) => b.averageScore - a.averageScore || b.simulations - a.simulations)
 
-  const byDay = new Map<string, { scores: number[]; minutes: number; talk: number[]; pace: number[]; monologue: number[]; fillers: number[] }>()
-  const byTemplate = new Map<string, number[]>()
+  type DayBucket = { scores: number[]; durationMs: number[]; talk: number[]; pace: number[]; monologue: number[]; fillers: number[] }
+  const emptyBucket = (): DayBucket => ({ scores: [], durationMs: [], talk: [], pace: [], monologue: [], fillers: [] })
+  const byDay = new Map<string, DayBucket>()
+  const byTemplate = new Map<string, { scores: number[]; byDay: Map<string, number[]> }>()
   for (const row of rows) {
-    const key = dayKey(row.completedAt)
-    const bucket = byDay.get(key) ?? { scores: [], minutes: 0, talk: [], pace: [], monologue: [], fillers: [] }
+    const bucket = byDay.get(row.day) ?? emptyBucket()
     bucket.scores.push(row.score)
-    bucket.minutes += row.durationMs / 60000
+    bucket.durationMs.push(row.durationMs)
     const communication = row.communication
     if (communication) {
       if (typeof communication.talkListenPct === 'number') bucket.talk.push(communication.talkListenPct)
@@ -649,56 +705,74 @@ export async function dashboardsFor(actor: Actor, query: z.infer<typeof dashboar
       if (typeof communication.longestMonologueSec === 'number') bucket.monologue.push(communication.longestMonologueSec)
       if (typeof communication.fillersPerMinute === 'number') bucket.fillers.push(communication.fillersPerMinute)
     }
-    byDay.set(key, bucket)
-    const scores = byTemplate.get(row.templateTitle) ?? []
-    scores.push(row.score)
-    byTemplate.set(row.templateTitle, scores)
+    byDay.set(row.day, bucket)
+    const template = byTemplate.get(row.templateTitle) ?? { scores: [], byDay: new Map<string, number[]>() }
+    template.scores.push(row.score)
+    template.byDay.set(row.day, [...(template.byDay.get(row.day) ?? []), row.score])
+    byTemplate.set(row.templateTitle, template)
   }
-  const avg = (values: number[]) => (values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0)
-  const series = [...byDay.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, bucket]) => ({
+  /** Average rounded to `digits`; `null` when the day had nothing to measure, so charts can leave a gap. */
+  const mean = (values: number[], digits = 0) => {
+    if (!values.length) return null
+    const factor = 10 ** digits
+    return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * factor) / factor
+  }
+  const series = days.map((date) => {
+    const bucket = byDay.get(date) ?? emptyBucket()
+    const totalMs = bucket.durationMs.reduce((sum, value) => sum + value, 0)
+    return {
       date,
-      averageScore: avg(bucket.scores),
-      minutes: Math.round(bucket.minutes),
-      talkListenPct: avg(bucket.talk),
-      wordsPerMinute: avg(bucket.pace),
-      longestMonologueSec: avg(bucket.monologue),
-      fillersPerMinute: bucket.fillers.length
-        ? Math.round((bucket.fillers.reduce((sum, value) => sum + value, 0) / bucket.fillers.length) * 10) / 10
-        : 0,
-    }))
+      simulations: bucket.scores.length,
+      averageScore: mean(bucket.scores),
+      minutes: Math.round((totalMs / 60000) * 10) / 10,
+      averageMinutes: bucket.durationMs.length ? Math.round((totalMs / bucket.durationMs.length / 60000) * 10) / 10 : null,
+      talkListenPct: mean(bucket.talk),
+      wordsPerMinute: mean(bucket.pace),
+      longestMonologueSec: mean(bucket.monologue),
+      fillersPerMinute: mean(bucket.fillers, 1),
+    }
+  })
+  const activeInPeriod = new Set(rows.map((row) => row.userId)).size
 
   return {
+    timeZone,
     consumption: {
       days: query.days,
       simulations: rows.length,
       minutes,
       averageMinutes: rows.length ? Math.round((minutes / rows.length) * 10) / 10 : 0,
-      activeUsers: mau,
+      activeUsers: activeInPeriod,
     },
     engagement: {
       days: query.days,
-      dau,
-      wau,
-      mau,
-      dauMau: ratio(dau, mau),
-      dauWau: ratio(dau, wau),
-      wauMau: ratio(wau, mau),
+      dau: lastDay?.dau ?? 0,
+      wau: lastDay?.wau ?? 0,
+      mau: lastDay?.mau ?? 0,
+      activeUsers: activeInPeriod,
+      dauMau: averageRatio('dauMau', 'mau'),
+      dauWau: averageRatio('dauWau', 'wau'),
+      wauMau: averageRatio('wauMau', 'mau'),
       simulations: rows.length,
       minutes,
-      series: series.map((item) => ({
-        date: item.date,
-        dauMau: ratio(dau, mau),
-        dauWau: ratio(dau, wau),
-        wauMau: ratio(wau, mau),
-        simulations: item.minutes,
-      })),
+      series: engagementSeries,
     },
     ranking,
     performance: {
-      series: series.map((item) => ({ date: item.date, averageScore: item.averageScore, minutes: item.minutes })),
-      templates: [...byTemplate.entries()].map(([title, scores]) => ({ title, averageScore: avg(scores), simulations: scores.length })),
+      series: series.map((item) => ({
+        date: item.date,
+        simulations: item.simulations,
+        averageScore: item.averageScore,
+        minutes: item.minutes,
+        averageMinutes: item.averageMinutes,
+      })),
+      templates: [...byTemplate.entries()]
+        .map(([title, template]) => ({
+          title,
+          averageScore: mean(template.scores) ?? 0,
+          simulations: template.scores.length,
+          series: days.map((date) => ({ date, averageScore: mean(template.byDay.get(date) ?? []) })),
+        }))
+        .sort((a, b) => b.simulations - a.simulations || a.title.localeCompare(b.title)),
     },
     communication: {
       series: series.map((item) => ({

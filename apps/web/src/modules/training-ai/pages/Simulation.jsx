@@ -72,6 +72,7 @@ export default function TrainingSimulationPage() {
     evaluation,
     aiReady,
     aiUnavailableReason,
+    aiStatus,
   } = useTrainingAi()
 
   const [draft, setDraft] = useState('')
@@ -88,14 +89,20 @@ export default function TrainingSimulationPage() {
   const [bootError, setBootError] = useState('')
   const [callStep, setCallStep] = useState('setup')
   const [preparing, setPreparing] = useState(false)
-  const [limitExceeded, setLimitExceeded] = useState(false)
+  const [limitExceeded, setLimitExceeded] = useState('')
+  const [micArmed, setMicArmed] = useState(false)
+  const [turnsLeft, setTurnsLeft] = useState(null)
   const lastSpokenMessageIdRef = useRef(null)
   const bootAttemptRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const startCancelledRef = useRef(false)
-  const micTest = useMicTest()
+  // Hands-free voice: while on, the microphone reopens each time the persona finishes speaking.
+  const autoListenRef = useRef(false)
+  const voiceCallEntry = Boolean(personaRouteId) && practiceMediaMode === 'voice' && phase === 'briefing'
+  const micTest = useMicTest({ enabled: voiceCallEntry })
   const handleCallStepChange = useCallback((next) => setCallStep(next), [])
+  const maxTurns = aiStatus?.maxTurns ?? null
 
   // Own the simulation boot here. Entry points only navigate to this route —
   // never bounce silently back to the catalog on a failed/racy start.
@@ -165,7 +172,7 @@ export default function TrainingSimulationPage() {
     bootAttemptRef.current = personaRouteId
     setCallStep('setup')
     setPreparing(false)
-    setLimitExceeded(false)
+    setLimitExceeded('')
     let cancelled = false
     ;(async () => {
       await ensurePersona(personaRouteId)
@@ -206,27 +213,49 @@ export default function TrainingSimulationPage() {
       .speak(selectedPersona, lastMessage.text || '')
       .catch(() => null)
       .finally(() => {
-        if (!cancelled) setSpeakingLocal(false)
+        if (cancelled) return
+        setSpeakingLocal(false)
+        if (autoListenRef.current && sttSupported) setListening(true)
       })
 
     return () => {
       cancelled = true
     }
-  }, [messages, phase, practiceMediaMode, selectedPersona])
+  }, [messages, phase, practiceMediaMode, selectedPersona, sttSupported])
 
   useEffect(() => {
     if (phase !== 'running') {
       setCaption('')
       setSpeakingLocal(false)
       setListening(false)
-      setShowTranscript(false)
+      setTurnsLeft(null)
       lastSpokenMessageIdRef.current = null
       getAvatarEngine().stopSession()
     }
+    if (phase === 'finished' || phase === 'idle') {
+      setShowTranscript(false)
+      autoListenRef.current = false
+      setMicArmed(false)
+    }
   }, [phase])
 
-  // Leaving the page must silence the persona.
-  useEffect(() => () => getAvatarEngine().stopSession(), [])
+  // Leaving the page must silence the persona and release the microphone.
+  useEffect(
+    () => () => {
+      getAvatarEngine().stopSession()
+      const recorder = recorderRef.current
+      recorderRef.current = null
+      if (recorder && recorder.state !== 'inactive') {
+        try {
+          recorder.stop()
+        } catch {
+          /* already stopped */
+        }
+      }
+      recorder?.stream?.getTracks().forEach((track) => track.stop())
+    },
+    [],
+  )
 
   useEffect(() => {
     draftRef.current = draft
@@ -278,17 +307,30 @@ export default function TrainingSimulationPage() {
   const persona = selectedPersona
   const linkedDefaultId = scenario?.personaId
 
+  function setVoiceListening(next) {
+    autoListenRef.current = next
+    setListening(next)
+  }
+
   async function handleSend(event) {
-    event.preventDefault()
-    if (isGeneratingReply || isJudging) return
+    event?.preventDefault()
+    if (isGeneratingReply || isJudging || !draft.trim()) return
     setBusyHint('')
     setListening(false)
     const result = await sendMessage(draft)
     if (result.ok) {
       setDraft('')
       setFinishHint('')
+      if (typeof result.turnsLeft === 'number') setTurnsLeft(result.turnsLeft)
     } else if (result.error) {
       setBusyHint(result.error) // the text stays in the box so nothing is lost
+    }
+  }
+
+  function handleComposerKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      handleSend()
     }
   }
 
@@ -336,13 +378,13 @@ export default function TrainingSimulationPage() {
   async function handleBegin() {
     if (startCancelledRef.current) return { ok: false, cancelled: true }
     setStartError('')
-    setLimitExceeded(false)
+    setLimitExceeded('')
     const result = await beginConversation()
     if (startCancelledRef.current) return { ok: false, cancelled: true }
     if (!result.ok) {
       if (result.code === 'GROUP_QUOTA_EXCEEDED') {
         setPreparing(false)
-        setLimitExceeded(true)
+        setLimitExceeded(result.error || 'Limite de minutos do grupo atingido.')
         return result
       }
       if (result.error) setStartError(result.error)
@@ -350,6 +392,7 @@ export default function TrainingSimulationPage() {
       return result
     }
     setPreparing(false)
+    if (micArmed) autoListenRef.current = true
     await startSessionRecorder()
     return result
   }
@@ -357,7 +400,7 @@ export default function TrainingSimulationPage() {
   async function handleStartCallSimulation() {
     startCancelledRef.current = false
     setStartError('')
-    setLimitExceeded(false)
+    setLimitExceeded('')
     setPreparing(true)
     micTest.cancelTest()
     // Brief connection beat so the "Preparando sua chamada" screen is visible.
@@ -383,8 +426,8 @@ export default function TrainingSimulationPage() {
           <h3>Não foi possível iniciar</h3>
           <p>{bootError}</p>
           <div className="imp-actions">
-            <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
-              Voltar ao catálogo
+            <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
+              Voltar às personas
             </Link>
           </div>
         </div>
@@ -404,8 +447,8 @@ export default function TrainingSimulationPage() {
           </p>
           {!scenario ? (
             <div className="imp-actions">
-              <Link to="/modules/training-ai" className="imp-btn imp-btn--primary">
-                Ir ao catálogo
+              <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
+                Ir às personas
               </Link>
             </div>
           ) : null}
@@ -431,13 +474,10 @@ export default function TrainingSimulationPage() {
         ? 'listening'
         : 'idle'
 
-  const voiceCallEntry =
-    Boolean(personaRouteId) && practiceMediaMode === 'voice' && phase === 'briefing'
-
   if (limitExceeded) {
     return (
       <TrainingPage className="training-ai__sim-page">
-        <LimitExceededModal open onHome={() => navigate('/modules/training-ai')} />
+        <LimitExceededModal open message={limitExceeded} onHome={() => navigate('/modules/training-ai/personas')} />
       </TrainingPage>
     )
   }
@@ -447,8 +487,10 @@ export default function TrainingSimulationPage() {
       <TrainingPage className="training-ai__sim-page">
         <PreparingCallOverlay
           personaName={persona?.name}
-          listening={listening}
-          onToggleMic={() => setListening((value) => !value)}
+          listening={micArmed}
+          chatOpen={showTranscript}
+          micSupported={sttSupported}
+          onToggleMic={() => setMicArmed((value) => !value)}
           onToggleChat={() => setShowTranscript((value) => !value)}
           onHangup={handleHangupPreparing}
         />
@@ -477,14 +519,12 @@ export default function TrainingSimulationPage() {
       <header className="training-ai__page-header">
         <div>
           <h2>Simulação IA</h2>
-          <p>
-            {scenario.title} · {scenario.funnelStage}
-          </p>
+          <p>{[scenario.title, scenario.funnelStage].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="training-ai__page-header-actions">
           <span className="imp-pill imp-pill--blue">{phaseLabel}</span>
-          <Link to="/modules/training-ai" className="imp-btn imp-btn--ghost">
-            ← Catálogo
+          <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--ghost">
+            ← Minhas Personas
           </Link>
         </div>
       </header>
@@ -598,7 +638,7 @@ export default function TrainingSimulationPage() {
                 <dt>Modo de mídia</dt>
                 <dd>
                   Escolha Texto ou Voz. Na voz, o agente fala as respostas e você pode ditar as suas;
-                  ao final o playbook gera o score na Central de Insights.
+                  ao final o template gera o score no Histórico.
                 </dd>
               </dl>
               <VoicePracticeChrome
@@ -632,11 +672,12 @@ export default function TrainingSimulationPage() {
                   callState={callState}
                   caption={caption}
                   listening={listening}
-                  onListeningChange={setListening}
+                  onListeningChange={setVoiceListening}
                   onFinish={handleFinish}
                   showTranscript={showTranscript}
                   onToggleTranscript={setShowTranscript}
                   sttSupported={sttSupported}
+                  audioOnly={location.state?.audioOnly === true}
                 />
               ) : (
                 <VoicePracticeChrome
@@ -686,6 +727,7 @@ export default function TrainingSimulationPage() {
                     rows={3}
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={handleComposerKeyDown}
                     disabled={isGeneratingReply || isJudging}
                     placeholder={
                       practiceMediaMode === 'voice'
@@ -715,6 +757,12 @@ export default function TrainingSimulationPage() {
                   <span className="training-ai__meta">
                     {userMessageCount} mensagem{userMessageCount === 1 ? '' : 'ens'} sua
                     {userMessageCount === 1 ? '' : 's'}
+                    {(() => {
+                      const left = turnsLeft ?? (maxTurns != null ? Math.max(0, maxTurns - userMessageCount) : null)
+                      if (left == null) return null
+                      if (left === 0) return ' · limite atingido, encerre para ver a avaliação'
+                      return ` · ${left} restante${left === 1 ? '' : 's'}`
+                    })()}
                   </span>
                 </div>
                 {finishHint ? <p className="training-ai__composer-hint">{finishHint}</p> : null}

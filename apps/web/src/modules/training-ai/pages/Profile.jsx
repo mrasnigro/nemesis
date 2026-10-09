@@ -5,7 +5,7 @@ import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 
 export default function TrainingProfilePage() {
   const { user } = useAuth()
-  const { canManage, canSimulate } = useTrainingAi()
+  const { canManage, canSimulate, metrics } = useTrainingAi()
   const roleLabel = user?.profile === 'customer_admin' ? 'Administrador do Sistema' : 'Usuário Comum'
 
   return (
@@ -29,7 +29,6 @@ export default function TrainingProfilePage() {
             <span className="training-ai__user-avatar training-ai__user-avatar--lg">
               {(user?.name || '?').slice(0, 1)}
             </span>
-            <span className="training-ai__avatar-camera" title="Foto de perfil">📷</span>
           </div>
           <div>
             <h3>{user?.name || '—'}</h3>
@@ -37,10 +36,25 @@ export default function TrainingProfilePage() {
             <span className="imp-pill imp-pill--amber">{roleLabel}</span>
           </div>
         </div>
-        <p className="training-ai__meta training-ai__meta--center">
-          Clique no ícone de câmera para alterar sua foto de perfil
-          {canManage ? ' · Use Administração → Usuários para gerenciar a equipe.' : ''}
-        </p>
+        <div className="training-ai__user-meta-row">
+          <div>
+            <span className="training-ai__tile-label">Usuário</span>
+            <strong>{user?.username || '—'}</strong>
+          </div>
+          <div>
+            <span className="training-ai__tile-label">Simulações concluídas</span>
+            <strong>{metrics?.completed ?? 0}</strong>
+          </div>
+          <div>
+            <span className="training-ai__tile-label">Score médio</span>
+            <strong>{metrics?.avgScore || '—'}</strong>
+          </div>
+        </div>
+        {canManage ? (
+          <p className="training-ai__meta training-ai__meta--center">
+            Use Administração → Usuários para gerenciar a equipe.
+          </p>
+        ) : null}
       </div>
 
       {canManage ? (

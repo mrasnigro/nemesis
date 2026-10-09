@@ -6,6 +6,7 @@
 
 import { assertAvatarProvider } from './provider.js'
 import { estimateSpeechDurationMs } from './mockAvatarProvider.js'
+import { getVoiceOption } from '../../utils/voiceSession.js'
 
 export function isBrowserSpeechSupported(scope = globalThis) {
   return Boolean(scope?.speechSynthesis && scope?.SpeechSynthesisUtterance)
@@ -23,10 +24,20 @@ const NAMED_GENDER = {
 }
 
 function genderOf(voiceRef) {
+  const option = getVoiceOption(voiceRef)
+  if (option?.gender === 'f' || option?.gender === 'm') return option.gender
   const named = NAMED_GENDER[String(voiceRef || '')]
   if (named) return named
   const match = /_(f|m)$/.exec(String(voiceRef || ''))
   return match ? match[1] : null
+}
+
+function voiceIndex(voiceRef, size) {
+  if (!size) return 0
+  let hash = 0
+  const key = String(voiceRef || '')
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) | 0
+  return Math.abs(hash) % size
 }
 
 const FEMALE_HINTS = /(female|feminina|femme|maria|luciana|francisca|vit[oó]ria|google português)/i
@@ -47,10 +58,83 @@ export function pickVoice(voices, language = 'pt-BR', voiceRef = '') {
   const gender = genderOf(voiceRef)
   if (gender) {
     const hint = gender === 'f' ? FEMALE_HINTS : MALE_HINTS
-    const match = candidates.find((voice) => hint.test(voice.name))
-    if (match) return match
+    const gendered = candidates.filter((voice) => hint.test(voice.name))
+    if (gendered.length) return gendered[voiceIndex(voiceRef, gendered.length)]
   }
   return candidates.find((voice) => voice.default) || candidates[0]
+}
+
+function applyTuning(utterance, voiceRef) {
+  const option = getVoiceOption(voiceRef)
+  utterance.pitch = option?.pitch ?? 1
+  utterance.rate = option?.rate ?? 1
+  utterance.volume = 1
+}
+
+/** Chrome drops an utterance spoken in the same turn as cancel(). */
+function speakAfterCancel(synth, utterance) {
+  synth.resume?.()
+  synth.cancel()
+  window.setTimeout(() => {
+    synth.resume?.()
+    synth.speak(utterance)
+  }, 40)
+}
+
+let retainedUtterance = null
+
+export function loadSynthVoices(synth = globalThis.speechSynthesis) {
+  if (!synth?.getVoices) return Promise.resolve([])
+  const ready = synth.getVoices()
+  if (ready.length) return Promise.resolve(ready)
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      synth.removeEventListener?.('voiceschanged', finish)
+      resolve(synth.getVoices?.() || [])
+    }
+    synth.addEventListener?.('voiceschanged', finish)
+    window.setTimeout(finish, 500)
+  })
+}
+
+export function stopVoiceSample(synth = globalThis.speechSynthesis) {
+  retainedUtterance = null
+  synth?.cancel?.()
+}
+
+/**
+ * Play a short sample of the selected persona voice.
+ * Pitch and rate differ even when the OS only has one voice for that language.
+ */
+export function speakVoiceSample({ voiceRef, text, onEnd, onError } = {}) {
+  const synth = globalThis.speechSynthesis
+  const Utterance = globalThis.SpeechSynthesisUtterance
+  if (!synth || !Utterance) {
+    onError?.()
+    return
+  }
+  const option = getVoiceOption(voiceRef)
+  const lang = option?.lang || 'pt-BR'
+  loadSynthVoices(synth).then((voices) => {
+    const utterance = new Utterance(String(text || ''))
+    utterance.lang = lang
+    const voice = pickVoice(voices, lang, voiceRef)
+    if (voice) utterance.voice = voice
+    applyTuning(utterance, voiceRef)
+    utterance.onend = () => {
+      retainedUtterance = null
+      onEnd?.()
+    }
+    utterance.onerror = () => {
+      retainedUtterance = null
+      onError?.()
+    }
+    retainedUtterance = utterance
+    speakAfterCancel(synth, utterance)
+  })
 }
 
 let sessionCounter = 0
@@ -83,10 +167,10 @@ export function createBrowserAvatarProvider(options = {}) {
         }
 
         const utterance = new Utterance(spoken)
-        utterance.lang = persona?.language || 'pt-BR'
+        utterance.lang = persona?.language || getVoiceOption(persona?.voiceRef)?.lang || 'pt-BR'
         const voice = pickVoice(synth.getVoices?.() || [], utterance.lang, persona?.voiceRef)
         if (voice) utterance.voice = voice
-        utterance.rate = 1
+        applyTuning(utterance, persona?.voiceRef)
 
         let settled = false
         const finish = () => {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
+import Pager from '../components/Pager.jsx'
 import TrainingButton from '../components/TrainingButton.jsx'
 import OutlineIcon from '../components/OutlineIcon.jsx'
 import { flattenCriteria } from '../data/evaluationTemplates.js'
@@ -29,7 +30,7 @@ export default function TrainingTemplatesPage() {
       <header className="training-ai__page-header training-ai__templates-header">
         <div className="training-ai__page-title-row">
           <OutlineIcon name="clipboard" />
-          <h2>Playbooks de Score</h2>
+          <h2>Templates de Avaliação</h2>
         </div>
         <div className="training-ai__page-header-actions training-ai__templates-actions">
           <label className="training-ai__search training-ai__search--action training-ai__search--personas">
@@ -49,7 +50,7 @@ export default function TrainingTemplatesPage() {
           {canManage ? (
             <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
               <OutlineIcon name="plus" />
-              Criar Playbook
+              Criar Template
             </TrainingButton>
           ) : null}
         </div>
@@ -58,12 +59,12 @@ export default function TrainingTemplatesPage() {
       <div className="imp-panel training-ai__templates-stage">
         {pageRows.length === 0 ? (
           <div className="training-ai__empty">
-            <h3>Nenhum playbook</h3>
-            <p>Crie um playbook com etapas da timeline, perguntas sim/não e pesos que somem 100.</p>
+            <h3>Nenhum template</h3>
+            <p>Crie um template com seções, critérios sim/não e pesos que somem 100.</p>
             {canManage ? (
               <TrainingButton to="/modules/training-ai/templates/novo" variant="primary">
                 <OutlineIcon name="plus" />
-                Criar Playbook
+                Criar Template
               </TrainingButton>
             ) : null}
           </div>
@@ -106,7 +107,7 @@ export default function TrainingTemplatesPage() {
                     </header>
                     <div className="training-ai__template-stats">
                       <div>
-                        <span className="training-ai__tile-label">Etapas</span>
+                        <span className="training-ai__tile-label">Seções</span>
                         <strong>{String(template.sections?.length || 0).padStart(2, '0')}</strong>
                       </div>
                       <div>
@@ -122,13 +123,7 @@ export default function TrainingTemplatesPage() {
                 )
               })}
             </div>
-            <div className="training-ai__pagination">
-              <button type="button" disabled={currentPage <= 1} onClick={() => setPage(1)} aria-label="Primeira página">«</button>
-              <button type="button" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label="Anterior">‹</button>
-              <span className="training-ai__page-num">{currentPage}</span>
-              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label="Próxima">›</button>
-              <button type="button" disabled={currentPage >= totalPages} onClick={() => setPage(totalPages)} aria-label="Última página">»</button>
-            </div>
+            <Pager page={currentPage} pageCount={totalPages} onPage={setPage} label="Paginação de templates" />
           </>
         )}
       </div>

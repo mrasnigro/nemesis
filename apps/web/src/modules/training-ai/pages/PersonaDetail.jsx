@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import TrainingPage from '../components/TrainingPage.jsx'
 import AgentAvatar from '../components/AgentAvatar.jsx'
@@ -6,6 +7,12 @@ import { DIFFICULTY_LABELS } from '../data/catalogs.js'
 import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { derivePersonaTraits, personaStatus } from '../utils/agentDisplay.js'
+
+const INTERACTION_MODE_LABELS = {
+  voice: 'Voz',
+  text: 'Texto',
+  both: 'Voz e texto',
+}
 
 export default function TrainingPersonaDetailPage() {
   const { personaId } = useParams()
@@ -17,20 +24,34 @@ export default function TrainingPersonaDetailPage() {
     canManage,
     canSimulate,
     deletePersona,
+    ensurePersona,
   } = useTrainingAi()
 
   const persona = getPersona(personaId)
+  const [lookup, setLookup] = useState({ id: null, done: false })
   const linkedScenarios = getScenariosForPersona(personaId)
   const practiceScenarios =
     linkedScenarios.length > 0
       ? linkedScenarios
       : scenarios.filter((s) => (s.status || 'active') !== 'archived')
 
+  useEffect(() => {
+    if (persona || !personaId) return undefined
+    let cancelled = false
+    ensurePersona(personaId).finally(() => {
+      if (!cancelled) setLookup({ id: personaId, done: true })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ensurePersona, persona, personaId])
+
   if (!persona) {
+    const searching = !(lookup.id === personaId && lookup.done)
     return (
       <TrainingPage>
         <div className="training-ai__empty">
-          <h3>Agente não encontrado</h3>
+          <h3>{searching ? 'Carregando agente…' : 'Agente não encontrado'}</h3>
           <div className="imp-actions">
             <Link to="/modules/training-ai/personas" className="imp-btn imp-btn--primary">
               Voltar aos agentes
@@ -43,10 +64,17 @@ export default function TrainingPersonaDetailPage() {
 
   const status = personaStatus(persona)
   const traits = derivePersonaTraits(persona)
+  const canPractice = canSimulate && persona.status === 'active' && Boolean(persona.evaluationTemplateId)
 
   function handleStart(mediaMode) {
     navigate(`/modules/training-ai/simulacao/persona/${persona.id}`, {
       state: { mediaMode },
+    })
+  }
+
+  function handleStartScenario(scenarioId) {
+    navigate(`/modules/training-ai/simulacao/${scenarioId}`, {
+      state: { personaId: persona.id },
     })
   }
 
@@ -98,18 +126,21 @@ export default function TrainingPersonaDetailPage() {
               onDeleted={() => navigate('/modules/training-ai/personas')}
             />
           ) : null}
-          {canSimulate && persona.status === 'active' && persona.evaluationTemplateId && persona.interactionMode !== 'text' ? (
+          {canPractice && persona.interactionMode !== 'text' ? (
             <button type="button" className="imp-btn imp-btn--primary" onClick={() => handleStart('voice')}>
               Simulação por voz
             </button>
           ) : null}
-          {canSimulate && persona.status === 'active' && persona.evaluationTemplateId && persona.interactionMode !== 'voice' ? (
+          {canPractice && persona.interactionMode !== 'voice' ? (
             <button type="button" className="imp-btn imp-btn--ghost" onClick={() => handleStart('text')}>
               Simulação por texto
             </button>
           ) : null}
           {persona.status === 'active' && !persona.evaluationTemplateId ? (
             <p className="training-ai__meta">Escolha um template de avaliação nesta persona para iniciar a simulação.</p>
+          ) : null}
+          {persona.status !== 'active' ? (
+            <p className="training-ai__meta">Ative este agente para liberar simulações.</p>
           ) : null}
         </div>
       </header>
@@ -118,7 +149,7 @@ export default function TrainingPersonaDetailPage() {
         <div className="imp-panel__header">
           <div>
             <h2>DNA comportamental</h2>
-            <p>Perfil usado nas simulações (DOCX + vídeos)</p>
+            <p>Perfil que a IA interpreta durante as simulações.</p>
           </div>
         </div>
         <dl className="training-ai__persona-detail-grid">
@@ -147,7 +178,7 @@ export default function TrainingPersonaDetailPage() {
           </div>
           <div>
             <dt>Modo</dt>
-            <dd>{persona.interactionMode === 'text' ? 'Texto' : persona.interactionMode}</dd>
+            <dd>{INTERACTION_MODE_LABELS[persona.interactionMode] || 'Voz'}</dd>
           </div>
           <div className="training-ai__form-span-2">
             <dt>Comportamento</dt>
@@ -177,7 +208,7 @@ export default function TrainingPersonaDetailPage() {
             <dt>Objeções</dt>
             <dd>
               <ul className="training-ai__list training-ai__list--muted">
-                {persona.objections.map((item) => (
+                {(persona.objections || []).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
@@ -222,8 +253,8 @@ export default function TrainingPersonaDetailPage() {
               <button
                 type="button"
                 className="imp-btn imp-btn--primary"
-                disabled={!canSimulate}
-                onClick={() => handleStart(scenario.id)}
+                disabled={!canSimulate || persona.status !== 'active'}
+                onClick={() => handleStartScenario(scenario.id)}
               >
                 Treinar
               </button>

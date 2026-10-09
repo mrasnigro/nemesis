@@ -238,7 +238,7 @@ export default function TrainingTemplateFormPage() {
         <div className="training-ai__page-header-actions">
           <TrainingButton type="button" variant="primary" onClick={requestLeave}>
             <OutlineIcon name="clipboard" />
-            Playbooks de Score
+            Templates de Avaliação
           </TrainingButton>
         </div>
       </header>
@@ -258,7 +258,7 @@ export default function TrainingTemplateFormPage() {
             <p>Defina o playbook que a IA usará como régua de score da simulação.</p>
           </div>
           <label className="imp-field">
-            <span>Nome do Playbook*</span>
+            <span>Nome do template*</span>
             <input
               value={form.title}
               onChange={(event) => patchRoot('title', event.target.value)}

@@ -18,28 +18,23 @@ export const NEGOTIATOR_TYPES = [
 export const SCENARIO_TYPES = [
   {
     id: 'cold_first',
-    label: 'Primeiro Contato Frio',
+    label: 'Prospecção ativa',
     description: 'O vendedor faz o primeiro contato sem aviso. O cliente não conhece a empresa e não esperava a abordagem.',
   },
   {
-    id: 'discovery',
-    label: 'Descoberta/Qualificação',
-    description: 'Reunião marcada para o vendedor entender a situação e qualificar quem decide do lado do cliente.',
-  },
-  {
     id: 'warm_first',
-    label: 'Primeiro Contato Morno',
+    label: 'Lead morno',
     description: 'O cliente já deu um sinal de interesse, como baixar um material ou chegar por indicação, e o vendedor faz o contato a partir disso.',
   },
   {
-    id: 'post_sale',
-    label: 'Pós-Venda',
-    description: 'Conversa recorrente com cliente da carteira. O vendedor ouve o momento, respeita o padrão de compra e só amplia se mostrar vantagem clara.',
+    id: 'inbound',
+    label: 'Inbound',
+    description: 'O cliente procurou a empresa por conta própria. O vendedor atende, entende o motivo e qualifica.',
   },
   {
-    id: 'inbound',
-    label: 'Contato Receptivo',
-    description: 'O cliente procurou a empresa por conta própria. O vendedor atende, entende o motivo e qualifica.',
+    id: 'discovery',
+    label: 'Diagnóstico',
+    description: 'Reunião marcada para o vendedor entender a situação e qualificar quem decide do lado do cliente.',
   },
   {
     id: 'presentation',
@@ -50,6 +45,11 @@ export const SCENARIO_TYPES = [
     id: 'negotiation',
     label: 'Negociação e fechamento',
     description: 'Proposta na mesa. O vendedor negocia condições, trata as objeções finais e busca o fechamento.',
+  },
+  {
+    id: 'post_sale',
+    label: 'Relacionamento',
+    description: 'Conversa recorrente com cliente da carteira. O vendedor ouve o momento, respeita o padrão de compra e só amplia se mostrar vantagem clara.',
   },
 ]
 
@@ -157,7 +157,7 @@ export function createEmptyPersonaDraft() {
     name: '',
     role: '',
     company: '',
-    industry: 'SaaS B2B',
+    industry: '',
     location: '',
     language: 'pt-BR',
     negotiatorType: 'Cliente Analítico',

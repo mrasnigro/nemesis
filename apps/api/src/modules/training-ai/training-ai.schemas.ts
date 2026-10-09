@@ -180,6 +180,19 @@ export const dashboardQuery = z.object({
   groupId: z.string().optional(),
   userId: z.string().optional(),
   personaId: z.string().optional(),
+  tz: z
+    .string()
+    .max(64)
+    .optional()
+    .refine((value) => {
+      if (!value) return true
+      try {
+        new Intl.DateTimeFormat('en-CA', { timeZone: value })
+        return true
+      } catch {
+        return false
+      }
+    }, 'Fuso horário inválido'),
 })
 
 export const settingsPatch = z
