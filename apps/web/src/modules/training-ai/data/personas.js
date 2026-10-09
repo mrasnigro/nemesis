@@ -18,23 +18,28 @@ export const NEGOTIATOR_TYPES = [
 export const SCENARIO_TYPES = [
   {
     id: 'cold_first',
-    label: 'Prospecção ativa',
+    label: 'Primeiro Contato Frio',
     description: 'O vendedor faz o primeiro contato sem aviso. O cliente não conhece a empresa e não esperava a abordagem.',
   },
   {
+    id: 'discovery',
+    label: 'Descoberta/Qualificação',
+    description: 'Reunião marcada para o vendedor entender a situação e qualificar quem decide do lado do cliente.',
+  },
+  {
     id: 'warm_first',
-    label: 'Lead morno',
+    label: 'Primeiro Contato Morno',
     description: 'O cliente já deu um sinal de interesse, como baixar um material ou chegar por indicação, e o vendedor faz o contato a partir disso.',
   },
   {
-    id: 'inbound',
-    label: 'Inbound',
-    description: 'O cliente procurou a empresa por conta própria. O vendedor atende, entende o motivo e qualifica.',
+    id: 'post_sale',
+    label: 'Pós-Venda',
+    description: 'Conversa recorrente com cliente da carteira. O vendedor ouve o momento, respeita o padrão de compra e só amplia se mostrar vantagem clara.',
   },
   {
-    id: 'discovery',
-    label: 'Diagnóstico',
-    description: 'Reunião marcada para o vendedor entender a situação e dar a quem decide do lado do cliente.',
+    id: 'inbound',
+    label: 'Contato Receptivo',
+    description: 'O cliente procurou a empresa por conta própria. O vendedor atende, entende o motivo e qualifica.',
   },
   {
     id: 'presentation',
@@ -45,11 +50,6 @@ export const SCENARIO_TYPES = [
     id: 'negotiation',
     label: 'Negociação e fechamento',
     description: 'Proposta na mesa. O vendedor negocia condições, trata as objeções finais e busca o fechamento.',
-  },
-  {
-    id: 'post_sale',
-    label: 'Relacionamento',
-    description: 'Conversa recorrente com cliente da carteira. O vendedor ouve o momento, respeita o padrão de compra e só amplia se mostrar vantagem clara sobre o que o cliente já tem.',
   },
 ]
 
@@ -102,9 +102,15 @@ export function scenarioTypeLabel(id) {
 }
 
 export const VISIBILITY_OPTIONS = [
-  { id: 'individual', label: 'Individual' },
-  { id: 'company', label: 'Empresa' },
-  { id: 'group', label: 'Grupo' },
+  { id: 'individual', label: 'Individual', description: 'Disponível apenas para você' },
+  { id: 'group', label: 'Grupo', description: 'Disponível para os membros do grupo selecionado' },
+  { id: 'company', label: 'Empresa', description: 'Disponível para todos os usuários da sua empresa' },
+]
+
+export const INTERACTION_MODE_OPTIONS = [
+  { id: 'voice', label: 'Por voz', description: 'Conversa por voz com a persona.', icon: 'phone' },
+  { id: 'text', label: 'Por texto', description: 'Conversa por texto com a persona.', icon: 'chat' },
+  { id: 'both', label: 'Ambos', description: 'A persona aceita texto e voz.', icon: 'sliders' },
 ]
 
 export const INDUSTRY_OPTIONS = [
@@ -171,14 +177,15 @@ export function createEmptyPersonaDraft() {
     trainingObjective: '',
     status: 'draft',
     traits: [],
-    interactionMode: 'text',
+    interactionMode: 'voice',
     voiceRef: 'borges',
     scenarioContext: '',
     scenarioType: 'cold_first',
     evaluationTemplateId: '',
     sellerInstructions: '',
-    visibility: 'company',
+    visibility: 'individual',
     groupId: '',
+    tags: [],
     tagsText: '',
     companyFacts: [],
     avatarData: '',
@@ -190,6 +197,9 @@ export function normalizePersonaInput(input = {}) {
   const priorities = splitList(input, 'priorities', 'prioritiesText')
   const personalDetails = splitList(input, 'personalDetails', 'personalDetailsText')
   const beliefs = splitList(input, 'beliefs', 'beliefsText')
+  let companyFacts = splitList(input, 'companyFacts', 'companyFactsText')
+  const companyInfo = String(input.companyInfo || '').trim()
+  if (!companyFacts.length && companyInfo) companyFacts = [companyInfo]
 
   const traits =
     input.traitsText != null
@@ -204,9 +214,26 @@ export function normalizePersonaInput(input = {}) {
 
   const name = String(input.name || '').trim()
   const role = String(input.role || '').trim()
-  const industry = String(input.industry || '').trim()
-  const behavior = String(input.behavior || '').trim()
-  const trainingObjective = String(input.trainingObjective || '').trim()
+  const salesModel = input.salesModel === 'b2c' ? 'b2c' : 'b2b'
+  const industry =
+    String(input.industry || '').trim() || (salesModel === 'b2c' ? 'Consumidor' : '')
+  const negotiatorType = String(input.negotiatorType || 'Cliente Analítico').trim()
+  const sellerInstructions = String(input.sellerInstructions || '').trim()
+  const scenarioType = SCENARIO_TYPES.some((item) => item.id === input.scenarioType)
+    ? input.scenarioType
+    : 'cold_first'
+  const behavior =
+    String(input.behavior || '').trim() ||
+    [
+      `Persona do tipo ${negotiatorType}.`,
+      objections.length ? `Objeções típicas: ${objections.slice(0, 3).join('; ')}.` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  const trainingObjective =
+    String(input.trainingObjective || '').trim() ||
+    sellerInstructions ||
+    `Treinar abordagem no cenário ${scenarioTypeLabel(scenarioType)}.`
   const difficulty = PERSONA_DIFFICULTIES.includes(input.difficulty)
     ? input.difficulty
     : 'beginner'
@@ -214,10 +241,12 @@ export function normalizePersonaInput(input = {}) {
   const errors = []
   if (!name) errors.push('Nome é obrigatório.')
   if (!role) errors.push('Cargo / papel é obrigatório.')
-  if (!industry) errors.push('Setor / indústria é obrigatório.')
-  if (!behavior) errors.push('Comportamento / DNA é obrigatório.')
-  if (!trainingObjective) errors.push('Objetivo de treinamento é obrigatório.')
+  if (salesModel === 'b2b' && !industry) errors.push('Setor da empresa é obrigatório.')
+  if (!String(input.location || '').trim()) errors.push('Localização é obrigatória.')
   if (!objections.length) errors.push('Informe ao menos uma objeção.')
+  if (!personalDetails.length) errors.push('Informe ao menos um detalhe pessoal.')
+  if (!priorities.length) errors.push('Informe ao menos uma prioridade.')
+  if (!beliefs.length) errors.push('Informe ao menos uma crença ou opinião.')
 
   const persona = {
     name,
@@ -226,7 +255,7 @@ export function normalizePersonaInput(input = {}) {
     industry,
     location: String(input.location || '').trim(),
     language: String(input.language || 'pt-BR').trim() || 'pt-BR',
-    negotiatorType: String(input.negotiatorType || 'Cliente Analítico').trim(),
+    negotiatorType,
     tone: String(input.tone || '').trim(),
     behavior,
     difficulty,
@@ -240,29 +269,35 @@ export function normalizePersonaInput(input = {}) {
     beliefs,
     problemAwareness: String(input.problemAwareness || '').trim(),
     solutionAwareness: String(input.solutionAwareness || '').trim(),
-    salesModel: input.salesModel === 'b2c' ? 'b2c' : 'b2b',
-    companyInfo: String(input.companyInfo || '').trim(),
+    salesModel,
+    companyInfo,
     trainingObjective,
     status: AGENT_STATUSES.includes(input.status) ? input.status : 'active',
     traits,
     interactionMode: ['text', 'voice', 'both'].includes(input.interactionMode)
       ? input.interactionMode
-      : 'text',
+      : 'voice',
     voiceRef: String(input.voiceRef || 'borges').trim() || 'borges',
     scenarioContext: String(input.scenarioContext || '').trim(),
-    scenarioType: SCENARIO_TYPES.some((item) => item.id === input.scenarioType) ? input.scenarioType : 'cold_first',
+    scenarioType,
     evaluationTemplateId: String(input.evaluationTemplateId || '').trim() || undefined,
-    sellerInstructions: String(input.sellerInstructions || '').trim(),
-    visibility: ['individual', 'company', 'group'].includes(input.visibility) ? input.visibility : 'company',
+    sellerInstructions,
+    visibility: ['individual', 'company', 'group'].includes(input.visibility) ? input.visibility : 'individual',
     groupId: String(input.groupId || '').trim() || undefined,
     tags: splitList(input, 'tags', 'tagsText'),
-    companyFacts: splitList(input, 'companyFacts', 'companyFactsText'),
+    companyFacts,
     avatarData: String(input.avatarData || '').trim() || undefined,
   }
 
   if (persona.visibility === 'group' && !persona.groupId) errors.push('Escolha o grupo desta persona.')
   if (!persona.sellerInstructions) errors.push('Informe as instruções ao vendedor.')
   if (!persona.evaluationTemplateId) errors.push('Escolha o template de avaliação.')
+  if (salesModel === 'b2b' && !String(input.company || '').trim()) {
+    errors.push('Nome da empresa é obrigatório.')
+  }
+  if (salesModel === 'b2b' && !persona.companyFacts.length) {
+    errors.push('Informe ao menos uma informação da empresa.')
+  }
 
   return { ok: errors.length === 0, errors, persona }
 }

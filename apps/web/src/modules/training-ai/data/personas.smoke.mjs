@@ -9,13 +9,20 @@ import { scenariosForPersona } from './scenarios.js'
 const draft = normalizePersonaInput({
   name: 'Teste',
   role: 'CEO',
+  company: 'Acme',
   industry: 'Tecnologia',
+  location: 'São Paulo, SP',
   behavior: 'Direto',
   difficulty: 'advanced',
   trainingObjective: 'Praticar discovery',
   sellerInstructions: 'Você está ligando para um lead.',
   evaluationTemplateId: 'tpl_1',
   objectionsText: 'Sem tempo\nJá tenho fornecedor',
+  personalDetailsText: 'Agenda apertada',
+  prioritiesText: 'Reduzir custo',
+  beliefsText: 'Prefere prova no segmento',
+  companyFactsText: 'Responde ao board',
+  salesModel: 'b2b',
 })
 assert.equal(draft.ok, true)
 assert.equal(draft.persona.objections.length, 2)
