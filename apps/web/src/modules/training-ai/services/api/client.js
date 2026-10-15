@@ -4,6 +4,7 @@ import {
   platformListAll,
   platformRequest,
 } from '../../../../core/api/platformClient.js'
+import { readNdjson } from './ndjson.js'
 
 const BASE = '/api/modules/training-ai'
 
@@ -109,13 +110,47 @@ export const trainingApi = {
     })
     return response.blob()
   },
+  /**
+   * One spoken turn, streamed: `onEvent` gets `{type:'sentence', index, text, audio}` (audio is base64 MP3 or null)
+   * while the persona's reply is written, and the stored turn is returned at the end.
+   * Aborting through `signal` rejects with an AbortError; the API keeps what was written so far.
+   */
+  streamVoiceTurn: async (id, { text, gender = 'f', offsetMs }, { onEvent, signal } = {}) => {
+    const response = await voiceFetch(`${BASE}/sessions/${id}/voice-turn`, {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, gender, ...(offsetMs == null ? {} : { offsetMs }) }),
+      signal,
+    })
+    let done = null
+    await readNdjson(response, (event) => {
+      if (event?.type === 'error') {
+        throw new PlatformApiError(event.message || 'Não foi possível gerar a resposta do agente.', {
+          status: 502,
+          code: event.code || 'VOICE_FAILED',
+        })
+      }
+      if (event?.type === 'done') done = event.data
+      else onEvent?.(event)
+    })
+    if (!done) {
+      throw new PlatformApiError('A resposta do agente foi interrompida.', { status: 502, code: 'STREAM_INTERRUPTED' })
+    }
+    return done
+  },
 }
 
-async function voiceFetch(path, { headers, body }) {
+async function voiceFetch(path, { headers, body, signal }) {
   let response
   try {
-    response = await fetch(`${PLATFORM_API_BASE}${path}`, { method: 'POST', credentials: 'include', headers, body })
-  } catch {
+    response = await fetch(`${PLATFORM_API_BASE}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body,
+      signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
     throw new PlatformApiError('Não foi possível conectar à API da plataforma.', { status: 0, code: 'NETWORK_ERROR' })
   }
   if (!response.ok) {

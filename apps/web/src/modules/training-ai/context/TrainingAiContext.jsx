@@ -450,6 +450,70 @@ export function TrainingAiProvider({ children }) {
     [phase, session],
   )
 
+  /**
+   * Voice turn, streamed: the persona's sentences reach `onSentence({ text, audio })` while the reply is still
+   * being written. `onTurn(aiMessage)` runs just before the transcript shows that message, so the caller can
+   * mark it as already spoken. Aborting through `signal` keeps what was said: the turn is shown with the
+   * sentences that arrived (the API stores the same partial reply).
+   */
+  const sendSpokenTurn = useCallback(
+    async (rawText, { gender = 'f', onSentence, onTurn, signal } = {}) => {
+      const text = String(rawText || '').trim()
+      if (phase !== 'running' || !session?.id || !text || busyRef.current) return { ok: false }
+      busyRef.current = true
+
+      const stamp = Date.now()
+      const pendingId = `pending_${stamp}`
+      setMessages((prev) => [
+        ...prev,
+        { id: pendingId, role: 'user', speaker: 'Você', text, timestamp: new Date().toISOString() },
+      ])
+      setIsGeneratingReply(true)
+      const heard = []
+      try {
+        const offsetMs = session.startedAt ? Math.max(0, stamp - session.startedAt) : undefined
+        const turn = await trainingApi.streamVoiceTurn(
+          session.id,
+          { text, gender, offsetMs },
+          {
+            signal,
+            onEvent: (event) => {
+              if (event.type !== 'sentence') return
+              heard.push(event.text)
+              onSentence?.({ text: event.text, audio: event.audio })
+            },
+          },
+        )
+        onTurn?.(turn.aiMessage)
+        setMessages((prev) => [...prev.filter((item) => item.id !== pendingId), turn.userMessage, turn.aiMessage])
+        return { ok: true, turnsLeft: turn.turnsLeft }
+      } catch (error) {
+        if (error?.name === 'AbortError' && heard.length) {
+          const aiMessage = {
+            id: `partial_${stamp}`,
+            role: 'ai',
+            speaker: selectedPersona?.name || 'Persona',
+            text: heard.join(' '),
+            timestamp: new Date().toISOString(),
+          }
+          onTurn?.(aiMessage)
+          setMessages((prev) => [
+            ...prev.map((item) => (item.id === pendingId ? { ...item, id: `sent_${stamp}` } : item)),
+            aiMessage,
+          ])
+          return { ok: true, interrupted: true }
+        }
+        setMessages((prev) => prev.filter((item) => item.id !== pendingId))
+        if (error?.name === 'AbortError') return { ok: false }
+        return failure(error, 'Não foi possível gerar a resposta do agente.')
+      } finally {
+        busyRef.current = false
+        setIsGeneratingReply(false)
+      }
+    },
+    [phase, session, selectedPersona],
+  )
+
   const finishSession = useCallback(async (audioBlob) => {
     if (phase !== 'running' || !session?.id || busyRef.current) return { ok: false }
     if (!messages.some((item) => item.role === 'user')) {
@@ -566,6 +630,7 @@ export function TrainingAiProvider({ children }) {
     setPracticeMediaMode,
     practiceMediaMode: session?.mediaMode === 'voice' ? 'voice' : 'text',
     sendMessage,
+    sendSpokenTurn,
     finishSession,
     loadReport,
     resetSimulation,

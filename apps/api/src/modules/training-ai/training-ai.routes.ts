@@ -36,6 +36,7 @@ import {
   startSessionController,
   statusController,
   transcribeSessionController,
+  voiceTurnController,
   updateGroupController,
   updatePersonaController,
   updateScenarioController,
@@ -109,3 +110,5 @@ trainingAiRouter.post(
   asyncHandler(transcribeSessionController),
 )
 trainingAiRouter.post('/sessions/:sessionId/speak', asyncHandler(speakSessionController))
+// Streamed: the persona's reply is spoken sentence by sentence while the model is still writing it.
+trainingAiRouter.post('/sessions/:sessionId/voice-turn', asyncHandler(voiceTurnController))

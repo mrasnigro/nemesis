@@ -20,6 +20,11 @@ const DEFAULTS = {
   minThreshold: 0.02,
   /** A voice has to be this many times louder than the room noise. */
   noiseRatio: 3,
+  /** While the persona talks (barge-in): louder, longer, and a fresher recording. */
+  bargeBoost: 2.5,
+  bargeMinThreshold: 0.06,
+  bargeMinSpeechMs: 450,
+  bargeResetMs: 1200,
 }
 
 export function isServerCaptureSupported(scope = globalThis) {
@@ -48,7 +53,7 @@ export function micErrorMessage(error) {
 
 /**
  * @param {{ deviceId?: string } & Partial<typeof DEFAULTS>} [options]
- * @returns {Promise<{ listen: (handlers: { onSegment: (blob: Blob) => void, onSpeechStart?: () => void, onLevel?: (level: number) => void }) => () => void, close: () => void }>}
+ * @returns {Promise<{ listen: (handlers: { onSegment: (blob: Blob) => void, onSpeechStart?: () => void, onLevel?: (level: number) => void, bargeGate?: () => boolean }) => () => void, close: () => void }>}
  */
 export async function openVadMic({ deviceId, ...tuning } = {}) {
   const settings = { ...DEFAULTS, ...tuning }
@@ -76,7 +81,11 @@ export async function openVadMic({ deviceId, ...tuning } = {}) {
     return Math.sqrt(sum / samples.length)
   }
 
-  function listen({ onSegment, onSpeechStart, onLevel } = {}) {
+  /**
+   * `bargeGate()` is asked on every tick. It returns true while the persona is talking: the voice then has to be
+   * clearly louder and last longer, so the persona's own sound leaking into the mic is not taken for an interruption.
+   */
+  function listen({ onSegment, onSpeechStart, onLevel, bargeGate } = {}) {
     let recorder = null
     let chunks = []
     let windowStart = 0
@@ -136,15 +145,19 @@ export async function openVadMic({ deviceId, ...tuning } = {}) {
       const elapsed = now - lastTick
       lastTick = now
       const current = level()
-      const threshold = Math.max(settings.minThreshold, noiseFloor * settings.noiseRatio)
+      const guarded = Boolean(bargeGate?.())
+      const base = Math.max(settings.minThreshold, noiseFloor * settings.noiseRatio)
+      const threshold = guarded ? Math.max(settings.bargeMinThreshold, base * settings.bargeBoost) : base
+      const minSpeechMs = guarded ? settings.bargeMinSpeechMs : settings.minSpeechMs
       const voiced = current > threshold
-      if (!voiced) noiseFloor = noiseFloor * 0.9 + current * 0.1
+      // The persona's own sound is not room noise: it must not raise the floor for the trainee's next turn.
+      if (!voiced && !guarded) noiseFloor = noiseFloor * 0.9 + current * 0.1
       onLevel?.(current)
 
       if (voiced) {
         speechMs += elapsed
         lastVoiceAt = now
-        if (!speaking && speechMs >= settings.minSpeechMs) {
+        if (!speaking && speechMs >= minSpeechMs) {
           speaking = true
           segmentStart = now
           onSpeechStart?.()
@@ -155,7 +168,9 @@ export async function openVadMic({ deviceId, ...tuning } = {}) {
         if (!speaking && speechMs > 0 && quiet >= settings.silenceMs) speechMs = 0
       }
       if (speaking && now - segmentStart >= settings.maxSegmentMs) return finish()
-      if (!speaking && speechMs === 0 && now - windowStart >= settings.idleResetMs) {
+      // While the persona talks the recording restarts quickly, so an interruption does not carry her voice.
+      const resetAfter = guarded ? settings.bargeResetMs : settings.idleResetMs
+      if (!speaking && speechMs === 0 && now - windowStart >= resetAfter) {
         discardRecorder()
         startRecorder()
       }

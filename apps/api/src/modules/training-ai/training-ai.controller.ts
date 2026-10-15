@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express'
+import { AppError } from '../../core/errors.js'
 import { pageMeta } from '../../core/list.js'
 import {
   createPersonaFor,
@@ -34,6 +35,7 @@ import {
   speakSessionFor,
   startSessionFor,
   statusFor,
+  streamSpokenTurnFor,
   transcribeSessionAudioFor,
   updateGroupFor,
   updatePersonaFor,
@@ -56,6 +58,7 @@ import {
   speakWrite,
   templateListQuery,
   templateWrite,
+  voiceTurnWrite,
 } from './training-ai.schemas.js'
 
 function actor(req: Request): Actor {
@@ -186,6 +189,51 @@ export async function transcribeSessionController(req: Request, res: Response) {
   const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)
   const contentType = String(req.headers['content-type'] || 'audio/webm')
   res.json({ data: await transcribeSessionAudioFor(actor(req), req.params.sessionId, audio, contentType) })
+}
+
+/**
+ * One spoken turn as newline-delimited JSON: `sentence` events (text + MP3) while the reply is written, then `done`
+ * with the stored messages. A failure before the first event is a normal JSON error; after it, an `error` event.
+ */
+export async function voiceTurnController(req: Request, res: Response) {
+  const body = voiceTurnWrite.parse(req.body)
+  const controller = new AbortController()
+  res.on('close', () => {
+    if (!res.writableFinished) controller.abort()
+  })
+
+  let started = false
+  const write = (event: object) => {
+    if (!started) {
+      started = true
+      res.status(200)
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+      res.setHeader('Cache-Control', 'no-store')
+      res.setHeader('X-Accel-Buffering', 'no') // nginx must not hold the stream back
+      res.flushHeaders()
+    }
+    res.write(`${JSON.stringify(event)}\n`)
+  }
+
+  try {
+    await streamSpokenTurnFor(
+      actor(req),
+      req.params.sessionId,
+      { text: body.text, gender: body.gender, offsetMs: body.offsetMs, durationMs: body.durationMs },
+      write,
+      controller.signal,
+    )
+    res.end()
+  } catch (error) {
+    if (!started) throw error
+    const known = error instanceof AppError
+    write({
+      type: 'error',
+      code: known ? error.code : 'INTERNAL_ERROR',
+      message: known ? error.message : 'Erro inesperado ao gerar a resposta.',
+    })
+    res.end()
+  }
 }
 
 export async function speakSessionController(req: Request, res: Response) {

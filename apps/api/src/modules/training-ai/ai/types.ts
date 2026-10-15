@@ -26,6 +26,8 @@ export interface AiProvider {
   readonly label: string
   /** The persona's next line. */
   reply(request: ReplyRequest): Promise<{ text: string }>
+  /** The same line as it is written, in pieces. Providers without streaming leave this out. Stops quietly on `signal`. */
+  replyStream?(request: ReplyRequest, signal?: AbortSignal): AsyncGenerator<string, void, void>
   /** One verdict per playbook criterion, based only on what the trainee said. */
   judge(request: JudgeRequest): Promise<Judgment>
 }

@@ -21,6 +21,20 @@ const completionSchema = z.object({
   choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1),
 })
 
+const streamChunkSchema = z.object({
+  choices: z.array(z.object({ delta: z.object({ content: z.string().nullish() }).optional() })).default([]),
+})
+
+/** The text piece of one `data:` row of a streamed completion; empty for role-only or finish rows. */
+export function parseStreamDelta(data: string): string {
+  try {
+    const parsed = streamChunkSchema.safeParse(JSON.parse(data))
+    return parsed.success ? (parsed.data.choices[0]?.delta?.content ?? '') : ''
+  } catch {
+    return ''
+  }
+}
+
 const judgeSchema = z.object({
   criteria: z.array(
     z.object({
@@ -158,6 +172,84 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
         max_tokens: REPLY_MAX_TOKENS,
       })
       return { text }
+    },
+
+    /** Chat completion with `stream: true`: yields each piece of the reply as the model writes it. */
+    async *replyStream(request: ReplyRequest, signal?: AbortSignal) {
+      const history = request.history.slice(-HISTORY_LIMIT).map((message) => ({
+        role: message.role === 'user' ? 'user' : 'assistant',
+        content: message.text,
+      }))
+      const controller = new AbortController()
+      let timedOut = false
+      const timer = setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, options.timeoutMs)
+      const onAbort = () => controller.abort()
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) controller.abort()
+
+      try {
+        const response = await doFetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${options.apiKey}` },
+          body: JSON.stringify({
+            model: options.model,
+            messages: [
+              { role: 'system', content: personaSystemPrompt(request.persona, request.scenario, request.mediaMode) },
+              ...history,
+            ],
+            temperature: 0.8,
+            max_tokens: REPLY_MAX_TOKENS,
+            stream: true,
+          }),
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          const detail = (await response.text().catch(() => '')).slice(0, 500)
+          log('error', 'training-ai provider rejected the streaming request', { status: response.status, detail })
+          throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA recusou a solicitação. Tente novamente.')
+        }
+        if (!response.body) {
+          // A gateway that cannot stream still answers: hand over the whole line at once.
+          const parsed = completionSchema.safeParse(await response.json().catch(() => null))
+          const content = parsed.success ? parsed.data.choices[0].message.content?.trim() : ''
+          if (content) yield content
+          return
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let pending = ''
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          pending += decoder.decode(value, { stream: true })
+          let newline = pending.indexOf('\n')
+          while (newline !== -1) {
+            const row = pending.slice(0, newline).trim()
+            pending = pending.slice(newline + 1)
+            newline = pending.indexOf('\n')
+            if (!row.startsWith('data:')) continue
+            const data = row.slice(5).trim()
+            if (data === '[DONE]') return
+            const delta = parseStreamDelta(data)
+            if (delta) yield delta
+          }
+        }
+      } catch (error) {
+        if (error instanceof AppError) throw error
+        if (error instanceof Error && error.name === 'AbortError') {
+          if (timedOut) throw new AppError(504, 'AI_PROVIDER_TIMEOUT', 'O provedor de IA demorou demais para responder.')
+          return // the caller went away
+        }
+        log('error', 'training-ai provider unreachable', { message: error instanceof Error ? error.message : String(error) })
+        throw new AppError(502, 'AI_PROVIDER_ERROR', 'Não foi possível falar com o provedor de IA.')
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
+      }
     },
 
     async judge(request: JudgeRequest): Promise<Judgment> {

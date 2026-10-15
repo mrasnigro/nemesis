@@ -159,6 +159,11 @@ export const messageWrite = z.object({
   durationMs: z.number().int().min(0).max(600_000).optional(),
 })
 
+/** A spoken turn: what the trainee said (already transcribed) and the voice the persona answers in. */
+export const voiceTurnWrite = messageWrite.extend({
+  gender: z.enum(['f', 'm']).default('f'),
+})
+
 export const speakWrite = z.object({
   text: z.string().trim().min(1).max(2000),
   gender: z.enum(['f', 'm']).default('f'),

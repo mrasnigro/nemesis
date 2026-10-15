@@ -22,6 +22,79 @@ export function isLikelyHallucination(text) {
   return !value || SILENCE_HALLUCINATIONS.test(value)
 }
 
+function base64ToBlob(base64, type = 'audio/mpeg') {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type })
+}
+
+/**
+ * Plays a streamed reply sentence by sentence, in order, as the sentences arrive.
+ * - `push({ text, audio })`: audio is base64 MP3, or null when the server could not voice that sentence
+ *   (then `speakFallback(text)` says it with the browser voice).
+ * - `close()`: no more sentences are coming; `onIdle` fires once the last one has been played.
+ * - `stop()`: silence now (the trainee spoke over the persona); `onIdle` fires once.
+ * - `onSentence(text)` fires when a sentence starts playing, to caption it.
+ */
+export function createSpeechQueue({ onSentence, onIdle, speakFallback, play = playServerSpeech } = {}) {
+  const items = []
+  let playing = false
+  let closed = false
+  let stopped = false
+  let idled = false
+
+  function idle() {
+    if (idled) return
+    idled = true
+    onIdle?.()
+  }
+
+  function pump() {
+    if (stopped || playing) return
+    const item = items.shift()
+    if (!item) {
+      if (closed) idle()
+      return
+    }
+    playing = true
+    onSentence?.(item.text)
+    const spoken = item.audio
+      ? Promise.resolve().then(() => play(base64ToBlob(item.audio)))
+      : Promise.reject(new Error('no audio'))
+    spoken
+      .catch(() => (speakFallback ? speakFallback(item.text) : null))
+      .catch(() => null)
+      .finally(() => {
+        playing = false
+        pump()
+      })
+  }
+
+  return {
+    push(item) {
+      if (stopped || closed) return
+      items.push(item)
+      pump()
+    },
+    close() {
+      if (stopped || closed) return
+      closed = true
+      pump()
+    },
+    stop() {
+      if (stopped) return
+      stopped = true
+      items.length = 0
+      stopServerSpeech()
+      idle()
+    },
+    get stopped() {
+      return stopped
+    },
+  }
+}
+
 let current = null
 
 export function stopServerSpeech() {

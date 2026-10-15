@@ -12,6 +12,7 @@ import { getAvatarEngine } from '../services/avatar/index.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
 import { isServerCaptureSupported, micErrorMessage, openVadMic } from '../services/voice/vadCapture.js'
 import {
+  createSpeechQueue,
   isLikelyHallucination,
   personaGender,
   playServerSpeech,
@@ -21,6 +22,16 @@ import { trainingApi } from '../services/api/client.js'
 
 /** Pause after the trainee stops talking before the turn is sent on its own. */
 const SILENCE_SEND_MS = 1400
+
+/** Stops the persona's server speech: the streamed reply being played and the request still producing it. */
+function silenceRefs(queueRef, turnAbortRef) {
+  const queue = queueRef.current
+  queueRef.current = null
+  queue?.stop()
+  turnAbortRef.current?.abort()
+  turnAbortRef.current = null
+  stopServerSpeech()
+}
 
 /** `ref.current` holds the promise of the open microphone, so a close during opening is not lost. */
 function closeMic(ref) {
@@ -83,6 +94,7 @@ export default function TrainingSimulationPage() {
     setPracticeMediaMode,
     practiceMediaMode,
     sendMessage,
+    sendSpokenTurn,
     finishSession,
     isStarting,
     isGeneratingReply,
@@ -120,6 +132,12 @@ export default function TrainingSimulationPage() {
     voiceCfgRef.current = { serverVoice, canListen, sessionId: session?.id ?? null }
   })
   const [speakingLocal, setSpeakingLocal] = useState(false)
+  // Barge-in: the trainee can talk over the persona, who stops. Needs the server voice and, in practice, headphones.
+  const [bargeIn, setBargeIn] = useState(true)
+  const micOpen = listening || (serverVoice && bargeIn && speakingLocal)
+  // The persona's streamed reply being played, and the request that is producing it.
+  const queueRef = useRef(null)
+  const turnAbortRef = useRef(null)
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
   const [bootError, setBootError] = useState('')
@@ -311,7 +329,7 @@ export default function TrainingSimulationPage() {
       setTurnsLeft(null)
       lastSpokenMessageIdRef.current = null
       getAvatarEngine().stopSession()
-      stopServerSpeech()
+      silenceRefs(queueRef, turnAbortRef)
       closeMic(micRef)
     }
     if (phase === 'finished' || phase === 'idle') {
@@ -325,7 +343,7 @@ export default function TrainingSimulationPage() {
   useEffect(
     () => () => {
       getAvatarEngine().stopSession()
-      stopServerSpeech()
+      silenceRefs(queueRef, turnAbortRef)
       closeMic(micRef)
       const recorder = recorderRef.current
       recorderRef.current = null
@@ -351,11 +369,23 @@ export default function TrainingSimulationPage() {
 
   // Server listening: each turn is recorded, closed on a pause, transcribed by the API and then sent like typed text.
   useEffect(() => {
-    if (!listening || !serverVoice) return undefined
+    if (!micOpen || !serverVoice) return undefined
     let cancelled = false
     let stopListening = null
     setVoiceNotice('')
     micFailedRef.current = false
+
+    // The trainee spoke over the persona: she goes quiet at once and what is left of her reply is dropped.
+    function interrupt() {
+      const queue = queueRef.current
+      queueRef.current = null // cleared first: stopping the queue must not look like a finished reply
+      queue?.stop()
+      turnAbortRef.current?.abort()
+      stopServerSpeech()
+      getAvatarEngine().stopSession()
+      setSpeakingLocal(false)
+      setCaption('')
+    }
 
     function reopen() {
       window.setTimeout(() => {
@@ -367,6 +397,7 @@ export default function TrainingSimulationPage() {
     async function handleSegment(blob) {
       const { sessionId } = voiceCfgRef.current
       if (cancelled || !sessionId) return
+      if (liveRef.current.speaking) interrupt()
       setListening(false)
       setTranscribing(true)
       try {
@@ -396,7 +427,13 @@ export default function TrainingSimulationPage() {
     micRef.current
       .then((mic) => {
         if (cancelled) return
-        stopListening = mic.listen({ onSegment: handleSegment })
+        stopListening = mic.listen({
+          onSegment: handleSegment,
+          onSpeechStart: () => {
+            if (liveRef.current.speaking) interrupt()
+          },
+          bargeGate: () => liveRef.current.speaking,
+        })
       })
       .catch((error) => {
         micRef.current = null
@@ -409,7 +446,7 @@ export default function TrainingSimulationPage() {
       cancelled = true
       stopListening?.()
     }
-  }, [listening, serverVoice])
+  }, [micOpen, serverVoice])
 
   useEffect(() => {
     if (!listening || serverVoice) return undefined
@@ -495,18 +532,59 @@ export default function TrainingSimulationPage() {
     sendingRef.current = true
     setBusyHint('')
     setListening(false)
+    const { serverVoice: useServer } = voiceCfgRef.current
+    const streamed = useServer && practiceMediaMode === 'voice'
+    let queue = null
+    let sendFailed = false // after a failure the microphone stays shut: no loop of failing requests
     try {
-      const result = await sendMessage(text)
+      let result
+      if (streamed) {
+        // The persona starts talking with the first sentence, while the rest is still being written.
+        const abort = new AbortController()
+        turnAbortRef.current = abort
+        const fallbackLine = (line) => getAvatarEngine().speak(selectedPersona, line)
+        const ownQueue = createSpeechQueue({
+          onSentence: (line) => {
+            if (queueRef.current !== ownQueue) return
+            setCaption(line)
+            setSpeakingLocal(true)
+          },
+          onIdle: () => {
+            if (queueRef.current !== ownQueue) return // interrupted, or replaced
+            queueRef.current = null
+            setSpeakingLocal(false)
+            if (!sendFailed && autoListenRef.current && voiceCfgRef.current.canListen) setListening(true)
+          },
+          speakFallback: fallbackLine,
+        })
+        queue = ownQueue
+        queueRef.current = ownQueue
+        result = await sendSpokenTurn(text, {
+          gender: personaGender(selectedPersona?.voiceRef),
+          signal: abort.signal,
+          onSentence: (sentence) => ownQueue.push(sentence),
+          onTurn: (aiMessage) => {
+            lastSpokenMessageIdRef.current = aiMessage.id // already spoken: the line effect must not repeat it
+          },
+        })
+        if (turnAbortRef.current === abort) turnAbortRef.current = null
+      } else {
+        result = await sendMessage(text)
+      }
       if (result.ok) {
-        draftRef.current = ''
-        setDraft('')
+        if (draftRef.current.trim() === text) {
+          draftRef.current = ''
+          setDraft('')
+        }
         setFinishHint('')
         if (typeof result.turnsLeft === 'number') setTurnsLeft(result.turnsLeft)
       } else if (result.error) {
         setBusyHint(result.error) // the text stays in the box so nothing is lost
       }
+      sendFailed = !result.ok
     } finally {
       sendingRef.current = false
+      queue?.close() // the reply is complete: the queue goes idle after its last sentence
     }
   }
   // Timers and recognizer callbacks outlive a render: they read the latest handler and call state from refs.
@@ -546,6 +624,7 @@ export default function TrainingSimulationPage() {
     setBusyHint('')
     setFinishHint('')
     autoListenRef.current = false
+    silenceRefs(queueRef, turnAbortRef)
     sendingRef.current = true // a pending dictation must not slip in after the call ends
     setListening(false)
     const audioBlob = await stopRecorder()
@@ -881,7 +960,10 @@ export default function TrainingSimulationPage() {
                   onFinish={handleFinish}
                   showTranscript={showTranscript}
                   onToggleTranscript={setShowTranscript}
-                  sttSupported={sttSupported}
+                  sttSupported={canListen}
+                  bargeInAvailable={serverVoice}
+                  bargeIn={bargeIn}
+                  onToggleBargeIn={setBargeIn}
                   audioOnly={location.state?.audioOnly === true}
                 />
               ) : (
@@ -921,7 +1003,7 @@ export default function TrainingSimulationPage() {
                 </div>
               ) : null}
 
-              {practiceMediaMode === 'voice' && sttSupported ? (
+              {practiceMediaMode === 'voice' && canListen ? (
                 // Voice call: speech is the only input. The turn is sent on its own after a pause.
                 <div className="training-ai__composer-hints">
                   {finishHint ? <p className="training-ai__composer-hint">{finishHint}</p> : null}

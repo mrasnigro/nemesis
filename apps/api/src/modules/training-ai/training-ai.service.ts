@@ -2,7 +2,9 @@ import type { z } from 'zod'
 import { config } from '../../core/config.js'
 import { withTransaction } from '../../core/db.js'
 import { AppError } from '../../core/errors.js'
+import { log } from '../../core/logger.js'
 import { aiStatus, requireAiProvider, type AiProvider } from './ai/index.js'
+import { takeSentences } from './ai/sentences.js'
 import type { PersonaProfile, ScenarioProfile } from './ai/types.js'
 import { MAX_VOICE_AUDIO_BYTES, voiceClient, voiceStatus, type Gender } from './ai/voice.js'
 import { buildReport, communicationMetrics, judgeByRules, type Judgment, type Template } from './rubric.js'
@@ -362,6 +364,15 @@ export async function sendMessageFor(
   text: string,
   timing: { offsetMs?: number; durationMs?: number } = {},
 ) {
+  const turn = await prepareTurn(actor, sessionId, text)
+  const reply = await turn.provider.reply(turn.request)
+  return saveTurn(turn, reply.text, timing)
+}
+
+type PreparedTurn = Awaited<ReturnType<typeof prepareTurn>>
+
+/** Everything a trainee turn needs before the model is asked: the open session, its limits, the persona and the history. */
+async function prepareTurn(actor: Actor, sessionId: string, text: string) {
   const customerId = customerOf(actor)
   const session = await ownSession(actor, sessionId)
   if (session.status !== 'in_progress') throw new AppError(409, 'SESSION_CLOSED', 'Esta sessão já foi encerrada.')
@@ -374,28 +385,123 @@ export async function sendMessageFor(
   const { persona, scenario } = await sessionContext(customerId, session.personaId, session.scenarioId)
   const provider = requireAiProvider()
   const pending = { id: 'pending', role: 'user' as const, speaker: TRAINEE_SPEAKER, text, timestamp: new Date().toISOString() }
-  const reply = await provider.reply({
+  return {
+    sessionId,
+    session,
     persona,
-    scenario,
-    history: [...session.messages, pending],
-    exchangeIndex: traineeCount,
-    mediaMode: session.mediaMode === 'voice' ? 'voice' : 'text',
-  })
-  const aiText = reply.text.trim().slice(0, 2000)
+    provider,
+    traineeCount,
+    text,
+    request: {
+      persona,
+      scenario,
+      history: [...session.messages, pending],
+      exchangeIndex: traineeCount,
+      mediaMode: (session.mediaMode === 'voice' ? 'voice' : 'text') as 'voice' | 'text',
+    },
+  }
+}
+
+/** Stores the trainee message with the persona's reply, once the reply exists. */
+async function saveTurn(turn: PreparedTurn, replyText: string, timing: { offsetMs?: number; durationMs?: number }) {
+  const aiText = replyText.trim().slice(0, 2000)
   if (!aiText) throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA devolveu uma resposta vazia.')
   const aiWords = aiText.split(/\s+/).filter(Boolean).length
 
-  const turn = await appendTurn(sessionId, session.messages.length + 1, {
-    userText: text,
+  const stored = await appendTurn(turn.sessionId, turn.session.messages.length + 1, {
+    userText: turn.text,
     traineeName: TRAINEE_SPEAKER,
     aiText,
-    personaName: persona.name,
+    personaName: turn.persona.name,
     userOffsetMs: timing.offsetMs ?? null,
     userDurationMs: timing.durationMs ?? null,
     aiDurationMs: Math.max(1000, Math.round((aiWords / 2.3) * 1000)),
   })
-  return { ...turn, traineeMessages: traineeCount + 1, turnsLeft: config.TRAINING_AI_MAX_TURNS - traineeCount - 1 }
+  return {
+    ...stored,
+    traineeMessages: turn.traineeCount + 1,
+    turnsLeft: config.TRAINING_AI_MAX_TURNS - turn.traineeCount - 1,
+  }
 }
+
+export type SpokenTurnEvent =
+  | { type: 'sentence'; index: number; text: string; audio: string | null }
+  | { type: 'done'; data: Awaited<ReturnType<typeof saveTurn>> }
+
+/**
+ * One voice turn, streamed: the model writes the reply, each finished sentence goes to text-to-speech at once
+ * and is sent on as text plus base64 MP3, so the persona starts talking while the rest is still being written.
+ * The turn is stored when the reply ends, even if the listener left (a barge-in), so the transcript stays whole.
+ */
+export async function streamSpokenTurnFor(
+  actor: Actor,
+  sessionId: string,
+  input: { text: string; gender: Gender; offsetMs?: number; durationMs?: number },
+  emit: (event: SpokenTurnEvent) => void,
+  signal: AbortSignal,
+) {
+  const turn = await prepareTurn(actor, sessionId, input.text)
+  if (turn.session.mediaMode !== 'voice') throw new AppError(409, 'SESSION_NOT_VOICE', 'Esta sessão não é uma conversa por voz.')
+  const speech = voiceClient()
+
+  // Sentences go out in order, whichever speech request finishes first.
+  let sent = Promise.resolve()
+  let index = 0
+  let full = ''
+  let buffer = ''
+  let skipSpeech = false
+
+  function dispatch(sentence: string) {
+    const position = index
+    index += 1
+    const audio: Promise<string | null> =
+      speech && !skipSpeech
+        ? speech
+            .synthesize(sentence, input.gender)
+            .then((mp3) => mp3.toString('base64'))
+            .catch((error) => {
+              log('warn', 'training-ai speech failed for a sentence', {
+                message: error instanceof Error ? error.message : String(error),
+              })
+              return null // the browser voice covers this sentence
+            })
+        : Promise.resolve(null)
+    sent = sent.then(async () => {
+      const mp3 = await audio
+      if (!signal.aborted) emit({ type: 'sentence', index: position, text: sentence, audio: mp3 })
+    })
+  }
+
+  const pieces = turn.provider.replyStream
+    ? turn.provider.replyStream(turn.request, signal)
+    : (async function* () {
+        yield (await turn.provider.reply(turn.request)).text
+      })()
+
+  for await (const piece of pieces) {
+    full += piece
+    buffer += piece
+    const { sentences, rest } = takeSentences(buffer, false)
+    buffer = rest
+    sentences.forEach(dispatch)
+    if (signal.aborted) skipSpeech = true
+    if (full.length >= MAX_SPOKEN_REPLY_CHARS) break
+  }
+  const tail = takeSentences(buffer, true).sentences
+  tail.forEach(dispatch)
+  await sent
+
+  // A listener that left before any text arrived leaves nothing to store.
+  if (!full.trim()) {
+    if (signal.aborted) return
+    throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA devolveu uma resposta vazia.')
+  }
+  const stored = await saveTurn(turn, full, { offsetMs: input.offsetMs, durationMs: input.durationMs })
+  if (!signal.aborted) emit({ type: 'done', data: stored })
+  return stored
+}
+
+const MAX_SPOKEN_REPLY_CHARS = 2000
 
 export async function finishSessionFor(actor: Actor, sessionId: string) {
   const customerId = customerOf(actor)

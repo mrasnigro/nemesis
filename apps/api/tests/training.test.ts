@@ -4,7 +4,8 @@ import { config } from '../src/core/config.js'
 import { pool } from '../src/core/db.js'
 import { AppError } from '../src/core/errors.js'
 import { overrideAiProvider, type AiProvider } from '../src/modules/training-ai/ai/index.js'
-import { createOpenAiProvider } from '../src/modules/training-ai/ai/openai.provider.js'
+import { createOpenAiProvider, parseStreamDelta } from '../src/modules/training-ai/ai/openai.provider.js'
+import { takeSentences } from '../src/modules/training-ai/ai/sentences.js'
 import { createVoiceClient, overrideVoiceClient } from '../src/modules/training-ai/ai/voice.js'
 import { buildReport, evaluateRubric, judgeByRules, type Template } from '../src/modules/training-ai/rubric.js'
 import { streakDays } from '../src/modules/training-ai/training-ai.repository.js'
@@ -782,6 +783,98 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     expect(response.body.error.code).toBe('VOICE_NOT_CONFIGURED')
   })
 
+  function readLines(response: { status: number; body: unknown; text?: string }) {
+    return String(response.body ?? '')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { type: string; index?: number; text?: string; audio?: string | null; data?: any; code?: string })
+  }
+  const parseText = (res: NodeJS.ReadableStream, callback: (error: Error | null, body: string) => void) => {
+    let body = ''
+    res.on('data', (chunk) => (body += chunk))
+    res.on('end', () => callback(null, body))
+  }
+
+  it('streams a spoken turn sentence by sentence and stores it', async () => {
+    useFakeVoice()
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    overrideAiProvider({
+      id: 'stream',
+      label: 'stream',
+      reply: async () => ({ text: 'unused' }),
+      async *replyStream() {
+        yield 'Claro, eu posso ouvir a proposta. '
+        yield 'Mas preciso saber o preço de 3'
+        yield '.5 unidades. Quanto custa?'
+      },
+      judge: async (request) => judgeByRules(request.template, [], 'stream'),
+    })
+
+    const response = await operator
+      .post(`${BASE}/sessions/${session.id}/voice-turn`)
+      .send({ text: 'Bom dia, tenho uma proposta', gender: 'm' })
+      .buffer(true)
+      .parse(parseText)
+    expect(response.status, String(response.body)).toBe(200)
+    expect(String(response.headers['content-type'])).toMatch(/ndjson/)
+    const rows = readLines(response)
+    const sentences = rows.filter((row) => row.type === 'sentence')
+    expect(sentences.map((row) => row.text)).toEqual([
+      'Claro, eu posso ouvir a proposta.',
+      'Mas preciso saber o preço de 3.5 unidades.',
+      'Quanto custa?',
+    ])
+    expect(sentences.map((row) => row.index)).toEqual([0, 1, 2])
+    expect(sentences[0].audio).toBe(Buffer.from('ID3-fake-mp3').toString('base64'))
+    expect(spoken.every((item) => item.gender === 'm')).toBe(true)
+    const done = rows[rows.length - 1]
+    expect(done.type).toBe('done')
+    expect(done.data.aiMessage.text).toBe(
+      'Claro, eu posso ouvir a proposta. Mas preciso saber o preço de 3.5 unidades. Quanto custa?',
+    )
+    expect(done.data.userMessage.text).toBe('Bom dia, tenho uma proposta')
+
+    const detail = await operator.get(`${BASE}/sessions/${session.id}`)
+    expect(detail.body.data.messages.map((item: { role: string }) => item.role)).toEqual(['ai', 'user', 'ai'])
+  })
+
+  it('keeps the text of a sentence the voice could not speak', async () => {
+    overrideVoiceClient({
+      async transcribe() {
+        return 'x'
+      },
+      async synthesize() {
+        throw new AppError(502, 'VOICE_PROVIDER_ERROR', 'down')
+      },
+    })
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    overrideAiProvider({
+      id: 'stream',
+      label: 'stream',
+      reply: async () => ({ text: 'Tudo bem, pode falar.' }),
+      judge: async (request) => judgeByRules(request.template, [], 'stream'),
+    })
+    const response = await operator
+      .post(`${BASE}/sessions/${session.id}/voice-turn`)
+      .send({ text: 'Olá' })
+      .buffer(true)
+      .parse(parseText)
+    const rows = readLines(response)
+    expect(rows[0]).toMatchObject({ type: 'sentence', text: 'Tudo bem, pode falar.', audio: null })
+    expect(rows[rows.length - 1].type).toBe('done')
+  })
+
+  it('refuses a spoken turn on a text session with a plain error', async () => {
+    useFakeVoice()
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario)
+    const response = await operator.post(`${BASE}/sessions/${session.id}/voice-turn`).send({ text: 'Oi' })
+    expect(response.status).toBe(409)
+    expect(response.body.error.code).toBe('SESSION_NOT_VOICE')
+  })
+
   it('calls an OpenAI-compatible speech API for both stages', async () => {
     const calls: { url: string; body: unknown }[] = []
     const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -946,6 +1039,55 @@ describe('openai-compatible provider', () => {
     expect(body.messages.slice(1)).toEqual([
       { role: 'assistant', content: 'Alô?' },
       { role: 'user', content: 'Bom dia' },
+    ])
+  })
+
+  it('streams the reply piece by piece from a server-sent events body', async () => {
+    let sent: Record<string, unknown> = {}
+    const rows = [
+      'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"Pode "}}]}\n\ndata: {"choices":[{"delta":{"con',
+      'tent":"falar."}}]}\n\n',
+      'data: [DONE]\n\n',
+    ]
+    const ai = provider((_url, init) => {
+      sent = JSON.parse(String(init.body))
+      const encoder = new TextEncoder()
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            rows.forEach((row) => controller.enqueue(encoder.encode(row)))
+            controller.close()
+          },
+        }),
+        { status: 200 },
+      )
+    })
+    const pieces: string[] = []
+    for await (const piece of ai.replyStream!({ persona, scenario, history: messages, exchangeIndex: 0, mediaMode: 'voice' })) {
+      pieces.push(piece)
+    }
+    expect(pieces.join('')).toBe('Pode falar.')
+    expect(sent.stream).toBe(true)
+    expect(parseStreamDelta('not json')).toBe('')
+    expect(parseStreamDelta('{"choices":[{"finish_reason":"stop","delta":{}}]}')).toBe('')
+  })
+
+  it('cuts a growing reply into sentences without splitting numbers or abbreviations', () => {
+    const out: string[] = []
+    let buffer = ''
+    for (const piece of ['Olá, tudo bem? Eu sou o Sr', '. Silva e quero o preço de 3', '.5 unidades. Pode me ', 'ajudar agora!', ' Obrigado']) {
+      buffer += piece
+      const step = takeSentences(buffer, false)
+      out.push(...step.sentences)
+      buffer = step.rest
+    }
+    out.push(...takeSentences(buffer, true).sentences)
+    expect(out).toEqual([
+      'Olá, tudo bem?',
+      'Eu sou o Sr. Silva e quero o preço de 3.5 unidades.',
+      'Pode me ajudar agora!',
+      'Obrigado',
     ])
   })
 

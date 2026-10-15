@@ -17,6 +17,9 @@ export default function PersonaCallStage({
   onToggleTranscript,
   sttSupported = true,
   audioOnly = false,
+  bargeInAvailable = false,
+  bargeIn = false,
+  onToggleBargeIn,
 }) {
   const speaking = callState === 'speaking'
   const connecting = callState === 'connecting'
@@ -87,13 +90,26 @@ export default function PersonaCallStage({
         >
           {showTranscript ? 'Ocultar transcrição' : 'Ver transcrição'}
         </button>
+        {bargeInAvailable ? (
+          <button
+            type="button"
+            className="training-ai__call-transcript-btn"
+            onClick={() => onToggleBargeIn?.(!bargeIn)}
+            aria-pressed={bargeIn}
+            title="Com a opção ligada, você pode interromper o agente falando por cima. Use fones de ouvido para evitar eco."
+          >
+            {bargeIn ? 'Interrupção: ligada' : 'Interrupção: desligada'}
+          </button>
+        ) : null}
         <button type="button" className="training-ai__call-hangup-btn" onClick={onFinish}>
           Encerrar
         </button>
       </div>
       <p className="training-ai__voice-hint">
         {sttSupported
-          ? 'Fale normalmente: ao fazer uma pausa, sua fala é enviada e o agente responde. O microfone reabre sozinho.'
+          ? bargeInAvailable && bargeIn
+            ? 'Fale normalmente: ao fazer uma pausa, sua fala é enviada. Você pode interromper o agente falando por cima (use fones de ouvido para evitar eco).'
+            : 'Fale normalmente: ao fazer uma pausa, sua fala é enviada e o agente responde. O microfone reabre sozinho.'
           : 'Este navegador não reconhece voz (use o Chrome ou o Edge); digite a sua fala abaixo.'}
       </p>
     </div>
