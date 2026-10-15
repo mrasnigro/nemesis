@@ -1683,6 +1683,17 @@
   font-size: 0.82rem;
 }
 
+.training-ai__call-live {
+  max-width: 34rem;
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(251, 191, 36, 0.45);
+  color: var(--text-h);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .training-ai__call-caption {
   min-height: 2.6rem;
   max-width: 34rem;

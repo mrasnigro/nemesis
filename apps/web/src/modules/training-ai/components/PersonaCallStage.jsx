@@ -9,6 +9,7 @@ export default function PersonaCallStage({
   persona,
   callState = 'idle',
   caption = '',
+  liveText = '',
   listening = false,
   onListeningChange,
   onFinish,
@@ -62,6 +63,11 @@ export default function PersonaCallStage({
         <div className="training-ai__call-caption" aria-live="polite">
           {caption ? caption : <span className="training-ai__meta">—</span>}
         </div>
+        {liveText ? (
+          <div className="training-ai__call-live" aria-live="polite">
+            <span className="training-ai__meta">Você</span> {liveText}
+          </div>
+        ) : null}
       </div>
 
       <div className="training-ai__call-bar">
@@ -72,7 +78,7 @@ export default function PersonaCallStage({
           aria-pressed={listening}
           disabled={!sttSupported}
         >
-          {listening ? 'Parar de falar' : 'Falar'}
+          {listening ? 'Pausar microfone' : 'Falar'}
         </button>
         <button
           type="button"
@@ -86,7 +92,9 @@ export default function PersonaCallStage({
         </button>
       </div>
       <p className="training-ai__voice-hint">
-        {sttSupported ? 'Use o microfone para ditar e revise o texto abaixo antes de enviar.' : 'Este navegador não reconhece voz (use o Chrome ou o Edge); digite a sua fala abaixo.'}
+        {sttSupported
+          ? 'Fale normalmente: ao fazer uma pausa, sua fala é enviada e o agente responde. O microfone reabre sozinho.'
+          : 'Este navegador não reconhece voz (use o Chrome ou o Edge); digite a sua fala abaixo.'}
       </p>
     </div>
   )
