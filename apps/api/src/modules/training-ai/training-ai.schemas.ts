@@ -159,6 +159,11 @@ export const messageWrite = z.object({
   durationMs: z.number().int().min(0).max(600_000).optional(),
 })
 
+export const speakWrite = z.object({
+  text: z.string().trim().min(1).max(2000),
+  gender: z.enum(['f', 'm']).default('f'),
+})
+
 export const groupWrite = z.object({
   name: required(200),
   description: text(500).optional(),

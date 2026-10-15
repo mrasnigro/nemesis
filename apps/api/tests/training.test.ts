@@ -5,6 +5,7 @@ import { pool } from '../src/core/db.js'
 import { AppError } from '../src/core/errors.js'
 import { overrideAiProvider, type AiProvider } from '../src/modules/training-ai/ai/index.js'
 import { createOpenAiProvider } from '../src/modules/training-ai/ai/openai.provider.js'
+import { createVoiceClient, overrideVoiceClient } from '../src/modules/training-ai/ai/voice.js'
 import { buildReport, evaluateRubric, judgeByRules, type Template } from '../src/modules/training-ai/rubric.js'
 import { streakDays } from '../src/modules/training-ai/training-ai.repository.js'
 import { createPlatformAdmin, signIn, unique } from './helpers.js'
@@ -679,6 +680,152 @@ describe('AI provider', () => {
     expect(blocked.status).toBe(409)
     expect(blocked.body.error.code).toBe('GROUP_QUOTA_EXCEEDED')
     expect(String(blocked.body.error.message || '')).toMatch(/minuto/i)
+  })
+})
+
+describe('server voice (STT -> LLM -> TTS)', () => {
+  const heard: { bytes: number; contentType: string; language: string }[] = []
+  const spoken: { text: string; gender: string }[] = []
+
+  function useFakeVoice() {
+    overrideVoiceClient({
+      async transcribe(audio, contentType, language) {
+        heard.push({ bytes: audio.length, contentType, language })
+        return '  Olá, tudo bem?  '.trim()
+      },
+      async synthesize(text, gender) {
+        spoken.push({ text, gender })
+        return Buffer.from('ID3-fake-mp3')
+      },
+    })
+  }
+
+  afterEach(() => {
+    overrideVoiceClient(undefined)
+    heard.length = 0
+    spoken.length = 0
+  })
+
+  it('reports whether the server can listen and speak', async () => {
+    useFakeVoice()
+    const on = await operator.get(`${BASE}/status`)
+    expect(on.body.data.voice).toMatchObject({ stt: true, tts: true })
+    overrideVoiceClient(null)
+    const off = await operator.get(`${BASE}/status`)
+    expect(off.body.data.voice).toMatchObject({ stt: false, tts: false })
+  })
+
+  it('turns a spoken turn into text and a persona line into audio', async () => {
+    useFakeVoice()
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+
+    const transcribed = await operator
+      .post(`${BASE}/sessions/${session.id}/transcribe`)
+      .set('Content-Type', 'audio/webm;codecs=opus')
+      .send(Buffer.from('fake-webm'))
+    expect(transcribed.status, JSON.stringify(transcribed.body)).toBe(200)
+    expect(transcribed.body.data.text).toBe('Olá, tudo bem?')
+    expect(heard[0]).toMatchObject({ bytes: 9, language: 'pt-BR' })
+
+    const speech = await operator
+      .post(`${BASE}/sessions/${session.id}/speak`)
+      .send({ text: 'Alô? Quem fala?', gender: 'm' })
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+        res.on('end', () => callback(null, Buffer.concat(chunks)))
+      })
+    expect(speech.status).toBe(200)
+    expect(String(speech.headers['content-type'])).toMatch(/audio\/mpeg/)
+    expect(speech.body.toString()).toBe('ID3-fake-mp3')
+    expect(spoken[0]).toEqual({ text: 'Alô? Quem fala?', gender: 'm' })
+  })
+
+  it('refuses text sessions, other users and finished sessions', async () => {
+    useFakeVoice()
+    const ids = await setup()
+    const text = await startSession(operator, ids.scenario)
+    const notVoice = await operator
+      .post(`${BASE}/sessions/${text.id}/speak`)
+      .send({ text: 'Oi' })
+    expect(notVoice.status).toBe(409)
+    expect(notVoice.body.error.code).toBe('SESSION_NOT_VOICE')
+
+    const voice = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    const stranger = await colleague
+      .post(`${BASE}/sessions/${voice.id}/speak`)
+      .send({ text: 'Oi' })
+    expect(stranger.status).toBe(404)
+
+    const empty = await operator
+      .post(`${BASE}/sessions/${voice.id}/transcribe`)
+      .set('Content-Type', 'audio/webm')
+      .send(Buffer.alloc(0))
+    expect(empty.status).toBe(400)
+
+    await operator.post(`${BASE}/sessions/${voice.id}/messages`).send({ text: 'Bom dia' })
+    const finished = await operator.post(`${BASE}/sessions/${voice.id}/finish`)
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200)
+    const closed = await operator.post(`${BASE}/sessions/${voice.id}/speak`).send({ text: 'Oi' })
+    expect(closed.status).toBe(409)
+    expect(closed.body.error.code).toBe('SESSION_CLOSED')
+  })
+
+  it('answers 503 when no voice provider is configured', async () => {
+    overrideVoiceClient(null)
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    const response = await operator.post(`${BASE}/sessions/${session.id}/speak`).send({ text: 'Oi' })
+    expect(response.status).toBe(503)
+    expect(response.body.error.code).toBe('VOICE_NOT_CONFIGURED')
+  })
+
+  it('calls an OpenAI-compatible speech API for both stages', async () => {
+    const calls: { url: string; body: unknown }[] = []
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, body: init.body })
+      if (url.endsWith('/audio/transcriptions')) {
+        return new Response(JSON.stringify({ text: ' bom dia ' }), { status: 200 })
+      }
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 })
+    }) as unknown as typeof fetch
+    const client = createVoiceClient({
+      stt: { baseUrl: 'https://stt.example/v1/', apiKey: 'k', model: 'whisper-1', timeoutMs: 5000, fetchImpl },
+      tts: {
+        baseUrl: 'https://tts.example/v1',
+        apiKey: 'k',
+        model: 'kokoro',
+        voiceFemale: 'pf_dora',
+        voiceMale: 'pm_alex',
+        speed: 1.1,
+        timeoutMs: 5000,
+        fetchImpl,
+      },
+    })
+
+    expect(await client.transcribe(Buffer.from('a'), 'audio/webm', 'pt-BR')).toBe('bom dia')
+    const form = calls[0].body as FormData
+    expect(calls[0].url).toBe('https://stt.example/v1/audio/transcriptions')
+    expect(form.get('language')).toBe('pt')
+    expect(form.get('model')).toBe('whisper-1')
+
+    expect((await client.synthesize('Oi', 'm')).length).toBe(3)
+    expect(calls[1].url).toBe('https://tts.example/v1/audio/speech')
+    expect(JSON.parse(String(calls[1].body))).toMatchObject({ model: 'kokoro', voice: 'pm_alex', input: 'Oi', response_format: 'mp3' })
+  })
+
+  it('maps provider failures to 502 without leaking the provider body', async () => {
+    const fetchImpl = (async () => new Response('secret upstream detail', { status: 401 })) as unknown as typeof fetch
+    const client = createVoiceClient({
+      stt: { baseUrl: 'https://stt.example/v1', apiKey: 'k', model: 'whisper-1', timeoutMs: 5000, fetchImpl },
+      tts: null,
+    })
+    const failure = await client.transcribe(Buffer.from('a'), 'audio/webm', 'pt-BR').catch((error) => error as AppError)
+    expect(failure).toBeInstanceOf(AppError)
+    expect((failure as AppError).status).toBe(502)
+    expect((failure as AppError).message).not.toContain('secret')
   })
 })
 

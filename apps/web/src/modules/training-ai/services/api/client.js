@@ -91,4 +91,40 @@ export const trainingApi = {
     return response.json().then((payload) => payload?.data ?? payload)
   },
   sessionAudioUrl: (id) => `${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`,
+
+  /** Server speech-to-text: one recorded turn in, the words out (empty text when nothing was understood). */
+  transcribeSessionAudio: async (id, blob) => {
+    const response = await voiceFetch(`${BASE}/sessions/${id}/transcribe`, {
+      headers: { 'Content-Type': blob.type || 'audio/webm' },
+      body: blob,
+    })
+    const payload = await response.json().catch(() => null)
+    return { text: String(payload?.data?.text ?? '') }
+  },
+  /** Server text-to-speech: the persona's line as an MP3 blob. `gender` picks the voice: 'f' or 'm'. */
+  speakSession: async (id, text, gender = 'f') => {
+    const response = await voiceFetch(`${BASE}/sessions/${id}/speak`, {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, gender }),
+    })
+    return response.blob()
+  },
+}
+
+async function voiceFetch(path, { headers, body }) {
+  let response
+  try {
+    response = await fetch(`${PLATFORM_API_BASE}${path}`, { method: 'POST', credentials: 'include', headers, body })
+  } catch {
+    throw new PlatformApiError('Não foi possível conectar à API da plataforma.', { status: 0, code: 'NETWORK_ERROR' })
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new PlatformApiError(payload?.error?.message || 'Não foi possível processar a voz.', {
+      status: response.status,
+      code: payload?.error?.code || 'VOICE_FAILED',
+      details: payload?.error?.details,
+    })
+  }
+  return response
 }

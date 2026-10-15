@@ -32,8 +32,10 @@ import {
   rejudgeSessionController,
   saveSessionAudioController,
   sendMessageController,
+  speakSessionController,
   startSessionController,
   statusController,
+  transcribeSessionController,
   updateGroupController,
   updatePersonaController,
   updateScenarioController,
@@ -96,3 +98,14 @@ trainingAiRouter.post(
   asyncHandler(saveSessionAudioController),
 )
 trainingAiRouter.get('/sessions/:sessionId/audio', asyncHandler(readSessionAudioController))
+
+// Server voice (STT -> LLM -> TTS): one spoken turn in, one spoken line out.
+trainingAiRouter.post(
+  '/sessions/:sessionId/transcribe',
+  express.raw({
+    type: (req) => String(req.headers['content-type'] || '').startsWith('audio/'),
+    limit: '10mb',
+  }),
+  asyncHandler(transcribeSessionController),
+)
+trainingAiRouter.post('/sessions/:sessionId/speak', asyncHandler(speakSessionController))

@@ -4,6 +4,7 @@ import { withTransaction } from '../../core/db.js'
 import { AppError } from '../../core/errors.js'
 import { aiStatus, requireAiProvider, type AiProvider } from './ai/index.js'
 import type { PersonaProfile, ScenarioProfile } from './ai/types.js'
+import { MAX_VOICE_AUDIO_BYTES, voiceClient, voiceStatus, type Gender } from './ai/voice.js'
 import { buildReport, communicationMetrics, judgeByRules, type Judgment, type Template } from './rubric.js'
 import { starterPersonas, starterScenarios, starterTemplates } from './starter.js'
 import { writeTrainingAudio } from './trainingAudio.js'
@@ -506,6 +507,33 @@ export async function saveSessionAudioFor(actor: Actor, sessionId: string, audio
   return { hasAudio: true }
 }
 
+/** A running voice session: the only time speech is transcribed or synthesized. Keeps the endpoints from being open TTS/STT proxies. */
+async function openVoiceSession(actor: Actor, sessionId: string) {
+  const session = await ownSession(actor, sessionId)
+  if (session.status !== 'in_progress') throw new AppError(409, 'SESSION_CLOSED', 'Esta sessão já foi encerrada.')
+  if (session.mediaMode !== 'voice') throw new AppError(409, 'SESSION_NOT_VOICE', 'Esta sessão não é uma conversa por voz.')
+  const client = voiceClient()
+  if (!client) throw new AppError(503, 'VOICE_NOT_CONFIGURED', 'A voz do servidor não está configurada.')
+  return { session, client }
+}
+
+/** The trainee's spoken turn as text. Empty when nothing intelligible was said. */
+export async function transcribeSessionAudioFor(actor: Actor, sessionId: string, audio: Buffer, contentType: string) {
+  if (!audio.length) throw new AppError(400, 'VALIDATION_ERROR', 'O áudio está vazio.')
+  if (audio.length > MAX_VOICE_AUDIO_BYTES) throw new AppError(413, 'AUDIO_TOO_LARGE', 'O áudio é grande demais.')
+  const { session, client } = await openVoiceSession(actor, sessionId)
+  const { persona } = await sessionContext(customerOf(actor), session.personaId, session.scenarioId)
+  const language = typeof persona.language === 'string' && persona.language ? persona.language : 'pt-BR'
+  const text = await client.transcribe(audio, contentType, language)
+  return { text }
+}
+
+/** The persona's line as MP3, in the voice that suits her. */
+export async function speakSessionFor(actor: Actor, sessionId: string, text: string, gender: Gender) {
+  const { client } = await openVoiceSession(actor, sessionId)
+  return client.synthesize(text, gender)
+}
+
 export async function readSessionAudioFor(actor: Actor, sessionId: string) {
   const session = await getSessionFor(actor, sessionId)
   const relative = await sessionAudioPath(customerOf(actor), session.id)
@@ -791,5 +819,5 @@ export function metricsFor(actor: Actor) {
 }
 
 export function statusFor() {
-  return { ai: aiStatus(), maxTurns: config.TRAINING_AI_MAX_TURNS }
+  return { ai: aiStatus(), voice: voiceStatus(), maxTurns: config.TRAINING_AI_MAX_TURNS }
 }

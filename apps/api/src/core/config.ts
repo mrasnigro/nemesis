@@ -49,9 +49,37 @@ const schema = z.object({
   /** Speech-to-text model of the same API; `off` disables transcription. */
   CALL_TRANSCRIBE_MODEL: z.string().min(1).default('whisper-1'),
   CALL_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(120_000),
+  /**
+   * Treinamento IA voice calls: speech-to-text -> LLM (TRAINING_AI_*) -> text-to-speech, all on the server.
+   * Any OpenAI-compatible API works (OpenAI Whisper / tts-1, Groq, a local Kokoro-FastAPI...).
+   * Unset URL and key fall back to the TRAINING_AI_* ones, so one OpenAI key is enough. `off` disables a stage.
+   */
+  STT_BASE_URL: z.string().url().optional(),
+  STT_API_KEY: z.string().min(1).optional(),
+  STT_MODEL: z.string().min(1).default('whisper-1'),
+  STT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+  TTS_BASE_URL: z.string().url().optional(),
+  TTS_API_KEY: z.string().min(1).optional(),
+  TTS_MODEL: z.string().min(1).default('tts-1'),
+  /** Voice for female / male personas. Kokoro: pf_dora / pm_alex. OpenAI: nova / onyx. */
+  TTS_VOICE_FEMALE: z.string().min(1).default('nova'),
+  TTS_VOICE_MALE: z.string().min(1).default('onyx'),
+  /** Speaking pace, 0.25 to 4. Slightly above 1 sounds like a phone call. */
+  TTS_SPEED: z.coerce.number().min(0.25).max(4).default(1.1),
+  TTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
 })
 
-const parsed = schema.safeParse(process.env)
+/** Names used by other IMP projects are accepted for the language model. */
+function withEnvAliases(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...env,
+    TRAINING_AI_API_KEY: env.TRAINING_AI_API_KEY || env.LLM_API_KEY || undefined,
+    TRAINING_AI_BASE_URL: env.TRAINING_AI_BASE_URL || env.LLM_BASE_URL || undefined,
+    TRAINING_AI_MODEL: env.TRAINING_AI_MODEL || env.LLM_MODEL || undefined,
+  }
+}
+
+const parsed = schema.safeParse(withEnvAliases(process.env))
 
 if (!parsed.success) {
   const details = parsed.error.issues.map((issue) => issue.path.join('.') || 'env').join(', ')
@@ -68,6 +96,35 @@ export const config = {
   allowBuiltinTrainingAi: parsed.data.NODE_ENV !== 'production',
   trustProxy: parseTrustProxy(parsed.data.TRUST_PROXY),
   callAi: callAiOptions(parsed.data),
+  voice: voiceOptions(parsed.data),
+}
+
+function voiceOptions(env: z.infer<typeof schema>) {
+  const stt = env.STT_API_KEY ?? env.TRAINING_AI_API_KEY
+  const tts = env.TTS_API_KEY ?? env.TRAINING_AI_API_KEY
+  return {
+    stt:
+      stt && env.STT_MODEL !== 'off'
+        ? {
+            baseUrl: env.STT_BASE_URL ?? env.TRAINING_AI_BASE_URL,
+            apiKey: stt,
+            model: env.STT_MODEL,
+            timeoutMs: env.STT_TIMEOUT_MS,
+          }
+        : null,
+    tts:
+      tts && env.TTS_MODEL !== 'off'
+        ? {
+            baseUrl: env.TTS_BASE_URL ?? env.TRAINING_AI_BASE_URL,
+            apiKey: tts,
+            model: env.TTS_MODEL,
+            voiceFemale: env.TTS_VOICE_FEMALE,
+            voiceMale: env.TTS_VOICE_MALE,
+            speed: env.TTS_SPEED,
+            timeoutMs: env.TTS_TIMEOUT_MS,
+          }
+        : null,
+  }
 }
 
 function callAiOptions(env: z.infer<typeof schema>) {

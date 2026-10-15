@@ -10,9 +10,24 @@ import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
+import { isServerCaptureSupported, micErrorMessage, openVadMic } from '../services/voice/vadCapture.js'
+import {
+  isLikelyHallucination,
+  personaGender,
+  playServerSpeech,
+  stopServerSpeech,
+} from '../services/voice/serverVoice.js'
+import { trainingApi } from '../services/api/client.js'
 
 /** Pause after the trainee stops talking before the turn is sent on its own. */
 const SILENCE_SEND_MS = 1400
+
+/** `ref.current` holds the promise of the open microphone, so a close during opening is not lost. */
+function closeMic(ref) {
+  const opening = ref.current
+  ref.current = null
+  opening?.then((mic) => mic.close()).catch(() => {})
+}
 
 function formatTime(iso) {
   if (!iso) return ''
@@ -76,6 +91,7 @@ export default function TrainingSimulationPage() {
     aiReady,
     aiUnavailableReason,
     aiStatus,
+    session,
   } = useTrainingAi()
 
   const [draft, setDraft] = useState('')
@@ -86,6 +102,23 @@ export default function TrainingSimulationPage() {
   const [busyHint, setBusyHint] = useState('')
   const draftRef = useRef('')
   const sttSupported = isSpeechRecognitionSupported()
+  // Server voice: the API listens (STT) and speaks (TTS). The browser's own voice is the fallback.
+  const [serverVoiceOff, setServerVoiceOff] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const serverVoice =
+    practiceMediaMode === 'voice' &&
+    Boolean(aiStatus?.voice?.stt && aiStatus?.voice?.tts) &&
+    isServerCaptureSupported() &&
+    !serverVoiceOff
+  const canListen = serverVoice || sttSupported
+  const serverFailuresRef = useRef(0)
+  const micRef = useRef(null)
+  const micIdRef = useRef('')
+  // Read inside long-lived callbacks (speech playback, mic segments) so a mid-line change cannot cancel them.
+  const voiceCfgRef = useRef({ serverVoice: false, canListen: false, sessionId: null })
+  useEffect(() => {
+    voiceCfgRef.current = { serverVoice, canListen, sessionId: session?.id ?? null }
+  })
   const [speakingLocal, setSpeakingLocal] = useState(false)
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
@@ -231,22 +264,44 @@ export default function TrainingSimulationPage() {
     lastSpokenMessageIdRef.current = lastMessage.id
 
     let cancelled = false
+    const line = lastMessage.text || ''
     setListening(false) // the microphone would pick up the persona's own voice
-    setCaption(lastMessage.text || '')
+    setCaption(line)
     setSpeakingLocal(true)
-    getAvatarEngine()
-      .speak(selectedPersona, lastMessage.text || '')
+
+    const { serverVoice: useServer, sessionId } = voiceCfgRef.current
+    const browserVoice = () => getAvatarEngine().speak(selectedPersona, line)
+    const speech =
+      useServer && sessionId
+        ? trainingApi
+            .speakSession(sessionId, line, personaGender(selectedPersona?.voiceRef))
+            .then((audio) => playServerSpeech(audio))
+            .then(() => {
+              serverFailuresRef.current = 0
+            })
+            .catch(() => {
+              // One bad line falls back to the browser voice; repeated failures turn server voice off for the call.
+              serverFailuresRef.current += 1
+              if (serverFailuresRef.current >= 2) {
+                setServerVoiceOff(true)
+                setVoiceNotice('A voz do servidor falhou. Usando a voz do navegador nesta conversa.')
+              }
+              return browserVoice()
+            })
+        : browserVoice()
+
+    speech
       .catch(() => null)
       .finally(() => {
         if (cancelled) return
         setSpeakingLocal(false)
-        if (autoListenRef.current && sttSupported) setListening(true)
+        if (autoListenRef.current && voiceCfgRef.current.canListen) setListening(true)
       })
 
     return () => {
       cancelled = true
     }
-  }, [messages, phase, practiceMediaMode, selectedPersona, sttSupported])
+  }, [messages, phase, practiceMediaMode, selectedPersona])
 
   useEffect(() => {
     if (phase !== 'running') {
@@ -256,6 +311,8 @@ export default function TrainingSimulationPage() {
       setTurnsLeft(null)
       lastSpokenMessageIdRef.current = null
       getAvatarEngine().stopSession()
+      stopServerSpeech()
+      closeMic(micRef)
     }
     if (phase === 'finished' || phase === 'idle') {
       setShowTranscript(false)
@@ -268,6 +325,8 @@ export default function TrainingSimulationPage() {
   useEffect(
     () => () => {
       getAvatarEngine().stopSession()
+      stopServerSpeech()
+      closeMic(micRef)
       const recorder = recorderRef.current
       recorderRef.current = null
       if (recorder && recorder.state !== 'inactive') {
@@ -289,8 +348,71 @@ export default function TrainingSimulationPage() {
   // Dictation: while the microphone is on, the recognised speech fills the answer box. The trainee reviews
   // it and sends it, as with typed text.
   const personaLanguage = selectedPersona?.language || 'pt-BR'
+
+  // Server listening: each turn is recorded, closed on a pause, transcribed by the API and then sent like typed text.
   useEffect(() => {
-    if (!listening) return undefined
+    if (!listening || !serverVoice) return undefined
+    let cancelled = false
+    let stopListening = null
+    setVoiceNotice('')
+    micFailedRef.current = false
+
+    function reopen() {
+      window.setTimeout(() => {
+        const live = liveRef.current
+        if (live.running && !live.speaking && !live.busy && autoListenRef.current) setListening(true)
+      }, 250)
+    }
+
+    async function handleSegment(blob) {
+      const { sessionId } = voiceCfgRef.current
+      if (cancelled || !sessionId) return
+      setListening(false)
+      setTranscribing(true)
+      try {
+        const { text } = await trainingApi.transcribeSessionAudio(sessionId, blob)
+        serverFailuresRef.current = 0
+        const heard = text.trim()
+        if (heard.length < 2 || isLikelyHallucination(heard)) {
+          reopen() // nothing intelligible: keep the call open
+          return
+        }
+        draftRef.current = heard
+        setDraft(heard)
+        await sendRef.current?.()
+      } catch (error) {
+        serverFailuresRef.current += 1
+        setVoiceNotice(error?.message || 'Não foi possível transcrever a sua fala.')
+        if (serverFailuresRef.current >= 2) setServerVoiceOff(true)
+        reopen()
+      } finally {
+        setTranscribing(false)
+      }
+    }
+
+    if (!micRef.current) {
+      micRef.current = openVadMic({ deviceId: micIdRef.current || undefined })
+    }
+    micRef.current
+      .then((mic) => {
+        if (cancelled) return
+        stopListening = mic.listen({ onSegment: handleSegment })
+      })
+      .catch((error) => {
+        micRef.current = null
+        micFailedRef.current = true
+        setVoiceNotice(micErrorMessage(error))
+        setListening(false)
+      })
+
+    return () => {
+      cancelled = true
+      stopListening?.()
+    }
+  }, [listening, serverVoice])
+
+  useEffect(() => {
+    if (!listening || serverVoice) return undefined
     if (!sttSupported) {
       setListening(false)
       setVoiceNotice('Este navegador não reconhece voz. Use o Chrome ou o Edge, ou digite a resposta.')
@@ -334,7 +456,7 @@ export default function TrainingSimulationPage() {
       window.clearTimeout(silenceTimerRef.current)
       recognizer.stop()
     }
-  }, [listening, personaLanguage, sttSupported, practiceMediaMode])
+  }, [listening, serverVoice, personaLanguage, sttSupported, practiceMediaMode])
 
   useEffect(() => {
     if (phase === 'finished' && evaluation?.sessionId) {
@@ -390,6 +512,7 @@ export default function TrainingSimulationPage() {
   // Timers and recognizer callbacks outlive a render: they read the latest handler and call state from refs.
   useEffect(() => {
     sendRef.current = handleSend
+    micIdRef.current = micTest.micId || ''
     liveRef.current = {
       speaking: speakingLocal,
       busy: isGeneratingReply || isJudging,
@@ -547,7 +670,7 @@ export default function TrainingSimulationPage() {
           ? 'Conversa por voz'
           : 'Conversa por texto'
 
-  const callState = isGeneratingReply
+  const callState = isGeneratingReply || transcribing
     ? 'connecting'
     : speakingLocal
       ? 'speaking'
@@ -752,7 +875,7 @@ export default function TrainingSimulationPage() {
                   persona={persona}
                   callState={callState}
                   caption={caption}
-                  liveText={listening ? draft : ''}
+                  liveText={listening || isGeneratingReply || transcribing ? draft : ''}
                   listening={listening}
                   onListeningChange={setVoiceListening}
                   onFinish={handleFinish}

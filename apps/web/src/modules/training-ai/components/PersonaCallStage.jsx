@@ -22,7 +22,7 @@ export default function PersonaCallStage({
   const connecting = callState === 'connecting'
 
   const stateLabel = connecting
-    ? 'Conectando…'
+    ? 'Pensando…'
     : speaking
       ? `${persona?.name || 'Persona'} está falando…`
       : listening

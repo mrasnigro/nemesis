@@ -31,8 +31,10 @@ import {
   rejudgeSessionFor,
   saveSessionAudioFor,
   sendMessageFor,
+  speakSessionFor,
   startSessionFor,
   statusFor,
+  transcribeSessionAudioFor,
   updateGroupFor,
   updatePersonaFor,
   updateScenarioFor,
@@ -51,6 +53,7 @@ import {
   scenarioWrite,
   sessionListQuery,
   sessionStart,
+  speakWrite,
   templateListQuery,
   templateWrite,
 } from './training-ai.schemas.js'
@@ -177,6 +180,19 @@ export async function saveSessionAudioController(req: Request, res: Response) {
   const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)
   const contentType = String(req.headers['content-type'] || 'audio/webm')
   res.status(201).json({ data: await saveSessionAudioFor(actor(req), req.params.sessionId, audio, contentType) })
+}
+
+export async function transcribeSessionController(req: Request, res: Response) {
+  const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)
+  const contentType = String(req.headers['content-type'] || 'audio/webm')
+  res.json({ data: await transcribeSessionAudioFor(actor(req), req.params.sessionId, audio, contentType) })
+}
+
+export async function speakSessionController(req: Request, res: Response) {
+  const body = speakWrite.parse(req.body)
+  const audio = await speakSessionFor(actor(req), req.params.sessionId, body.text, body.gender)
+  res.setHeader('Cache-Control', 'no-store')
+  res.type('audio/mpeg').send(audio)
 }
 
 export async function readSessionAudioController(req: Request, res: Response) {
