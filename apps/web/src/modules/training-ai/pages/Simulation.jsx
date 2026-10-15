@@ -11,6 +11,9 @@ import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
 
+/** Pause after the trainee stops talking before the turn is sent on its own. */
+const SILENCE_SEND_MS = 1400
+
 function formatTime(iso) {
   if (!iso) return ''
   try {
@@ -99,6 +102,12 @@ export default function TrainingSimulationPage() {
   const startCancelledRef = useRef(false)
   // Hands-free voice: while on, the microphone reopens each time the persona finishes speaking.
   const autoListenRef = useRef(false)
+  // Voice turn taking: send on silence, reopen the mic after the persona answers.
+  const sendRef = useRef(null)
+  const sendingRef = useRef(false)
+  const silenceTimerRef = useRef(null)
+  const micFailedRef = useRef(false)
+  const liveRef = useRef({ speaking: false, busy: false, running: false })
   const voiceCallEntry = Boolean(personaRouteId) && practiceMediaMode === 'voice' && phase === 'briefing'
   const micTest = useMicTest({ enabled: voiceCallEntry })
   const handleCallStepChange = useCallback((next) => setCallStep(next), [])
@@ -288,15 +297,44 @@ export default function TrainingSimulationPage() {
       return undefined
     }
     setVoiceNotice('')
+    micFailedRef.current = false
+    const handsFree = practiceMediaMode === 'voice'
     const recognizer = createSpeechRecognizer({
       lang: personaLanguage,
-      onText: (text) => setDraft(text),
-      onEnd: () => setListening(false),
-      onError: (message) => setVoiceNotice(message),
+      onText: (text) => {
+        setDraft(text)
+        if (!handsFree) return
+        // The turn ends after a short pause: send what was said without a click.
+        window.clearTimeout(silenceTimerRef.current)
+        if (text.trim().length >= 2) {
+          silenceTimerRef.current = window.setTimeout(() => sendRef.current?.(), SILENCE_SEND_MS)
+        }
+      },
+      onEnd: () => {
+        window.clearTimeout(silenceTimerRef.current)
+        setListening(false)
+        if (!handsFree) return
+        if (draftRef.current.trim().length >= 2) {
+          sendRef.current?.()
+        } else if (autoListenRef.current && !micFailedRef.current) {
+          // The browser closes the mic after a quiet spell; keep the call open.
+          window.setTimeout(() => {
+            const live = liveRef.current
+            if (live.running && !live.speaking && !live.busy && autoListenRef.current) setListening(true)
+          }, 250)
+        }
+      },
+      onError: (message) => {
+        micFailedRef.current = true
+        setVoiceNotice(message)
+      },
     })
     recognizer.start(draftRef.current)
-    return () => recognizer.stop()
-  }, [listening, personaLanguage, sttSupported])
+    return () => {
+      window.clearTimeout(silenceTimerRef.current)
+      recognizer.stop()
+    }
+  }, [listening, personaLanguage, sttSupported, practiceMediaMode])
 
   useEffect(() => {
     if (phase === 'finished' && evaluation?.sessionId) {
@@ -330,18 +368,34 @@ export default function TrainingSimulationPage() {
 
   async function handleSend(event) {
     event?.preventDefault()
-    if (isGeneratingReply || isJudging || !draft.trim()) return
+    const text = draftRef.current.trim()
+    if (sendingRef.current || isGeneratingReply || isJudging || !text) return
+    sendingRef.current = true
     setBusyHint('')
     setListening(false)
-    const result = await sendMessage(draft)
-    if (result.ok) {
-      setDraft('')
-      setFinishHint('')
-      if (typeof result.turnsLeft === 'number') setTurnsLeft(result.turnsLeft)
-    } else if (result.error) {
-      setBusyHint(result.error) // the text stays in the box so nothing is lost
+    try {
+      const result = await sendMessage(text)
+      if (result.ok) {
+        draftRef.current = ''
+        setDraft('')
+        setFinishHint('')
+        if (typeof result.turnsLeft === 'number') setTurnsLeft(result.turnsLeft)
+      } else if (result.error) {
+        setBusyHint(result.error) // the text stays in the box so nothing is lost
+      }
+    } finally {
+      sendingRef.current = false
     }
   }
+  // Timers and recognizer callbacks outlive a render: they read the latest handler and call state from refs.
+  useEffect(() => {
+    sendRef.current = handleSend
+    liveRef.current = {
+      speaking: speakingLocal,
+      busy: isGeneratingReply || isJudging,
+      running: phase === 'running',
+    }
+  })
 
   function handleComposerKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -368,9 +422,12 @@ export default function TrainingSimulationPage() {
     if (isGeneratingReply || isJudging) return
     setBusyHint('')
     setFinishHint('')
+    autoListenRef.current = false
+    sendingRef.current = true // a pending dictation must not slip in after the call ends
     setListening(false)
     const audioBlob = await stopRecorder()
     const result = await finishSession(audioBlob)
+    sendingRef.current = false
     if (!result.ok && result.error) setFinishHint(result.error)
   }
 
@@ -408,7 +465,8 @@ export default function TrainingSimulationPage() {
       return result
     }
     setPreparing(false)
-    if (micArmed) autoListenRef.current = true
+    // A voice call is hands-free by default: the mic opens after each persona line.
+    if (micArmed || practiceMediaMode === 'voice') autoListenRef.current = true
     await startSessionRecorder()
     return result
   }
@@ -694,6 +752,7 @@ export default function TrainingSimulationPage() {
                   persona={persona}
                   callState={callState}
                   caption={caption}
+                  liveText={listening ? draft : ''}
                   listening={listening}
                   onListeningChange={setVoiceListening}
                   onFinish={handleFinish}
@@ -739,6 +798,23 @@ export default function TrainingSimulationPage() {
                 </div>
               ) : null}
 
+              {practiceMediaMode === 'voice' && sttSupported ? (
+                // Voice call: speech is the only input. The turn is sent on its own after a pause.
+                <div className="training-ai__composer-hints">
+                  {finishHint ? <p className="training-ai__composer-hint">{finishHint}</p> : null}
+                  {busyHint ? <p className="training-ai__composer-hint">{busyHint}</p> : null}
+                  {busyHint && draft.trim() ? (
+                    <button
+                      type="button"
+                      className="imp-btn imp-btn--ghost"
+                      onClick={() => sendRef.current?.()}
+                      disabled={isGeneratingReply || isJudging}
+                    >
+                      Tentar enviar de novo
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
               <form className="training-ai__composer" onSubmit={handleSend}>
                 <label className="imp-field training-ai__composer-field">
                   <span>
@@ -791,6 +867,7 @@ export default function TrainingSimulationPage() {
                 {finishHint ? <p className="training-ai__composer-hint">{finishHint}</p> : null}
                 {busyHint ? <p className="training-ai__composer-hint">{busyHint}</p> : null}
               </form>
+              )}
             </>
           ) : null}
         </div>
