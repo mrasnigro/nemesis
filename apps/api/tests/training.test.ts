@@ -875,6 +875,61 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     expect(response.body.error.code).toBe('SESSION_NOT_VOICE')
   })
 
+  it('transcribes with Deepgram through its own /listen API', async () => {
+    const calls: { url: string; headers: Record<string, string>; body: unknown }[] = []
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, headers: init.headers as Record<string, string>, body: init.body })
+      return new Response(
+        JSON.stringify({ results: { channels: [{ alternatives: [{ transcript: ' olá, tudo bem? ' }] }] } }),
+        { status: 200 },
+      )
+    }) as unknown as typeof fetch
+    const client = createVoiceClient({
+      stt: { provider: 'deepgram', baseUrl: 'https://dg.example/v1/', apiKey: 'dg-key', model: 'nova-3', timeoutMs: 1000, fetchImpl },
+      tts: null,
+    })
+    await expect(client.transcribe(Buffer.from('audio'), 'audio/webm;codecs=opus', 'pt-BR')).resolves.toBe('olá, tudo bem?')
+    const url = new URL(calls[0].url)
+    expect(url.origin + url.pathname).toBe('https://dg.example/v1/listen')
+    expect(url.searchParams.get('model')).toBe('nova-3')
+    expect(url.searchParams.get('language')).toBe('pt-BR')
+    expect(calls[0].headers.Authorization).toBe('Token dg-key')
+    expect(calls[0].headers['Content-Type']).toBe('audio/webm')
+    expect(Buffer.from(calls[0].body as Uint8Array).toString()).toBe('audio')
+
+    const broken = createVoiceClient({
+      stt: {
+        provider: 'deepgram',
+        baseUrl: 'https://dg.example/v1',
+        apiKey: 'k',
+        model: 'nova-3',
+        timeoutMs: 1000,
+        fetchImpl: (async () => new Response('{"err":"secret detail"}', { status: 401 })) as unknown as typeof fetch,
+      },
+      tts: null,
+    })
+    await expect(broken.transcribe(Buffer.from('a'), 'audio/webm', 'pt-BR')).rejects.toMatchObject({
+      status: 502,
+      code: 'AI_PROVIDER_ERROR',
+    })
+  })
+
+  it('starts the first sentence at its first comma, then splits normally', () => {
+    const run = (text: string, eager: boolean) => {
+      const first = takeSentences(text, false, { eager })
+      return [...first.sentences, ...takeSentences(first.rest, true).sentences]
+    }
+    expect(run('Claro, eu posso ouvir a proposta, mas preciso do preço. Quanto custa?', true)).toEqual([
+      'Claro, eu posso ouvir a proposta,',
+      'mas preciso do preço.',
+      'Quanto custa?',
+    ])
+    expect(run('Sim, certo. Quanto custa?', true)).toEqual(['Sim, certo. Quanto custa?'])
+    expect(run('Claro, eu posso ouvir a proposta, mas preciso do preço.', false)).toEqual([
+      'Claro, eu posso ouvir a proposta, mas preciso do preço.',
+    ])
+  })
+
   it('calls an OpenAI-compatible speech API for both stages', async () => {
     const calls: { url: string; body: unknown }[] = []
     const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -1071,6 +1126,21 @@ describe('openai-compatible provider', () => {
     expect(sent.stream).toBe(true)
     expect(parseStreamDelta('not json')).toBe('')
     expect(parseStreamDelta('{"choices":[{"finish_reason":"stop","delta":{}}]}')).toBe('')
+  })
+
+  it('sends reasoning_effort for conversation replies only when it is configured', async () => {
+    const bodies: Record<string, unknown>[] = []
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)))
+      return completion('Certo.')
+    }) as unknown as typeof fetch
+    const make = (reasoningEffort?: 'minimal') =>
+      createOpenAiProvider({ baseUrl: 'https://llm.example/v1', apiKey: 'k', model: 'm', timeoutMs: 1000, reasoningEffort, fetchImpl })
+    const input = { persona, scenario, history: messages, exchangeIndex: 0, mediaMode: 'voice' as const }
+    await make().reply(input)
+    await make('minimal').reply(input)
+    expect(bodies[0]).not.toHaveProperty('reasoning_effort')
+    expect(bodies[1].reasoning_effort).toBe('minimal')
   })
 
   it('cuts a growing reply into sentences without splitting numbers or abbreviations', () => {

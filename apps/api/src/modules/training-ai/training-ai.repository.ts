@@ -496,9 +496,8 @@ export async function listMessages(sessionId: string, db: Db = pool): Promise<Ch
   return rows.map(messageFromRow)
 }
 
-/** A session with its transcript. userScope null = any user of the customer. */
-export async function getSession(customerId: string, id: string, userScope: string | null) {
-  const [rows] = await pool.query<JsonRow[]>(
+function selectSession(customerId: string, id: string, userScope: string | null) {
+  return pool.query<JsonRow[]>(
     `SELECT s.*, u.name AS user_name
      FROM training_sessions s
      LEFT JOIN users u ON u.id = s.user_id
@@ -507,9 +506,20 @@ export async function getSession(customerId: string, id: string, userScope: stri
      LIMIT 1`,
     { customerId, id, userScope },
   )
+}
+
+/** The session row without its transcript: one query. For checks that do not need the messages (voice endpoints). */
+export async function getSessionHead(customerId: string, id: string, userScope: string | null) {
+  const [rows] = await selectSession(customerId, id, userScope)
+  return rows[0] ? sessionFromRow(rows[0]) : null
+}
+
+/** A session with its transcript. userScope null = any user of the customer. */
+export async function getSession(customerId: string, id: string, userScope: string | null) {
+  // The transcript is read at the same time as the row; it is dropped when the row is not found or not allowed.
+  const [[rows], messages] = await Promise.all([selectSession(customerId, id, userScope), listMessages(id)])
   if (!rows[0]) return null
   const session = sessionFromRow(rows[0])
-  const messages = await listMessages(id)
   return {
     ...session,
     messages,

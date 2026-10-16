@@ -100,7 +100,7 @@ export const trainingApi = {
       body: blob,
     })
     const payload = await response.json().catch(() => null)
-    return { text: String(payload?.data?.text ?? '') }
+    return { text: String(payload?.data?.text ?? ''), timing: payload?.data?.timing ?? null }
   },
   /** Server text-to-speech: the persona's line as an MP3 blob. `gender` picks the voice: 'f' or 'm'. */
   speakSession: async (id, text, gender = 'f') => {

@@ -3,7 +3,7 @@ import { config } from '../../../core/config.js'
 import { AppError } from '../../../core/errors.js'
 import { log } from '../../../core/logger.js'
 
-export type SttOptions = { baseUrl: string; apiKey: string; model: string; timeoutMs: number; fetchImpl?: typeof fetch }
+export type SttOptions = { provider?: 'openai' | 'deepgram'; baseUrl: string; apiKey: string; model: string; timeoutMs: number; fetchImpl?: typeof fetch }
 export type TtsOptions = {
   baseUrl: string
   apiKey: string
@@ -68,12 +68,45 @@ async function timedFetch(doFetch: typeof fetch, url: string, init: RequestInit,
   }
 }
 
+const deepgramSchema = z.object({
+  results: z.object({
+    channels: z.array(z.object({ alternatives: z.array(z.object({ transcript: z.string() })).min(1) })).min(1),
+  }),
+})
+
+/** Deepgram's own pre-recorded API: the audio goes up as the raw body and the text comes back in results. */
+async function transcribeWithDeepgram(
+  stt: SttOptions,
+  doFetch: typeof fetch,
+  audio: Buffer,
+  contentType: string,
+  language: string,
+) {
+  const query = new URLSearchParams({ model: stt.model, language, smart_format: 'true', punctuate: 'true' })
+  const response = await timedFetch(
+    doFetch,
+    `${stt.baseUrl.replace(/\/+$/, '')}/listen?${query}`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Token ${stt.apiKey}`, 'Content-Type': (contentType || 'audio/webm').split(';')[0].trim() },
+      body: new Uint8Array(audio),
+    },
+    stt.timeoutMs,
+    'stt',
+  )
+  if (!response.ok) throw providerError('stt', response.status, await response.text().catch(() => ''))
+  const parsed = deepgramSchema.safeParse(await response.json().catch(() => null))
+  if (!parsed.success) throw providerError('stt', 502, 'unexpected deepgram payload')
+  return parsed.data.results.channels[0].alternatives[0].transcript.trim()
+}
+
 export function createVoiceClient(options: { stt: SttOptions | null; tts: TtsOptions | null }): VoiceClient {
   return {
     async transcribe(audio, contentType, language) {
       const stt = options.stt
       if (!stt) throw new AppError(503, 'VOICE_NOT_CONFIGURED', 'A transcrição de voz não está configurada no servidor.')
       const doFetch = stt.fetchImpl ?? fetch
+      if (stt.provider === 'deepgram') return transcribeWithDeepgram(stt, doFetch, audio, contentType, language)
       const form = new FormData()
       form.append('file', new Blob([new Uint8Array(audio)], { type: contentType || 'audio/webm' }), `fala.${extensionOf(contentType)}`)
       form.append('model', stt.model)

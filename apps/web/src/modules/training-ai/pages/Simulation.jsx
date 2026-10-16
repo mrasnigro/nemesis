@@ -24,6 +24,32 @@ import { trainingApi } from '../services/api/client.js'
 /** Pause after the trainee stops talking before the turn is sent on its own. */
 const SILENCE_SEND_MS = 1400
 
+/** Quiet time after the trainee stops talking that ends the turn. Shorter feels like a phone call; too short cuts people off. */
+const END_OF_TURN_MS = 700
+
+/**
+ * Logs where the time of one spoken turn went, in the browser console ("[voice-latency]"), measured from the
+ * moment the recording of the turn was handed over. Add `silenceMs` to get the time from the end of the voice.
+ */
+function reportLatency(ref, stage) {
+  const mark = ref.current
+  if (!mark) return
+  const now = performance.now()
+  if (stage === 'sentence' && !mark.sentenceAt) mark.sentenceAt = now
+  if (stage !== 'play' || mark.reported || !mark.sentenceAt) return
+  mark.reported = true
+  console.info('[voice-latency]', {
+    endOfSpeechWaitMs: END_OF_TURN_MS,
+    transcribeMs: Math.round(mark.transcribedAt - mark.segmentAt),
+    serverStt: mark.server,
+    audioBytes: mark.bytes,
+    replyFirstSentenceMs: Math.round(mark.sentenceAt - mark.transcribedAt),
+    sentenceToSoundMs: Math.round(now - mark.sentenceAt),
+    handoverToSoundMs: Math.round(now - mark.segmentAt),
+    fromEndOfVoiceMs: Math.round(now - mark.segmentAt) + END_OF_TURN_MS,
+  })
+}
+
 /** Stops the persona's server speech: the streamed reply being played and the request still producing it. */
 function silenceRefs(queueRef, turnAbortRef) {
   const queue = queueRef.current
@@ -150,6 +176,7 @@ export default function TrainingSimulationPage() {
   const micOpen = listening || (serverVoice && bargeIn && speakingLocal)
   // The persona's streamed reply being played, and the request that is producing it.
   const queueRef = useRef(null)
+  const latencyRef = useRef(null)
   const turnAbortRef = useRef(null)
   const [caption, setCaption] = useState('')
   const [showTranscript, setShowTranscript] = useState(false)
@@ -415,7 +442,9 @@ export default function TrainingSimulationPage() {
       setListening(false)
       setTranscribing(true)
       try {
-        const { text } = await trainingApi.transcribeSessionAudio(sessionId, blob)
+        const segmentAt = performance.now()
+        const { text, timing } = await trainingApi.transcribeSessionAudio(sessionId, blob)
+        latencyRef.current = { segmentAt, transcribedAt: performance.now(), server: timing, bytes: blob.size }
         serverFailuresRef.current = 0
         const heard = text.trim()
         if (heard.length < 2 || isLikelyHallucination(heard)) {
@@ -436,7 +465,7 @@ export default function TrainingSimulationPage() {
     }
 
     if (!micRef.current) {
-      micRef.current = openVadMic({ deviceId: micIdRef.current || undefined })
+        micRef.current = openVadMic({ deviceId: micIdRef.current || undefined, silenceMs: END_OF_TURN_MS })
     }
     micRef.current
       .then((mic) => {
@@ -560,6 +589,7 @@ export default function TrainingSimulationPage() {
         const ownQueue = createSpeechQueue({
           onSentence: (line) => {
             if (queueRef.current !== ownQueue) return
+            reportLatency(latencyRef, 'play')
             setCaption(line)
             setSpeakingLocal(true)
           },
@@ -582,7 +612,10 @@ export default function TrainingSimulationPage() {
         result = await sendSpokenTurn(text, {
           gender: personaGender(selectedPersona?.voiceRef),
           signal: abort.signal,
-          onSentence: (sentence) => ownQueue.push(sentence),
+          onSentence: (sentence) => {
+            reportLatency(latencyRef, 'sentence')
+            ownQueue.push(sentence)
+          },
           onTurn: (aiMessage) => {
             lastSpokenMessageIdRef.current = aiMessage.id // already spoken: the line effect must not repeat it
           },

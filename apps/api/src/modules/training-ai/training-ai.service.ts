@@ -23,6 +23,7 @@ import {
   getPersona,
   getScenario,
   getSession,
+  getSessionHead,
   getTemplate,
   insertGroup,
   insertPersona,
@@ -279,20 +280,32 @@ function scenarioFromPersona(persona: Record<string, unknown>): ScenarioProfile 
   }
 }
 
-async function sessionContext(customerId: string, personaId: string | null, scenarioId: string | null) {
-  const persona = personaId ? await getPersona(customerId, personaId) : null
+/**
+ * The persona and scenario of a session. `withTemplate: false` skips the evaluation template, which only the final
+ * judgement needs: a conversation turn does not wait for that query.
+ */
+async function sessionContext(
+  customerId: string,
+  personaId: string | null,
+  scenarioId: string | null,
+  { withTemplate = true }: { withTemplate?: boolean } = {},
+) {
+  // Persona and scenario do not depend on each other: both are read at once.
+  const [persona, scenario] = await Promise.all([
+    personaId ? getPersona(customerId, personaId) : Promise.resolve(null),
+    scenarioId ? getScenario(customerId, scenarioId) : Promise.resolve(null),
+  ])
   if (!persona) {
     throw new AppError(409, 'SESSION_UNAVAILABLE', 'O agente desta sessão foi removido.')
   }
   if (scenarioId) {
-    const scenario = await getScenario(customerId, scenarioId)
     if (!scenario) throw new AppError(409, 'SESSION_UNAVAILABLE', 'O cenário desta sessão foi removido.')
-    const template = await getTemplate(customerId, String(scenario.evaluationTemplateId))
+    const template = withTemplate ? await getTemplate(customerId, String(scenario.evaluationTemplateId)) : null
     return { persona: persona as PersonaProfile, scenario: scenario as ScenarioProfile, template: template as unknown as Template | null }
   }
   const templateId = persona.evaluationTemplateId == null ? '' : String(persona.evaluationTemplateId)
   if (!templateId) throw new AppError(409, 'TEMPLATE_UNAVAILABLE', 'Esta persona não tem um template de avaliação.')
-  const template = await getTemplate(customerId, templateId)
+  const template = withTemplate ? await getTemplate(customerId, templateId) : null
   return {
     persona: persona as PersonaProfile,
     scenario: scenarioFromPersona(persona),
@@ -372,7 +385,7 @@ export async function sendMessageFor(
 type PreparedTurn = Awaited<ReturnType<typeof prepareTurn>>
 
 /** Everything a trainee turn needs before the model is asked: the open session, its limits, the persona and the history. */
-async function prepareTurn(actor: Actor, sessionId: string, text: string) {
+async function prepareTurn(actor: Actor, sessionId: string, text: string, options: { withTemplate?: boolean } = {}) {
   const customerId = customerOf(actor)
   const session = await ownSession(actor, sessionId)
   if (session.status !== 'in_progress') throw new AppError(409, 'SESSION_CLOSED', 'Esta sessão já foi encerrada.')
@@ -382,7 +395,7 @@ async function prepareTurn(actor: Actor, sessionId: string, text: string) {
     throw new AppError(409, 'SESSION_TURN_LIMIT', `Limite de ${config.TRAINING_AI_MAX_TURNS} mensagens atingido. Encerre o treino para ver a avaliação.`)
   }
 
-  const { persona, scenario } = await sessionContext(customerId, session.personaId, session.scenarioId)
+  const { persona, scenario } = await sessionContext(customerId, session.personaId, session.scenarioId, options)
   const provider = requireAiProvider()
   const pending = { id: 'pending', role: 'user' as const, speaker: TRAINEE_SPEAKER, text, timestamp: new Date().toISOString() }
   return {
@@ -424,9 +437,18 @@ async function saveTurn(turn: PreparedTurn, replyText: string, timing: { offsetM
   }
 }
 
+/** Where the time of one spoken turn went, in ms since the request arrived (the *At values) or per stage. */
+export type SpokenTurnTiming = {
+  prepareMs: number
+  firstTokenAt: number | null
+  firstSentenceAt: number | null
+  firstAudioAt: number | null
+  totalMs: number
+}
+
 export type SpokenTurnEvent =
   | { type: 'sentence'; index: number; text: string; audio: string | null }
-  | { type: 'done'; data: Awaited<ReturnType<typeof saveTurn>> }
+  | { type: 'done'; data: Awaited<ReturnType<typeof saveTurn>>; timing: SpokenTurnTiming }
 
 /**
  * One voice turn, streamed: the model writes the reply, each finished sentence goes to text-to-speech at once
@@ -440,7 +462,9 @@ export async function streamSpokenTurnFor(
   emit: (event: SpokenTurnEvent) => void,
   signal: AbortSignal,
 ) {
-  const turn = await prepareTurn(actor, sessionId, input.text)
+  const startedAt = performance.now()
+  const turn = await prepareTurn(actor, sessionId, input.text, { withTemplate: false })
+  const preparedAt = performance.now()
   if (turn.session.mediaMode !== 'voice') throw new AppError(409, 'SESSION_NOT_VOICE', 'Esta sessão não é uma conversa por voz.')
   const speech = voiceClient()
 
@@ -450,8 +474,13 @@ export async function streamSpokenTurnFor(
   let full = ''
   let buffer = ''
   let skipSpeech = false
+  let firstTokenAt: number | null = null
+  let firstSentenceAt: number | null = null
+  let firstAudioAt: number | null = null
+  const since = () => Math.round(performance.now() - startedAt)
 
   function dispatch(sentence: string) {
+    if (firstSentenceAt === null) firstSentenceAt = since()
     const position = index
     index += 1
     const audio: Promise<string | null> =
@@ -468,6 +497,7 @@ export async function streamSpokenTurnFor(
         : Promise.resolve(null)
     sent = sent.then(async () => {
       const mp3 = await audio
+      if (firstAudioAt === null) firstAudioAt = since()
       if (!signal.aborted) emit({ type: 'sentence', index: position, text: sentence, audio: mp3 })
     })
   }
@@ -479,9 +509,11 @@ export async function streamSpokenTurnFor(
       })()
 
   for await (const piece of pieces) {
+    if (firstTokenAt === null) firstTokenAt = since()
     full += piece
     buffer += piece
-    const { sentences, rest } = takeSentences(buffer, false)
+    // The first sentence leaves at its first comma: speech starts sooner, the rest follows as usual.
+    const { sentences, rest } = takeSentences(buffer, false, { eager: index === 0 })
     buffer = rest
     sentences.forEach(dispatch)
     if (signal.aborted) skipSpeech = true
@@ -497,7 +529,15 @@ export async function streamSpokenTurnFor(
     throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA devolveu uma resposta vazia.')
   }
   const stored = await saveTurn(turn, full, { offsetMs: input.offsetMs, durationMs: input.durationMs })
-  if (!signal.aborted) emit({ type: 'done', data: stored })
+  const timing: SpokenTurnTiming = {
+    prepareMs: Math.round(preparedAt - startedAt),
+    firstTokenAt,
+    firstSentenceAt,
+    firstAudioAt,
+    totalMs: since(),
+  }
+  log('info', 'training-ai voice turn', { ...timing, sentences: index, chars: full.length })
+  if (!signal.aborted) emit({ type: 'done', data: stored, timing })
   return stored
 }
 
@@ -615,7 +655,9 @@ export async function saveSessionAudioFor(actor: Actor, sessionId: string, audio
 
 /** A running voice session: the only time speech is transcribed or synthesized. Keeps the endpoints from being open TTS/STT proxies. */
 async function openVoiceSession(actor: Actor, sessionId: string) {
-  const session = await ownSession(actor, sessionId)
+  // One query: these checks do not need the transcript, and every spoken turn passes through here.
+  const session = await getSessionHead(customerOf(actor), sessionId, actor.userId)
+  if (!session) throw new AppError(404, 'NOT_FOUND', 'Session not found')
   if (session.status !== 'in_progress') throw new AppError(409, 'SESSION_CLOSED', 'Esta sessão já foi encerrada.')
   if (session.mediaMode !== 'voice') throw new AppError(409, 'SESSION_NOT_VOICE', 'Esta sessão não é uma conversa por voz.')
   const client = voiceClient()
@@ -627,11 +669,31 @@ async function openVoiceSession(actor: Actor, sessionId: string) {
 export async function transcribeSessionAudioFor(actor: Actor, sessionId: string, audio: Buffer, contentType: string) {
   if (!audio.length) throw new AppError(400, 'VALIDATION_ERROR', 'O áudio está vazio.')
   if (audio.length > MAX_VOICE_AUDIO_BYTES) throw new AppError(413, 'AUDIO_TOO_LARGE', 'O áudio é grande demais.')
+  const started = performance.now()
   const { session, client } = await openVoiceSession(actor, sessionId)
-  const { persona } = await sessionContext(customerOf(actor), session.personaId, session.scenarioId)
-  const language = typeof persona.language === 'string' && persona.language ? persona.language : 'pt-BR'
+  const language = await personaLanguage(customerOf(actor), session.personaId)
+  const lookedUp = performance.now()
   const text = await client.transcribe(audio, contentType, language)
-  return { text }
+  const done = performance.now()
+  const timing = { lookupMs: Math.round(lookedUp - started), sttMs: Math.round(done - lookedUp), bytes: audio.length }
+  log('info', 'training-ai stt', timing)
+  return { text, timing }
+}
+
+const LANGUAGE_TTL_MS = 60_000
+const languages = new Map<string, { language: string; at: number }>()
+
+/** The persona's language for speech recognition. Cached briefly: it is read once per spoken turn and rarely changes. */
+async function personaLanguage(customerId: string, personaId: string | null) {
+  const key = `${customerId}:${personaId}`
+  const cached = languages.get(key)
+  if (cached && Date.now() - cached.at < LANGUAGE_TTL_MS) return cached.language
+  const persona = personaId ? await getPersona(customerId, personaId) : null
+  if (!persona) throw new AppError(409, 'SESSION_UNAVAILABLE', 'O agente desta sessão foi removido.')
+  const language = typeof persona.language === 'string' && persona.language ? persona.language : 'pt-BR'
+  if (languages.size > 500) languages.clear()
+  languages.set(key, { language, at: Date.now() })
+  return language
 }
 
 /** The persona's line as MP3, in the voice that suits her. */

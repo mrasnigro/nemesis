@@ -23,6 +23,7 @@ function configured(): AiProvider | null {
       apiKey: config.TRAINING_AI_API_KEY,
       model: config.TRAINING_AI_MODEL,
       timeoutMs: config.TRAINING_AI_TIMEOUT_MS,
+      reasoningEffort: config.TRAINING_AI_REASONING_EFFORT,
     })
     return openai
   }

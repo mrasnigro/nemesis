@@ -56,7 +56,10 @@ const schema = z.object({
    */
   STT_BASE_URL: z.string().url().optional(),
   STT_API_KEY: z.string().min(1).optional(),
-  STT_MODEL: z.string().min(1).default('whisper-1'),
+  /** openai is any OpenAI-compatible /audio/transcriptions API; deepgram calls Deepgram's own /listen API (needs STT_API_KEY). */
+  STT_PROVIDER: z.enum(['openai', 'deepgram']).default('openai'),
+  /** Defaults to whisper-1 (openai) or nova-3 (deepgram). */
+  STT_MODEL: z.string().min(1).optional(),
   STT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   TTS_BASE_URL: z.string().url().optional(),
   TTS_API_KEY: z.string().min(1).optional(),
@@ -67,6 +70,8 @@ const schema = z.object({
   /** Speaking pace, 0.25 to 4. Slightly above 1 sounds like a phone call. */
   TTS_SPEED: z.coerce.number().min(0.25).max(4).default(1.1),
   TTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+  /** Voice replies only: minimal/low makes a reasoning model answer sooner. Unset sends nothing (models that do not know it reject it). */
+  TRAINING_AI_REASONING_EFFORT: z.enum(['none', 'minimal', 'low', 'medium', 'high']).optional(),
 })
 
 /** Names used by other IMP projects are accepted for the language model. */
@@ -100,15 +105,19 @@ export const config = {
 }
 
 function voiceOptions(env: z.infer<typeof schema>) {
-  const stt = env.STT_API_KEY ?? env.TRAINING_AI_API_KEY
+  const deepgram = env.STT_PROVIDER === 'deepgram'
+  // Deepgram has its own key: the language model's key would never work there.
+  const stt = deepgram ? env.STT_API_KEY : (env.STT_API_KEY ?? env.TRAINING_AI_API_KEY)
+  const sttModel = env.STT_MODEL ?? (deepgram ? 'nova-3' : 'whisper-1')
   const tts = env.TTS_API_KEY ?? env.TRAINING_AI_API_KEY
   return {
     stt:
-      stt && env.STT_MODEL !== 'off'
+      stt && sttModel !== 'off'
         ? {
-            baseUrl: env.STT_BASE_URL ?? env.TRAINING_AI_BASE_URL,
+            provider: env.STT_PROVIDER,
+            baseUrl: env.STT_BASE_URL ?? (deepgram ? 'https://api.deepgram.com/v1' : env.TRAINING_AI_BASE_URL),
             apiKey: stt,
-            model: env.STT_MODEL,
+            model: sttModel,
             timeoutMs: env.STT_TIMEOUT_MS,
           }
         : null,

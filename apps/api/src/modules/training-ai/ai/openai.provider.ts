@@ -9,6 +9,8 @@ export type OpenAiProviderOptions = {
   apiKey: string
   model: string
   timeoutMs: number
+  /** `reasoning_effort` of conversation replies (not the final judgement). */
+  reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   /** Injected in tests. */
   fetchImpl?: typeof fetch
 }
@@ -120,6 +122,8 @@ export function judgeSystemPrompt() {
 export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider {
   const doFetch = options.fetchImpl ?? fetch
   const endpoint = `${options.baseUrl.replace(/\/+$/, '')}/chat/completions`
+  // Only sent when configured: a model that does not know the setting rejects the whole request.
+  const reasoning = options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}
 
   async function complete(body: Record<string, unknown>): Promise<string> {
     const controller = new AbortController()
@@ -170,6 +174,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
         ],
         temperature: 0.8,
         max_tokens: REPLY_MAX_TOKENS,
+        ...reasoning,
       })
       return { text }
     },
@@ -202,6 +207,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
             ],
             temperature: 0.8,
             max_tokens: REPLY_MAX_TOKENS,
+            ...reasoning,
             stream: true,
           }),
           signal: controller.signal,

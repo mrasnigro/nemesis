@@ -6,6 +6,9 @@
 /** Shorter pieces ("Sr.", "Ok.") are held back and joined with what follows. */
 const MIN_CHARS = 14
 const ENDING = new Set(['.', '!', '?', '…', '\n'])
+const SOFT = new Set([',', ';', ':'])
+/** A first clause shorter than this is held back: very short audio sounds choppy. */
+const EAGER_MIN_CHARS = 22
 const TRAILING = /[.!?…"')\]]/
 const SPACE = /\s/
 
@@ -14,12 +17,29 @@ const SPACE = /\s/
  * @param final true once the model is done: whatever is left is a sentence too
  * @returns the complete sentences, and the unfinished rest to pass back with the next piece
  */
-export function takeSentences(buffer: string, final: boolean): { sentences: string[]; rest: string } {
+export function takeSentences(
+  buffer: string,
+  final: boolean,
+  options: { eager?: boolean } = {},
+): { sentences: string[]; rest: string } {
   const sentences: string[] = []
   let start = 0
+  // `eager` (the first sentence of a reply only): a comma after enough words is already a good place to start
+  // speaking, which brings the first sound forward by a whole clause.
+  let eager = Boolean(options.eager)
 
   for (let index = 0; index < buffer.length; index += 1) {
     const char = buffer[index]
+    if (eager && SOFT.has(char)) {
+      const following = buffer[index + 1]
+      const clause = buffer.slice(start, index + 1).trim()
+      if (following !== undefined && SPACE.test(following) && clause.length >= EAGER_MIN_CHARS) {
+        sentences.push(clause)
+        start = index + 1
+        eager = false
+      }
+      continue
+    }
     if (!ENDING.has(char)) continue
     let end = index
     while (end + 1 < buffer.length && TRAILING.test(buffer[end + 1])) end += 1
