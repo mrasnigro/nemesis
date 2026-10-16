@@ -68,6 +68,16 @@ export async function openVadMic({ deviceId, ...tuning } = {}) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
   const context = new AudioContextClass()
   if (context.state === 'suspended') await context.resume().catch(() => {})
+  if (context.state === 'suspended') {
+    // Phones keep a new AudioContext suspended until a tap; the level meter reads zero until then.
+    const wake = () => {
+      context.resume().catch(() => {})
+      if (context.state === 'running') {
+        ;['pointerdown', 'touchend', 'click'].forEach((name) => window.removeEventListener(name, wake, true))
+      }
+    }
+    ;['pointerdown', 'touchend', 'click'].forEach((name) => window.addEventListener(name, wake, true))
+  }
   const analyser = context.createAnalyser()
   analyser.fftSize = 1024
   context.createMediaStreamSource(stream).connect(analyser)

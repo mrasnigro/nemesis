@@ -37,7 +37,7 @@ function base64ToBlob(base64, type = 'audio/mpeg') {
  * - `stop()`: silence now (the trainee spoke over the persona); `onIdle` fires once.
  * - `onSentence(text)` fires when a sentence starts playing, to caption it.
  */
-export function createSpeechQueue({ onSentence, onIdle, speakFallback, play = playServerSpeech } = {}) {
+export function createSpeechQueue({ onSentence, onIdle, onError, speakFallback, play = playServerSpeech } = {}) {
   const items = []
   let playing = false
   let closed = false
@@ -63,7 +63,10 @@ export function createSpeechQueue({ onSentence, onIdle, speakFallback, play = pl
       ? Promise.resolve().then(() => play(base64ToBlob(item.audio)))
       : Promise.reject(new Error('no audio'))
     spoken
-      .catch(() => (speakFallback ? speakFallback(item.text) : null))
+      .catch((error) => {
+        onError?.(error)
+        return speakFallback ? speakFallback(item.text) : null
+      })
       .catch(() => null)
       .finally(() => {
         playing = false
@@ -102,24 +105,82 @@ export function stopServerSpeech() {
   current = null
 }
 
+/** A tiny silent WAV: playing it inside a tap is what lets phones play sound later without a tap. */
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+
+/**
+ * Phones (iOS Safari, Android Chrome) only let a page play sound after a tap, and the permission belongs to
+ * the audio element that was started in that tap. One element is therefore unlocked on the first tap and
+ * reused for every sentence; a new `Audio` per sentence, started after a network call, stays silent.
+ */
+let player = null
+let unlocked = false
+
+function sharedPlayer() {
+  if (!player && typeof Audio !== 'undefined') {
+    player = new Audio()
+    player.preload = 'auto'
+    player.setAttribute?.('playsinline', '')
+  }
+  return player
+}
+
+/** Call from a tap or click handler, before any await. Safe to call many times. */
+export function unlockServerAudio() {
+  if (unlocked) return
+  const audio = sharedPlayer()
+  if (!audio) return
+  audio.src = SILENT_WAV
+  audio
+    .play()
+    .then(() => {
+      unlocked = true
+      if (audio.src === SILENT_WAV) audio.pause() // a real line may already have taken the element
+    })
+    .catch(() => {
+      /* not a real tap: the next one tries again */
+    })
+  // The browser's own voice (fallback) needs the same permission.
+  try {
+    const synth = globalThis.speechSynthesis
+    if (synth && typeof SpeechSynthesisUtterance !== 'undefined') {
+      const utterance = new SpeechSynthesisUtterance(' ')
+      utterance.volume = 0
+      synth.speak(utterance)
+    }
+  } catch {
+    /* no speech synthesis */
+  }
+}
+
 /** Plays an MP3 blob. Resolves when it ends (or is stopped); rejects when the browser cannot play it. */
 export function playServerSpeech(blob) {
   stopServerSpeech()
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob)
-    const audio = new Audio(url)
+    const audio = sharedPlayer() ?? new Audio()
     let settled = false
     const finish = (error) => {
       if (settled) return
       settled = true
       URL.revokeObjectURL(url)
+      audio.onended = null
+      audio.onerror = null
       if (current?.audio === audio) current = null
       if (error) reject(error)
       else resolve()
     }
     audio.onended = () => finish()
     audio.onerror = () => finish(new Error('playback failed'))
-    current = { audio, stop: () => audio.pause() || finish() }
+    current = {
+      audio,
+      stop: () => {
+        audio.pause()
+        finish()
+      },
+    }
+    audio.src = url
     audio.play().catch((error) => finish(error))
   })
 }

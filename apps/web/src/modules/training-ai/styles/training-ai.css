@@ -1707,6 +1707,61 @@
   line-height: 1.4;
 }
 
+.training-ai__call-sound-notice {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--text-h);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+/* The script stays on screen during the call, so the trainee never has to leave it to follow the steps. */
+.training-ai__call-script {
+  width: 100%;
+  max-width: 38rem;
+  justify-self: center;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(55, 65, 81, 0.7);
+  background: rgba(17, 24, 39, 0.55);
+  text-align: left;
+}
+
+.training-ai__call-script-toggle {
+  width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-h);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.training-ai__call-script-body {
+  max-height: 11rem;
+  overflow-y: auto;
+  padding: 0 0.9rem 0.7rem;
+  color: var(--text-h);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.training-ai__call-script-body p,
+.training-ai__call-script-body ol,
+.training-ai__call-script-body ul {
+  margin: 0 0 0.45rem;
+}
+
+.training-ai__call-script-body ol,
+.training-ai__call-script-body ul {
+  padding-left: 1.2rem;
+}
+
 .training-ai__call-bar {
   display: flex;
   flex-wrap: wrap;

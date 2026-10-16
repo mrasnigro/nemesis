@@ -17,6 +17,7 @@ import {
   personaGender,
   playServerSpeech,
   stopServerSpeech,
+  unlockServerAudio,
 } from '../services/voice/serverVoice.js'
 import { trainingApi } from '../services/api/client.js'
 
@@ -131,6 +132,18 @@ export default function TrainingSimulationPage() {
   useEffect(() => {
     voiceCfgRef.current = { serverVoice, canListen, sessionId: session?.id ?? null }
   })
+  // Set when the browser refuses to play the persona's voice; any tap on the page clears it and unlocks the sound.
+  const [soundBlocked, setSoundBlocked] = useState(false)
+  // Phones play sound only after a tap: the first tap on this page unlocks the persona's audio for the whole call.
+  useEffect(() => {
+    const events = ['pointerdown', 'touchend', 'click']
+    const unlock = () => {
+      unlockServerAudio()
+      setSoundBlocked(false)
+    }
+    events.forEach((name) => window.addEventListener(name, unlock, true))
+    return () => events.forEach((name) => window.removeEventListener(name, unlock, true))
+  }, [])
   const [speakingLocal, setSpeakingLocal] = useState(false)
   // Barge-in: the trainee can talk over the persona, who stops. Needs the server voice and, in practice, headphones.
   const [bargeIn, setBargeIn] = useState(true)
@@ -297,7 +310,8 @@ export default function TrainingSimulationPage() {
             .then(() => {
               serverFailuresRef.current = 0
             })
-            .catch(() => {
+            .catch((error) => {
+              if (error?.name === 'NotAllowedError') setSoundBlocked(true)
               // One bad line falls back to the browser voice; repeated failures turn server voice off for the call.
               serverFailuresRef.current += 1
               if (serverFailuresRef.current >= 2) {
@@ -553,7 +567,13 @@ export default function TrainingSimulationPage() {
             if (queueRef.current !== ownQueue) return // interrupted, or replaced
             queueRef.current = null
             setSpeakingLocal(false)
-            if (!sendFailed && autoListenRef.current && voiceCfgRef.current.canListen) setListening(true)
+            // With server voice a new sentence replaces the old draft, so listening again cannot loop on a failure.
+            if ((!sendFailed || useServer) && autoListenRef.current && voiceCfgRef.current.canListen) {
+              setListening(true)
+            }
+          },
+          onError: (error) => {
+            if (error?.name === 'NotAllowedError') setSoundBlocked(true)
           },
           speakFallback: fallbackLine,
         })
@@ -597,6 +617,19 @@ export default function TrainingSimulationPage() {
       running: phase === 'running',
     }
   })
+
+  // The call never waits for a click: whenever nobody is talking, thinking or sending, the microphone reopens.
+  // Only the trainee's own "Pausar microfone" (which clears autoListenRef) or a microphone error keeps it shut.
+  useEffect(() => {
+    if (!serverVoice || phase !== 'running') return undefined
+    if (listening || speakingLocal || isGeneratingReply || isJudging || transcribing) return undefined
+    const timer = window.setTimeout(() => {
+      if (autoListenRef.current && !micFailedRef.current && !sendingRef.current && !queueRef.current) {
+        setListening(true)
+      }
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [serverVoice, phase, listening, speakingLocal, isGeneratingReply, isJudging, transcribing])
 
   function handleComposerKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -748,6 +781,16 @@ export default function TrainingSimulationPage() {
         : practiceMediaMode === 'voice'
           ? 'Conversa por voz'
           : 'Conversa por texto'
+
+  // The script stays on the call screen: the trainee follows it without leaving the call or clicking anything.
+  const callScript = {
+    objective: scenario?.objective || '',
+    instructions: String(scenario?.sellerInstructions || '')
+      .split(/\r?\n+/)
+      .map((item) => item.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+      .filter(Boolean),
+    hints: scenario?.scriptHints || [],
+  }
 
   const callState = isGeneratingReply || transcribing
     ? 'connecting'
@@ -961,6 +1004,12 @@ export default function TrainingSimulationPage() {
                   showTranscript={showTranscript}
                   onToggleTranscript={setShowTranscript}
                   sttSupported={canListen}
+                  script={callScript}
+                  soundNotice={
+                    soundBlocked
+                      ? 'O celular bloqueou o som. Toque em qualquer lugar da tela para ativar a voz do agente.'
+                      : ''
+                  }
                   bargeInAvailable={serverVoice}
                   bargeIn={bargeIn}
                   onToggleBargeIn={setBargeIn}

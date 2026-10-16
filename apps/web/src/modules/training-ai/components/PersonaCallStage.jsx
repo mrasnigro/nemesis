@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import AgentAvatar from './AgentAvatar.jsx'
 
 /**
@@ -20,7 +21,14 @@ export default function PersonaCallStage({
   bargeInAvailable = false,
   bargeIn = false,
   onToggleBargeIn,
+  script = null,
+  soundNotice = '',
 }) {
+  const [scriptOpen, setScriptOpen] = useState(true)
+  const scriptLines = script
+    ? [...(script.instructions || [])].filter(Boolean)
+    : []
+  const hasScript = Boolean(script && (script.objective || scriptLines.length || script.hints?.length))
   const speaking = callState === 'speaking'
   const connecting = callState === 'connecting'
 
@@ -72,6 +80,51 @@ export default function PersonaCallStage({
           </div>
         ) : null}
       </div>
+
+      {soundNotice ? (
+        <p className="training-ai__call-sound-notice" role="status">
+          {soundNotice}
+        </p>
+      ) : null}
+
+      {hasScript ? (
+        <section className="training-ai__call-script" aria-label="Roteiro da conversa">
+          <button
+            type="button"
+            className="training-ai__call-script-toggle"
+            onClick={() => setScriptOpen((value) => !value)}
+            aria-expanded={scriptOpen}
+          >
+            Roteiro {scriptOpen ? '▾' : '▸'}
+          </button>
+          {scriptOpen ? (
+            <div className="training-ai__call-script-body">
+              {script.objective ? (
+                <p>
+                  <strong>Objetivo:</strong> {script.objective}
+                </p>
+              ) : null}
+              {scriptLines.length ? (
+                <ol>
+                  {scriptLines.map((item, index) => (
+                    <li key={`${index}-${item}`}>{item}</li>
+                  ))}
+                </ol>
+              ) : null}
+              {script.hints?.length ? (
+                <>
+                  <strong>Dicas:</strong>
+                  <ul>
+                    {script.hints.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="training-ai__call-bar">
         <button
