@@ -64,13 +64,19 @@ export function pickVoice(voices, language = 'pt-BR', voiceRef = '') {
   return candidates.find((voice) => voice.default) || candidates[0]
 }
 
-/** Browser voices default to a slow, read-aloud pace; a phone call is brisker. */
-const SPEECH_RATE_BOOST = 1.2
+function isIosDevice() {
+  const nav = globalThis.navigator
+  if (!nav) return false
+  const agent = nav.userAgent || ''
+  return /iPad|iPhone|iPod/.test(agent) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1)
+}
 
 function applyTuning(utterance, voiceRef) {
   const option = getVoiceOption(voiceRef)
   utterance.pitch = option?.pitch ?? 1
-  utterance.rate = Math.min(1.5, Math.max(0.7, (option?.rate ?? 1) * SPEECH_RATE_BOOST))
+  const rate = option?.rate ?? 1
+  // The iPhone speaks a rate of 1 at about twice Chrome's speed. This path is only the fallback voice.
+  utterance.rate = isIosDevice() ? Math.min(0.8, Math.max(0.4, rate * 0.5)) : Math.min(1.5, Math.max(0.7, rate))
   utterance.volume = 1
 }
 

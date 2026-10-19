@@ -65,6 +65,8 @@ export function createSpeechQueue({ onSentence, onIdle, onError, speakFallback, 
     spoken
       .catch((error) => {
         onError?.(error)
+        // No recording, or a broken one: the phone's own voice covers the line. A blocked recording waits for a tap.
+        if (error?.name === 'NotAllowedError') return null
         return speakFallback ? speakFallback(item.text) : null
       })
       .catch(() => null)
@@ -105,9 +107,30 @@ export function stopServerSpeech() {
   current = null
 }
 
-/** A tiny silent WAV: playing it inside a tap is what lets phones play sound later without a tap. */
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='
+/** A short valid silent WAV. Playing it inside a tap is what lets a phone play the real MP3 afterwards. */
+function silentWavUrl() {
+  const samples = 160
+  const bytes = samples * 2
+  const buffer = new ArrayBuffer(44 + bytes)
+  const view = new DataView(buffer)
+  const text = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index))
+  }
+  text(0, 'RIFF')
+  view.setUint32(4, 36 + bytes, true)
+  text(8, 'WAVE')
+  text(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, 8000, true)
+  view.setUint32(28, 16000, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  text(36, 'data')
+  view.setUint32(40, bytes, true)
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }))
+}
 
 /**
  * Phones (iOS Safari, Android Chrome) only let a page play sound after a tap, and the permission belongs to
@@ -116,27 +139,45 @@ const SILENT_WAV =
  */
 let player = null
 let unlocked = false
+let silenceUrl = ''
+/** Set when the phone blocked the MP3. The next tap plays that same recording instead of the phone's own voice. */
+let retryPlayback = null
+let blockedHandler = null
 
 function sharedPlayer() {
   if (!player && typeof Audio !== 'undefined') {
     player = new Audio()
     player.preload = 'auto'
+    player.playsInline = true
     player.setAttribute?.('playsinline', '')
   }
   return player
 }
 
+/** The page shows "tap to enable sound" while playback is blocked, and hides it once the MP3 starts. */
+export function setServerPlaybackBlockedHandler(handler) {
+  blockedHandler = handler
+}
+
 /** Call from a tap or click handler, before any await. Safe to call many times. */
 export function unlockServerAudio() {
-  if (unlocked) return
   const audio = sharedPlayer()
   if (!audio) return
-  audio.src = SILENT_WAV
+  if (retryPlayback) {
+    const retry = retryPlayback
+    retryPlayback = null
+    unlocked = true
+    retry()
+    return
+  }
+  if (unlocked) return
+  if (!silenceUrl) silenceUrl = silentWavUrl()
+  audio.src = silenceUrl
   audio
     .play()
     .then(() => {
       unlocked = true
-      if (audio.src === SILENT_WAV) audio.pause() // a real line may already have taken the element
+      if (silenceUrl && audio.src === silenceUrl) audio.pause()
     })
     .catch(() => {
       /* not a real tap: the next one tries again */
@@ -164,6 +205,7 @@ export function playServerSpeech(blob) {
     const finish = (error) => {
       if (settled) return
       settled = true
+      if (retryPlayback === start) retryPlayback = null
       URL.revokeObjectURL(url)
       audio.onended = null
       audio.onerror = null
@@ -171,16 +213,32 @@ export function playServerSpeech(blob) {
       if (error) reject(error)
       else resolve()
     }
-    audio.onended = () => finish()
-    audio.onerror = () => finish(new Error('playback failed'))
+    const start = () => {
+      audio.onended = () => finish()
+      audio.onerror = () => finish(new Error('playback failed'))
+      audio.src = url
+      const played = audio.play()
+      played
+        ?.then(() => blockedHandler?.(false))
+        .catch((error) => {
+          // A phone that blocks autoplay must not fall through to its own voice: that voice is a
+          // different speed. Hold this exact MP3 and play it on the next tap.
+          if (error?.name === 'NotAllowedError' && !settled) {
+            retryPlayback = start
+            blockedHandler?.(true)
+            return
+          }
+          finish(error)
+        })
+    }
     current = {
       audio,
       stop: () => {
+        if (retryPlayback === start) retryPlayback = null
         audio.pause()
         finish()
       },
     }
-    audio.src = url
-    audio.play().catch((error) => finish(error))
+    start()
   })
 }

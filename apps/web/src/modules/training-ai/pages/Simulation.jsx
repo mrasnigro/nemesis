@@ -18,6 +18,7 @@ import {
   playServerSpeech,
   stopServerSpeech,
   unlockServerAudio,
+  setServerPlaybackBlockedHandler,
 } from '../services/voice/serverVoice.js'
 import { trainingApi } from '../services/api/client.js'
 
@@ -162,13 +163,14 @@ export default function TrainingSimulationPage() {
   const [soundBlocked, setSoundBlocked] = useState(false)
   // Phones play sound only after a tap: the first tap on this page unlocks the persona's audio for the whole call.
   useEffect(() => {
+    setServerPlaybackBlockedHandler(setSoundBlocked)
     const events = ['pointerdown', 'touchend', 'click']
-    const unlock = () => {
-      unlockServerAudio()
-      setSoundBlocked(false)
-    }
+    const unlock = () => unlockServerAudio()
     events.forEach((name) => window.addEventListener(name, unlock, true))
-    return () => events.forEach((name) => window.removeEventListener(name, unlock, true))
+    return () => {
+      setServerPlaybackBlockedHandler(null)
+      events.forEach((name) => window.removeEventListener(name, unlock, true))
+    }
   }, [])
   const [speakingLocal, setSpeakingLocal] = useState(false)
   // Barge-in: the trainee can talk over the persona, who stops. Needs the server voice and, in practice, headphones.
@@ -717,6 +719,7 @@ export default function TrainingSimulationPage() {
   }
 
   async function handleBegin() {
+    unlockServerAudio()
     if (startCancelledRef.current) return { ok: false, cancelled: true }
     setStartError('')
     setLimitExceeded('')
@@ -740,6 +743,7 @@ export default function TrainingSimulationPage() {
   }
 
   async function handleStartCallSimulation() {
+    unlockServerAudio()
     startCancelledRef.current = false
     setStartError('')
     setLimitExceeded('')
