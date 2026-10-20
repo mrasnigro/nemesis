@@ -174,6 +174,12 @@ export default function TrainingReportPage() {
   const positives = report.positives || report.strengths || []
   const negatives = report.negatives || []
   const suggestions = report.suggestions || report.improvements || []
+  const scoreValue = Math.round(Number(report.score) || 0)
+  const criteriaList = Array.isArray(report.criteria) ? report.criteria : []
+  const criteriaTotal = criteriaList.length
+  const criteriaPassed = criteriaList.filter((item) => item.passed).length
+  // The score is the weight of the criteria met, out of the weight of the whole playbook (normally 100).
+  const scoreMax = Math.max(100, Math.round(criteriaList.reduce((sum, item) => sum + (Number(item.weight) || 0), 0)))
   const durationLabel = formatDuration(
     report.durationMs || (communication?.durationSec ? communication.durationSec * 1000 : 0),
   )
@@ -230,6 +236,23 @@ export default function TrainingReportPage() {
           feedback” no fim da página para avaliar a conversa de novo.
         </p>
       ) : null}
+
+      <section
+        className={`imp-panel training-ai__score-hero training-ai__score-hero--${scoreTone(report.score)}`}
+        aria-label="Pontuação da ligação"
+      >
+        <div className="training-ai__score-hero-value">
+          <strong>{scoreValue}</strong>
+          <span>/ {scoreMax}</span>
+        </div>
+        <div className="training-ai__score-hero-text">
+          <b>{report.band?.label || 'Resultado'}</b>
+          <span>
+            Pontuação da ligação
+            {criteriaTotal ? ` · ${criteriaPassed} de ${criteriaTotal} critérios atendidos` : ''}
+          </span>
+        </div>
+      </section>
 
       <section className="imp-panel training-ai__sim-report-card">
         <div className="training-ai__sim-report-top">
@@ -337,13 +360,6 @@ export default function TrainingReportPage() {
 
       {tab === 'comunicacao' ? (
         <div className="imp-panel">
-          {audioUrl ? (
-            <audio controls src={audioUrl}>
-              <a href={audioUrl} download>Baixar gravação</a>
-            </audio>
-          ) : (
-            <p className="training-ai__meta">Sem arquivo de áudio. As métricas usam o tempo de cada fala.</p>
-          )}
           <ul className="training-ai__metric-checks">
             <li>
               <span>Fala / escuta</span>
@@ -377,7 +393,9 @@ export default function TrainingReportPage() {
           </div>
         </div>
         <SessionAudioPlayer
+          sessionId={report.sessionId}
           messages={report.messages || []}
+          legacyAudioUrl={audioUrl}
           activeMessageId={activeMessageId}
           onSeekMessage={handleSeekMessage}
         />

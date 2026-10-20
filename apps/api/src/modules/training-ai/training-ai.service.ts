@@ -7,9 +7,16 @@ import { aiStatus, requireAiProvider, type AiProvider } from './ai/index.js'
 import { takeSentences } from './ai/sentences.js'
 import type { PersonaProfile, ScenarioProfile } from './ai/types.js'
 import { MAX_VOICE_AUDIO_BYTES, voiceClient, voiceStatus, type Gender } from './ai/voice.js'
-import { buildReport, communicationMetrics, judgeByRules, type Judgment, type Template } from './rubric.js'
+import { buildReport, communicationMetrics, judgeByRules, normalizeText, type Judgment, type Template } from './rubric.js'
 import { starterPersonas, starterScenarios, starterTemplates } from './starter.js'
-import { writeTrainingAudio } from './trainingAudio.js'
+import {
+  clipContentType,
+  clipExtension,
+  listMessageClips,
+  messageClipPath,
+  writeMessageClip,
+  writeTrainingAudio,
+} from './trainingAudio.js'
 import {
   appendTurn,
   completeSession,
@@ -256,7 +263,77 @@ export function listSessionPage(actor: Actor, query: z.infer<typeof sessionListQ
 export async function getSessionFor(actor: Actor, id: string) {
   const row = await getSession(customerOf(actor), id, actor.isManager ? null : actor.userId)
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Session not found')
-  return row
+  return withClipFlags(customerOf(actor), row)
+}
+
+// ------------------------------------------------------------- recordings of the call
+// Each spoken message keeps its own recording: the trainee's words as the microphone heard them, the persona's
+// words as the speech service made them. The report plays them one after the other, in the order of the call.
+
+type PendingClip = { audio: Buffer; contentType: string; text: string; at: number }
+
+/** The last thing each trainee said, waiting for the turn that will give it a message to belong to. */
+const pendingClips = new Map<string, PendingClip>()
+const PENDING_CLIP_TTL_MS = 5 * 60_000
+
+function sameWords(a: string, b: string) {
+  const clean = (value: string) => normalizeText(value).replace(/\s+/g, ' ').trim()
+  return clean(a) === clean(b)
+}
+
+function rememberClip(sessionId: string, clip: PendingClip) {
+  if (pendingClips.size > 200) {
+    for (const [key, value] of pendingClips) if (Date.now() - value.at > PENDING_CLIP_TTL_MS) pendingClips.delete(key)
+    if (pendingClips.size > 1000) pendingClips.clear()
+  }
+  pendingClips.set(sessionId, clip)
+}
+
+/** The recording of what was transcribed, when it is the same words the turn carries. */
+function takePendingClip(sessionId: string, text: string): PendingClip | null {
+  const clip = pendingClips.get(sessionId)
+  if (!clip) return null
+  pendingClips.delete(sessionId)
+  if (Date.now() - clip.at > PENDING_CLIP_TTL_MS || !sameWords(clip.text, text)) return null
+  return clip
+}
+
+async function storeClips(customerId: string, sessionId: string, clips: { messageId: string; audio: Buffer; extension: string }[]) {
+  try {
+    await Promise.all(clips.map((clip) => writeMessageClip(customerId, sessionId, clip.messageId, clip.audio, clip.extension)))
+  } catch (error) {
+    // The call and its score do not depend on the recording.
+    log('warn', 'training-ai could not store the call audio', { reason: error instanceof Error ? error.message : String(error) })
+  }
+}
+
+/** Marks the messages that have a recording (`hasAudio`), in the transcript and in the report copy of it. */
+async function withClipFlags<T extends { id: string; messages: { id: string }[]; report: Record<string, unknown> | null }>(
+  customerId: string,
+  session: T,
+): Promise<T> {
+  const clips = await listMessageClips(customerId, session.id)
+  if (clips.size === 0) return session
+  const flag = <M extends { id: string }>(messages: M[]) => messages.map((message) => (clips.has(message.id) ? { ...message, hasAudio: true } : message))
+  const report = session.report
+  return {
+    ...session,
+    messages: flag(session.messages),
+    report: report ? { ...report, messages: Array.isArray(report.messages) ? flag(report.messages as { id: string }[]) : report.messages } : null,
+  }
+}
+
+/** The recording of one message, for the report's player. */
+export async function readMessageAudioFor(actor: Actor, sessionId: string, messageId: string) {
+  const session = await getSessionFor(actor, sessionId)
+  const extension = (await listMessageClips(customerOf(actor), session.id)).get(messageId)
+  if (!extension || !session.messages.some((message) => message.id === messageId)) {
+    throw new AppError(404, 'NOT_FOUND', 'Esta fala não tem gravação.')
+  }
+  return {
+    absolute: messageClipPath(customerOf(actor), session.id, messageId, extension),
+    contentType: clipContentType(extension),
+  }
 }
 
 /** Only the trainee can act on their own session, whatever their profile. */
@@ -470,6 +547,7 @@ export async function streamSpokenTurnFor(
 
   // Sentences go out in order, whichever speech request finishes first.
   let sent = Promise.resolve()
+  const spoken: Buffer[] = [] // the persona's recording of this reply, sentence after sentence
   let index = 0
   let full = ''
   let buffer = ''
@@ -483,11 +561,10 @@ export async function streamSpokenTurnFor(
     if (firstSentenceAt === null) firstSentenceAt = since()
     const position = index
     index += 1
-    const audio: Promise<string | null> =
+    const audio: Promise<Buffer | null> =
       speech && !skipSpeech
         ? speech
             .synthesize(sentence, input.gender)
-            .then((mp3) => mp3.toString('base64'))
             .catch((error) => {
               log('warn', 'training-ai speech failed for a sentence', {
                 message: error instanceof Error ? error.message : String(error),
@@ -498,7 +575,8 @@ export async function streamSpokenTurnFor(
     sent = sent.then(async () => {
       const mp3 = await audio
       if (firstAudioAt === null) firstAudioAt = since()
-      if (!signal.aborted) emit({ type: 'sentence', index: position, text: sentence, audio: mp3 })
+      if (mp3) spoken.push(mp3)
+      if (!signal.aborted) emit({ type: 'sentence', index: position, text: sentence, audio: mp3 ? mp3.toString('base64') : null })
     })
   }
 
@@ -528,7 +606,13 @@ export async function streamSpokenTurnFor(
     if (signal.aborted) return
     throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA devolveu uma resposta vazia.')
   }
+  const userClip = takePendingClip(sessionId, input.text)
   const stored = await saveTurn(turn, full, { offsetMs: input.offsetMs, durationMs: input.durationMs })
+  // Stored in the background: the persona's reply does not wait for the files.
+  const clips: { messageId: string; audio: Buffer; extension: string }[] = []
+  if (userClip) clips.push({ messageId: stored.userMessage.id, audio: userClip.audio, extension: clipExtension(userClip.contentType) })
+  if (spoken.length) clips.push({ messageId: stored.aiMessage.id, audio: Buffer.concat(spoken), extension: 'mp3' })
+  if (clips.length) void storeClips(customerOf(actor), sessionId, clips)
   const timing: SpokenTurnTiming = {
     prepareMs: Math.round(preparedAt - startedAt),
     firstTokenAt,
@@ -546,7 +630,7 @@ const MAX_SPOKEN_REPLY_CHARS = 2000
 export async function finishSessionFor(actor: Actor, sessionId: string) {
   const customerId = customerOf(actor)
   const session = await ownSession(actor, sessionId)
-  if (session.status === 'completed') return session
+  if (session.status === 'completed') return withClipFlags(customerId, session)
 
   const trainee = session.messages.filter((message) => message.role === 'user')
   if (trainee.length === 0) {
@@ -596,7 +680,7 @@ export async function finishSessionFor(actor: Actor, sessionId: string) {
     durationMs: communicationMetrics(session.messages).durationSec * 1000,
   })
   // If another request finished it first, both callers get the stored result.
-  return ownSession(actor, sessionId)
+  return withClipFlags(customerId, await ownSession(actor, sessionId))
 }
 
 export async function rejudgeSessionFor(actor: Actor, sessionId: string) {
@@ -677,6 +761,7 @@ export async function transcribeSessionAudioFor(actor: Actor, sessionId: string,
   const done = performance.now()
   const timing = { lookupMs: Math.round(lookedUp - started), sttMs: Math.round(done - lookedUp), bytes: audio.length }
   log('info', 'training-ai stt', timing)
+  if (text.trim()) rememberClip(session.id, { audio, contentType, text, at: Date.now() })
   return { text, timing }
 }
 
@@ -699,7 +784,23 @@ async function personaLanguage(customerId: string, personaId: string | null) {
 /** The persona's line as MP3, in the voice that suits her. */
 export async function speakSessionFor(actor: Actor, sessionId: string, text: string, gender: Gender) {
   const { client } = await openVoiceSession(actor, sessionId)
-  return client.synthesize(text, gender)
+  const audio = await client.synthesize(text, gender)
+  void keepSpokenLine(actor, sessionId, text, audio)
+  return audio
+}
+
+/** A line spoken outside a streamed turn (the opening line): its recording goes to the matching persona message. */
+async function keepSpokenLine(actor: Actor, sessionId: string, text: string, audio: Buffer) {
+  try {
+    const customerId = customerOf(actor)
+    const session = await getSession(customerId, sessionId, actor.userId)
+    if (!session) return
+    const clips = await listMessageClips(customerId, sessionId)
+    const line = session.messages.find((message) => message.role === 'ai' && !clips.has(message.id) && sameWords(message.text, text))
+    if (line) await storeClips(customerId, sessionId, [{ messageId: line.id, audio, extension: 'mp3' }])
+  } catch (error) {
+    log('warn', 'training-ai could not keep a spoken line', { reason: error instanceof Error ? error.message : String(error) })
+  }
 }
 
 export async function readSessionAudioFor(actor: Actor, sessionId: string) {

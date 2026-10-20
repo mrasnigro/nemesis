@@ -7257,3 +7257,56 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* The score of the call, on every tab of the report. */
+.training-ai__score-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1rem 1.25rem;
+  border-left: 0.35rem solid var(--border);
+}
+
+.training-ai__score-hero-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.training-ai__score-hero-value strong {
+  color: var(--text-h);
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.training-ai__score-hero-value span {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.training-ai__score-hero-text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.training-ai__score-hero-text b {
+  color: var(--text-h);
+  font-size: 1.05rem;
+}
+
+.training-ai__score-hero-text span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.training-ai__score-hero--green {
+  border-left-color: #16a34a;
+}
+
+.training-ai__score-hero--amber {
+  border-left-color: #f59e0b;
+}
+
+.training-ai__score-hero--rose {
+  border-left-color: #e11d48;
+}

@@ -839,6 +839,61 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     expect(detail.body.data.messages.map((item: { role: string }) => item.role)).toEqual(['ai', 'user', 'ai'])
   })
 
+  it('keeps one recording per spoken message and serves it to the report', async () => {
+    useFakeVoice()
+    const ids = await setup()
+    const session = await startSession(operator, ids.scenario, { mediaMode: 'voice' })
+    overrideAiProvider({
+      id: 'stream',
+      label: 'stream',
+      reply: async () => ({ text: 'Pode falar.' }),
+      judge: async (request) => judgeByRules(request.template, [], 'stream'),
+    })
+
+    await operator
+      .post(`${BASE}/sessions/${session.id}/transcribe`)
+      .set('Content-Type', 'audio/webm;codecs=opus')
+      .send(Buffer.from('fake-webm'))
+    const turn = await operator
+      .post(`${BASE}/sessions/${session.id}/voice-turn`)
+      .send({ text: 'Olá, tudo bem?' })
+      .buffer(true)
+      .parse(parseText)
+    const done = readLines(turn).pop()
+    expect(done?.type).toBe('done')
+    const { userMessage, aiMessage } = done?.data
+
+    // The files are written in the background: wait for them.
+    let flagged: Array<{ id: string; hasAudio?: boolean }> = []
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      flagged = (await operator.get(`${BASE}/sessions/${session.id}`)).body.data.messages
+      if (flagged.filter((item) => item.hasAudio).length === 2) break
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    expect(flagged.filter((item) => item.hasAudio).map((item) => item.id).sort()).toEqual([userMessage.id, aiMessage.id].sort())
+
+    const fetchClip = (messageId: string, who = operator) =>
+      who
+        .get(`${BASE}/sessions/${session.id}/messages/${messageId}/audio`)
+        .buffer(true)
+        .parse((res, callback) => {
+          const chunks: Buffer[] = []
+          res.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+          res.on('end', () => callback(null, Buffer.concat(chunks)))
+        })
+    const mine = await fetchClip(userMessage.id)
+    expect(mine.status).toBe(200)
+    expect(String(mine.headers['content-type'])).toMatch(/audio\/webm/)
+    expect(mine.body.toString()).toBe('fake-webm')
+    const hers = await fetchClip(aiMessage.id)
+    expect(String(hers.headers['content-type'])).toMatch(/audio\/mpeg/)
+    expect(hers.body.toString()).toBe('ID3-fake-mp3')
+
+    // The opening line has no clip, and nobody else may listen.
+    expect((await fetchClip(flagged[0].id)).status).toBe(404)
+    expect((await fetchClip(userMessage.id, colleague)).status).toBe(404)
+  })
+
   it('keeps the text of a sentence the voice could not speak', async () => {
     overrideVoiceClient({
       async transcribe() {

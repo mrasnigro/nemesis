@@ -28,6 +28,7 @@ import {
   listSessionsController,
   listTemplatesController,
   metricsController,
+  readMessageAudioController,
   readSessionAudioController,
   rejudgeSessionController,
   saveSessionAudioController,
@@ -99,6 +100,8 @@ trainingAiRouter.post(
   asyncHandler(saveSessionAudioController),
 )
 trainingAiRouter.get('/sessions/:sessionId/audio', asyncHandler(readSessionAudioController))
+// The call's recordings, one per spoken message, for the report's player.
+trainingAiRouter.get('/sessions/:sessionId/messages/:messageId/audio', asyncHandler(readMessageAudioController))
 
 // Server voice (STT -> LLM -> TTS): one spoken turn in, one spoken line out.
 trainingAiRouter.post(

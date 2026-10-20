@@ -93,6 +93,16 @@ export const trainingApi = {
   },
   sessionAudioUrl: (id) => `${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`,
 
+  /** The recording of one message of a call (the trainee's or the persona's), as a Blob. */
+  fetchMessageAudio: async (id, messageId) => {
+    const response = await fetch(
+      `${PLATFORM_API_BASE}${BASE}/sessions/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}/audio`,
+      { credentials: 'include' },
+    )
+    if (!response.ok) throw new PlatformApiError('Esta fala não tem gravação.', { status: response.status, code: 'NO_AUDIO' })
+    return response.blob()
+  },
+
   /** Server speech-to-text: one recorded turn in, the words out (empty text when nothing was understood). */
   transcribeSessionAudio: async (id, blob) => {
     const response = await voiceFetch(`${BASE}/sessions/${id}/transcribe`, {

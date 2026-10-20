@@ -28,6 +28,7 @@ import {
   listSessionPage,
   listTemplatePage,
   metricsFor,
+  readMessageAudioFor,
   readSessionAudioFor,
   rejudgeSessionFor,
   saveSessionAudioFor,
@@ -241,6 +242,12 @@ export async function speakSessionController(req: Request, res: Response) {
   const audio = await speakSessionFor(actor(req), req.params.sessionId, body.text, body.gender)
   res.setHeader('Cache-Control', 'no-store')
   res.type('audio/mpeg').send(audio)
+}
+
+export async function readMessageAudioController(req: Request, res: Response) {
+  const file = await readMessageAudioFor(actor(req), req.params.sessionId, req.params.messageId)
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+  res.type(file.contentType).sendFile(file.absolute)
 }
 
 export async function readSessionAudioController(req: Request, res: Response) {

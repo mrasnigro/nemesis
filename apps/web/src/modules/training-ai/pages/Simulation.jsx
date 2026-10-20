@@ -746,7 +746,9 @@ export default function TrainingSimulationPage() {
     setPreparing(false)
     // A voice call is hands-free by default: the mic opens after each persona line.
     if (micArmed || practiceMediaMode === 'voice') autoListenRef.current = true
-    await startSessionRecorder()
+    // With the server voice every line of the call is stored by the API, one recording per message. A second
+    // microphone stream next to the call's own would only fight it for the device (it can mute the call on phones).
+    if (!serverVoice) await startSessionRecorder()
     return result
   }
 

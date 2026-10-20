@@ -19,6 +19,8 @@ const HISTORY_LIMIT = 30
 const REPLY_MAX_TOKENS = 220
 // Reasoning models count their hidden thinking against this budget, so it is generous.
 const JUDGE_MAX_TOKENS = 6000
+// A model that thinks before it answers needs more than a chat reply does. The first try may take this long.
+const JUDGE_FIRST_TIMEOUT_MS = 45_000
 
 /** The JSON object in a model answer, even when it is wrapped in a code fence or has text around it. */
 export function parseJsonObject(content: string): unknown {
@@ -142,9 +144,9 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
   // Only sent when configured: a model that does not know the setting rejects the whole request.
   const reasoning = options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}
 
-  async function complete(body: Record<string, unknown>): Promise<string> {
+  async function complete(body: Record<string, unknown>, timeoutMs = options.timeoutMs): Promise<string> {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), options.timeoutMs)
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const response = await doFetch(endpoint, {
         method: 'POST',
@@ -304,7 +306,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
       let verdicts: z.infer<typeof judgeSchema>['criteria'] = []
       for (const [index, body] of attempts.entries()) {
         try {
-          const parsed = judgeSchema.safeParse(parseJsonObject(await complete(body)))
+          const parsed = judgeSchema.safeParse(parseJsonObject(await complete(body, index === 0 ? JUDGE_FIRST_TIMEOUT_MS : options.timeoutMs)))
           if (parsed.success && parsed.data.criteria.length > 0) {
             verdicts = parsed.data.criteria
             break
@@ -316,6 +318,8 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
             attempt: index + 1,
             reason: error instanceof Error ? error.message : String(error),
           })
+          // A try that ran out of time would only run out again: the user is waiting at "End call".
+          if (error instanceof AppError && error.code === 'AI_PROVIDER_TIMEOUT') break
         }
       }
       if (verdicts.length === 0) log('warn', 'training-ai judge failed, using playbook rules')
