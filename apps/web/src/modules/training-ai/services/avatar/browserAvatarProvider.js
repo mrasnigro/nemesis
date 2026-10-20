@@ -71,10 +71,18 @@ function isIosDevice() {
   return /iPad|iPhone|iPod/.test(agent) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1)
 }
 
+/** The server's TTS_SPEED, so the fallback voice follows the same setting as the recorded one. */
+let globalSpeed = 1
+
+export function setBrowserSpeechSpeed(value) {
+  const speed = Number(value)
+  globalSpeed = Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : 1
+}
+
 function applyTuning(utterance, voiceRef) {
   const option = getVoiceOption(voiceRef)
   utterance.pitch = option?.pitch ?? 1
-  const rate = option?.rate ?? 1
+  const rate = (option?.rate ?? 1) * globalSpeed
   // The iPhone speaks a rate of 1 at about twice Chrome's speed. This path is only the fallback voice.
   utterance.rate = isIosDevice() ? Math.min(0.8, Math.max(0.4, rate * 0.5)) : Math.min(1.5, Math.max(0.7, rate))
   utterance.volume = 1

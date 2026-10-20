@@ -962,6 +962,8 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     expect((await client.synthesize('Oi', 'm')).length).toBe(3)
     expect(calls[1].url).toBe('https://tts.example/v1/audio/speech')
     expect(JSON.parse(String(calls[1].body))).toMatchObject({ model: 'kokoro', voice: 'pm_alex', input: 'Oi', response_format: 'mp3' })
+    // The pace is applied by the page: the provider may ignore a speed value, so it is not sent.
+    expect(JSON.parse(String(calls[1].body))).not.toHaveProperty('speed')
   })
 
   it('maps provider failures to 502 without leaking the provider body', async () => {
@@ -1215,6 +1217,21 @@ describe('openai-compatible provider', () => {
 
     const down = provider(() => new Response('boom', { status: 500 }))
     expect((await down.judge({ template, persona, scenario, messages })).provider).toBe('rules')
+  })
+
+  it('retries the judge with plain settings and reads JSON inside a code fence', async () => {
+    const bodies: Record<string, unknown>[] = []
+    const ai = provider((_url, init) => {
+      bodies.push(JSON.parse(String(init.body)))
+      if (bodies.length === 1) return new Response('{"error":"unsupported parameter"}', { status: 400 })
+      return completion('```json\n' + JSON.stringify({ criteria: [{ criterionId: 'c1', passed: false, rationale: 'Sem saudação.' }, { criterionId: 'c2', passed: true, rationale: 'Marcou.' }] }) + '\n```')
+    })
+    const judgment = await ai.judge({ template, persona, scenario, messages })
+    expect(judgment.provider).toBe('openai')
+    expect(judgment.criteria.map((item) => item.passed)).toEqual([false, true])
+    expect(bodies[0]).toHaveProperty('response_format')
+    expect(bodies[1]).not.toHaveProperty('response_format')
+    expect(bodies[1]).not.toHaveProperty('temperature')
   })
 
   it('treats the transcript as data in the judge prompt', async () => {

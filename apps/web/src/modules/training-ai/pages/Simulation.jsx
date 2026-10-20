@@ -9,6 +9,7 @@ import { scenarioTypeLabel } from '../data/personas.js'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
+import { setBrowserSpeechSpeed } from '../services/avatar/browserAvatarProvider.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
 import { isServerCaptureSupported, micErrorMessage, openVadMic } from '../services/voice/vadCapture.js'
 import {
@@ -19,6 +20,7 @@ import {
   stopServerSpeech,
   unlockServerAudio,
   setServerPlaybackBlockedHandler,
+  setServerSpeechSpeed,
 } from '../services/voice/serverVoice.js'
 import { trainingApi } from '../services/api/client.js'
 
@@ -172,6 +174,12 @@ export default function TrainingSimulationPage() {
       events.forEach((name) => window.removeEventListener(name, unlock, true))
     }
   }, [])
+  // One setting (TTS_SPEED on the server) sets the pace of the recorded voice and of the browser's fallback voice.
+  const voiceSpeed = aiStatus?.voice?.speed
+  useEffect(() => {
+    setServerSpeechSpeed(voiceSpeed)
+    setBrowserSpeechSpeed(voiceSpeed)
+  }, [voiceSpeed])
   const [speakingLocal, setSpeakingLocal] = useState(false)
   // Barge-in: the trainee can talk over the persona, who stops. Needs the server voice and, in practice, headphones.
   const [bargeIn, setBargeIn] = useState(true)

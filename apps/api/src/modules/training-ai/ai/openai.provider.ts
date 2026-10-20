@@ -17,7 +17,24 @@ export type OpenAiProviderOptions = {
 
 const HISTORY_LIMIT = 30
 const REPLY_MAX_TOKENS = 220
-const JUDGE_MAX_TOKENS = 1800
+// Reasoning models count their hidden thinking against this budget, so it is generous.
+const JUDGE_MAX_TOKENS = 6000
+
+/** The JSON object in a model answer, even when it is wrapped in a code fence or has text around it. */
+export function parseJsonObject(content: string): unknown {
+  try {
+    return JSON.parse(content)
+  } catch {
+    const start = content.indexOf('{')
+    const end = content.lastIndexOf('}')
+    if (start === -1 || end <= start) return null
+    try {
+      return JSON.parse(content.slice(start, end + 1))
+    } catch {
+      return null
+    }
+  }
+}
 
 const completionSchema = z.object({
   choices: z.array(z.object({ message: z.object({ content: z.string().nullable() }) })).min(1),
@@ -273,25 +290,35 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
         transcript: request.messages.map((message) => ({ role: message.role, text: message.text })),
       }
 
+      const messages = [
+        { role: 'system', content: judgeSystemPrompt() },
+        { role: 'user', content: JSON.stringify(payload) },
+      ]
+
+      // Two tries. The first asks for strict JSON with a fixed temperature; some models and gateways refuse those
+      // settings (or spend the whole token budget thinking and answer nothing). The second sends only the messages.
+      const attempts: Record<string, unknown>[] = [
+        { messages, temperature: 0, max_tokens: JUDGE_MAX_TOKENS, response_format: { type: 'json_object' }, ...reasoning },
+        { messages },
+      ]
       let verdicts: z.infer<typeof judgeSchema>['criteria'] = []
-      try {
-        const content = await complete({
-          messages: [
-            { role: 'system', content: judgeSystemPrompt() },
-            { role: 'user', content: JSON.stringify(payload) },
-          ],
-          temperature: 0,
-          max_tokens: JUDGE_MAX_TOKENS,
-          response_format: { type: 'json_object' },
-        })
-        const parsed = judgeSchema.safeParse(JSON.parse(content))
-        if (parsed.success) verdicts = parsed.data.criteria
-      } catch (error) {
-        // A failed judge must not lose the session: the playbook's own rules still produce a score.
-        log('warn', 'training-ai judge failed, using playbook rules', {
-          message: error instanceof Error ? error.message : String(error),
-        })
+      for (const [index, body] of attempts.entries()) {
+        try {
+          const parsed = judgeSchema.safeParse(parseJsonObject(await complete(body)))
+          if (parsed.success && parsed.data.criteria.length > 0) {
+            verdicts = parsed.data.criteria
+            break
+          }
+          log('warn', 'training-ai judge answered without usable verdicts', { attempt: index + 1 })
+        } catch (error) {
+          // A failed judge must not lose the session: the playbook's own rules still produce a score.
+          log('warn', 'training-ai judge attempt failed', {
+            attempt: index + 1,
+            reason: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
+      if (verdicts.length === 0) log('warn', 'training-ai judge failed, using playbook rules')
 
       const known = new Map(verdicts.map((item) => [item.criterionId, item]))
       const fallback = judgeByRules(

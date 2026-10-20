@@ -224,6 +224,13 @@ export default function TrainingReportPage() {
         </div>
       </header>
 
+      {report.judgeSource === 'rules' || report.judgeSource === 'openai+rules' ? (
+        <p className="training-ai__composer-hint" role="status">
+          Esta nota usou apenas as palavras-chave do playbook, porque a avaliação por IA não respondeu. Use “Novo
+          feedback” no fim da página para avaliar a conversa de novo.
+        </p>
+      ) : null}
+
       <section className="imp-panel training-ai__sim-report-card">
         <div className="training-ai__sim-report-top">
           <div>

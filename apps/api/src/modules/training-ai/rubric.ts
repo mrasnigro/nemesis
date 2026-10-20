@@ -78,7 +78,8 @@ function keywordPattern(keyword: string): RegExp | null {
 /** `corpus` is normalizeText() of everything the trainee said. */
 export function passesRule(criterion: Criterion, corpus: string): boolean {
   const patterns = criterion.passRule.keywords.map(keywordPattern).filter((item): item is RegExp => item !== null)
-  if (patterns.length === 0) return false
+  // Nothing to look for: a "say this" rule cannot be met, an "avoid this" rule cannot be broken.
+  if (patterns.length === 0) return criterion.passRule.type === 'avoid_keywords'
   const hit = patterns.some((pattern) => pattern.test(corpus))
   return criterion.passRule.type === 'avoid_keywords' ? !hit : hit
 }

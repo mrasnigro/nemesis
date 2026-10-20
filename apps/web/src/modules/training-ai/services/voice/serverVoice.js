@@ -154,6 +154,21 @@ function sharedPlayer() {
   return player
 }
 
+/** Pace of the persona's voice, from the server's TTS_SPEED. Applied here because providers differ in honouring it. */
+let speechSpeed = 1
+
+export function setServerSpeechSpeed(value) {
+  const speed = Number(value)
+  speechSpeed = Number.isFinite(speed) ? Math.min(2, Math.max(0.5, speed)) : 1
+}
+
+function applySpeed(audio) {
+  audio.defaultPlaybackRate = speechSpeed
+  audio.playbackRate = speechSpeed
+  audio.preservesPitch = true // the voice gets faster or slower, not higher or lower
+  audio.webkitPreservesPitch = true
+}
+
 /** The page shows "tap to enable sound" while playback is blocked, and hides it once the MP3 starts. */
 export function setServerPlaybackBlockedHandler(handler) {
   blockedHandler = handler
@@ -172,6 +187,7 @@ export function unlockServerAudio() {
   }
   if (unlocked) return
   if (!silenceUrl) silenceUrl = silentWavUrl()
+  audio.playbackRate = 1
   audio.src = silenceUrl
   audio
     .play()
@@ -209,6 +225,7 @@ export function playServerSpeech(blob) {
       URL.revokeObjectURL(url)
       audio.onended = null
       audio.onerror = null
+      audio.onloadedmetadata = null
       if (current?.audio === audio) current = null
       if (error) reject(error)
       else resolve()
@@ -217,6 +234,8 @@ export function playServerSpeech(blob) {
       audio.onended = () => finish()
       audio.onerror = () => finish(new Error('playback failed'))
       audio.src = url
+      applySpeed(audio) // after src: loading a new source resets the rate on iOS
+      audio.onloadedmetadata = () => applySpeed(audio)
       const played = audio.play()
       played
         ?.then(() => blockedHandler?.(false))

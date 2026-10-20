@@ -24,7 +24,14 @@ export interface VoiceClient {
   synthesize(text: string, gender: Gender): Promise<Buffer>
 }
 
-export type VoiceStatus = { stt: boolean; tts: boolean; sttModel: string | null; ttsModel: string | null }
+/** speed is the pace the page applies to the recording (the provider is not asked: models differ in whether they honour it). */
+export type VoiceStatus = {
+  stt: boolean
+  tts: boolean
+  sttModel: string | null
+  ttsModel: string | null
+  speed: number
+}
 
 /** OpenAI's transcription endpoint refuses files above 25 MB. */
 export const MAX_VOICE_AUDIO_BYTES = 10 * 1024 * 1024
@@ -140,7 +147,8 @@ export function createVoiceClient(options: { stt: SttOptions | null; tts: TtsOpt
             input: text,
             voice: gender === 'm' ? tts.voiceMale : tts.voiceFemale,
             response_format: 'mp3',
-            speed: tts.speed,
+            // No speed here: gpt-4o-mini-tts may ignore it and tts-1 only stretches the audio. The page plays the
+            // MP3 at TTS_SPEED instead, which behaves the same for every model and device.
           }),
         },
         tts.timeoutMs,
@@ -174,13 +182,14 @@ export function voiceClient(): VoiceClient | null {
 export function voiceStatus(): VoiceStatus {
   if (override !== undefined) {
     return override
-      ? { stt: true, tts: true, sttModel: 'override', ttsModel: 'override' }
-      : { stt: false, tts: false, sttModel: null, ttsModel: null }
+      ? { stt: true, tts: true, sttModel: 'override', ttsModel: 'override', speed: config.TTS_SPEED }
+      : { stt: false, tts: false, sttModel: null, ttsModel: null, speed: config.TTS_SPEED }
   }
   return {
     stt: Boolean(config.voice.stt),
     tts: Boolean(config.voice.tts),
     sttModel: config.voice.stt?.model ?? null,
     ttsModel: config.voice.tts?.model ?? null,
+    speed: config.TTS_SPEED,
   }
 }
