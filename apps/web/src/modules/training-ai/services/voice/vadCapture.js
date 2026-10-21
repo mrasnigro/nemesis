@@ -6,9 +6,11 @@
 
 const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
 
+export const TURN_END_SILENCE_MS = 1800
+
 const DEFAULTS = {
   /** Quiet time after speech that ends the turn. */
-  silenceMs: 1000,
+  silenceMs: TURN_END_SILENCE_MS,
   /** Sound shorter than this is a cough or a click, not a turn. */
   minSpeechMs: 250,
   /** A turn never runs longer than this. */

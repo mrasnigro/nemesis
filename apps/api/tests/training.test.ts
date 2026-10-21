@@ -1043,7 +1043,13 @@ describe('rubric', () => {
         id: 's1',
         name: 'Um',
         criteria: [
-          { id: 'c1', name: 'Preço', weight: 30, yesNoQuestion: 'Citou preço?', passRule: { type: 'keywords', keywords: ['R$', '%'] } },
+          {
+            id: 'c1',
+            name: 'Preço',
+            weight: 30,
+            yesNoQuestion: 'Citou preço?',
+            passRule: { type: 'keywords', keywords: ['R$', '%'] },
+          },
           { id: 'c2', name: 'Acento', weight: 30, yesNoQuestion: 'Disse reunião?', passRule: { type: 'keywords', keywords: ['reunião'] } },
         ],
       },
@@ -1094,6 +1100,32 @@ describe('rubric', () => {
     })
     expect(report.score).toBe(100)
     expect(report.nextSteps).toEqual(['Manter a prática com um agente de dificuldade maior.'])
+  })
+
+  it('anchors positive and negative feedback to the trainee words from that session', () => {
+    const messages = [
+      {
+        id: 'u1',
+        role: 'user' as const,
+        speaker: 'Você',
+        text: 'Bom dia, posso explicar o impacto?',
+        timestamp: '2026-01-01T00:00:01Z',
+      },
+    ]
+    const report = buildReport({
+      sessionId: 's',
+      scenario: { id: 'sc', title: 'Cenário' },
+      persona: { id: 'p', name: 'Ana' },
+      template,
+      mediaMode: 'text',
+      judgeSource: 'builtin',
+      judgment: judgeByRules(template, messages.map((message) => message.text)),
+      messages,
+      completedAt: new Date(),
+    })
+    expect(report.score).toBe(40)
+    expect(report.positives.some((item) => item.includes('Bom dia'))).toBe(true)
+    expect(report.negatives.some((item) => item.includes('Bom dia'))).toBe(true)
   })
 })
 

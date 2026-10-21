@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createSpeechQueue, isLikelyHallucination, personaGender } from './serverVoice.js'
 import { readNdjson } from '../api/ndjson.js'
-import { isServerCaptureSupported, micErrorMessage } from './vadCapture.js'
+import { isServerCaptureSupported, micErrorMessage, TURN_END_SILENCE_MS } from './vadCapture.js'
 
 // Server voice picks the persona's gender from the voice reference, with a female default.
 assert.equal(personaGender('carlos'), 'm')
@@ -34,6 +34,7 @@ assert.equal(
 assert.match(micErrorMessage({ name: 'NotAllowedError' }), /bloqueou o microfone/)
 assert.match(micErrorMessage({ name: 'NotFoundError' }), /Nenhum microfone/)
 assert.match(micErrorMessage(new Error('x')), /Não foi possível usar o microfone/)
+assert.equal(TURN_END_SILENCE_MS, 1800, 'leave enough pause for a slower speaker to finish their thought')
 
 // A streamed reply is played sentence by sentence, in order, and the queue reports when it is done.
 {

@@ -230,7 +230,13 @@ export default function TrainingReportPage() {
         </div>
       </header>
 
-      {report.judgeSource === 'rules' || report.judgeSource === 'openai+rules' ? (
+      {report.judgeSource === 'builtin' ? (
+        <p className="training-ai__composer-hint" role="status">
+          Esta simulação foi avaliada pelo provedor interno de regras, não por um modelo de IA. A nota considera os
+          critérios e as palavras-chave do playbook; configure um provedor de IA no servidor para obter feedback
+          contextual.
+        </p>
+      ) : report.judgeSource === 'rules' || report.judgeSource === 'openai+rules' ? (
         <p className="training-ai__composer-hint" role="status">
           Esta nota usou apenas as palavras-chave do playbook, porque a avaliação por IA não respondeu. Use “Novo
           feedback” no fim da página para avaliar a conversa de novo.

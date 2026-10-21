@@ -67,8 +67,8 @@ const schema = z.object({
   /** Voice for female / male personas. Kokoro: pf_dora / pm_alex. OpenAI: nova / onyx. */
   TTS_VOICE_FEMALE: z.string().min(1).default('nova'),
   TTS_VOICE_MALE: z.string().min(1).default('onyx'),
-  /** Speaking pace, 0.25 to 4. 1 is the provider's natural pace. */
-  TTS_SPEED: z.coerce.number().min(0.25).max(4).default(1),
+  /** Speaking pace, 0.25 to 4. 1 is natural; the default is slightly faster. */
+  TTS_SPEED: z.coerce.number().min(0.25).max(4).default(1.15),
   TTS_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   /** Voice replies only: minimal/low makes a reasoning model answer sooner. Unset sends nothing (models that do not know it reject it). */
   TRAINING_AI_REASONING_EFFORT: z.enum(['none', 'minimal', 'low', 'medium', 'high']).optional(),
