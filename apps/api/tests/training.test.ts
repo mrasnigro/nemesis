@@ -725,6 +725,7 @@ describe('server voice (STT -> LLM -> TTS)', () => {
       .post(`${BASE}/sessions/${session.id}/transcribe`)
       .set('Content-Type', 'audio/webm;codecs=opus')
       .send(Buffer.from('fake-webm'))
+    expect(transcribed.body.data.recordingToken).toEqual(expect.any(String))
     expect(transcribed.status, JSON.stringify(transcribed.body)).toBe(200)
     expect(transcribed.body.data.text).toBe('Olá, tudo bem?')
     expect(heard[0]).toMatchObject({ bytes: 9, language: 'pt-BR' })
@@ -850,18 +851,20 @@ describe('server voice (STT -> LLM -> TTS)', () => {
       judge: async (request) => judgeByRules(request.template, [], 'stream'),
     })
 
-    await operator
+    const transcribed = await operator
       .post(`${BASE}/sessions/${session.id}/transcribe`)
       .set('Content-Type', 'audio/webm;codecs=opus')
       .send(Buffer.from('fake-webm'))
+    expect(transcribed.body.data.recordingToken).toEqual(expect.any(String))
     const turn = await operator
       .post(`${BASE}/sessions/${session.id}/voice-turn`)
-      .send({ text: 'Olá, tudo bem?' })
+      .send({ text: 'OLÁ TUDO BEM!', recordingToken: transcribed.body.data.recordingToken })
       .buffer(true)
       .parse(parseText)
     const done = readLines(turn).pop()
     if (done?.type !== 'done' || !done.data) throw new Error('A resposta de voz não concluiu o turno.')
     const { userMessage, aiMessage } = done.data
+    expect(userMessage.text).toBe('OLÁ TUDO BEM!')
 
     // The streamed turn does not finish until its recordings are persisted.
     const flagged: Array<{ id: string; hasAudio?: boolean }> = (

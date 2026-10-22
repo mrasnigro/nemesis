@@ -203,6 +203,7 @@ export default function TrainingSimulationPage() {
   const simulationRouteKeyRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
+  const recordingTokenRef = useRef(null)
   const startCancelledRef = useRef(false)
   // Hands-free voice: while on, the microphone reopens each time the persona finishes speaking.
   const autoListenRef = useRef(false)
@@ -473,7 +474,7 @@ export default function TrainingSimulationPage() {
       setTranscribing(true)
       try {
         const segmentAt = performance.now()
-        const { text, timing } = await trainingApi.transcribeSessionAudio(sessionId, blob)
+        const { text, timing, recordingToken } = await trainingApi.transcribeSessionAudio(sessionId, blob)
         latencyRef.current = { segmentAt, transcribedAt: performance.now(), server: timing, bytes: blob.size }
         serverFailuresRef.current = 0
         const heard = text.trim()
@@ -481,6 +482,7 @@ export default function TrainingSimulationPage() {
           reopen() // nothing intelligible: keep the call open
           return
         }
+        recordingTokenRef.current = recordingToken
         draftRef.current = heard
         setDraft(heard)
         await sendRef.current?.()
@@ -642,6 +644,7 @@ export default function TrainingSimulationPage() {
         result = await sendSpokenTurn(text, {
           gender: personaGender(selectedPersona?.voiceRef),
           signal: abort.signal,
+          recordingToken: recordingTokenRef.current,
           onSentence: (sentence) => {
             reportLatency(latencyRef, 'sentence')
             ownQueue.push(sentence)
@@ -667,6 +670,7 @@ export default function TrainingSimulationPage() {
       sendFailed = !result.ok
     } finally {
       sendingRef.current = false
+      recordingTokenRef.current = null
       queue?.close() // the reply is complete: the queue goes idle after its last sentence
     }
   }
@@ -708,10 +712,10 @@ export default function TrainingSimulationPage() {
     return new Promise((resolve) => {
       recorder.addEventListener('stop', () => {
         const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        recorder.stream?.getTracks().forEach((track) => track.stop())
         resolve(blob.size ? blob : null)
       }, { once: true })
       recorder.stop()
-      recorder.stream?.getTracks().forEach((track) => track.stop())
     })
   }
 

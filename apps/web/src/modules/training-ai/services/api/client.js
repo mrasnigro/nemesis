@@ -112,7 +112,11 @@ export const trainingApi = {
       body: blob,
     })
     const payload = await response.json().catch(() => null)
-    return { text: String(payload?.data?.text ?? ''), timing: payload?.data?.timing ?? null }
+    return {
+      text: String(payload?.data?.text ?? ''),
+      timing: payload?.data?.timing ?? null,
+      recordingToken: payload?.data?.recordingToken ?? null,
+    }
   },
   /** Server text-to-speech: the persona's line as an MP3 blob. `gender` picks the voice: 'f' or 'm'. */
   speakSession: async (id, text, gender = 'f') => {
@@ -127,10 +131,15 @@ export const trainingApi = {
    * while the persona's reply is written, and the stored turn is returned at the end.
    * Aborting through `signal` rejects with an AbortError; the API keeps what was written so far.
    */
-  streamVoiceTurn: async (id, { text, gender = 'f', offsetMs }, { onEvent, signal } = {}) => {
+  streamVoiceTurn: async (id, { text, gender = 'f', offsetMs, recordingToken }, { onEvent, signal } = {}) => {
     const response = await voiceFetch(`${BASE}/sessions/${id}/voice-turn`, {
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, gender, ...(offsetMs == null ? {} : { offsetMs }) }),
+      body: JSON.stringify({
+        text,
+        gender,
+        ...(offsetMs == null ? {} : { offsetMs }),
+        ...(recordingToken ? { recordingToken } : {}),
+      }),
       signal,
     })
     let done = null

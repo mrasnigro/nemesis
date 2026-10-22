@@ -225,7 +225,13 @@ export async function voiceTurnController(req: Request, res: Response) {
     await streamSpokenTurnFor(
       actor(req),
       req.params.sessionId,
-      { text: body.text, gender: body.gender, offsetMs: body.offsetMs, durationMs: body.durationMs },
+      {
+        text: body.text,
+        gender: body.gender,
+        offsetMs: body.offsetMs,
+        durationMs: body.durationMs,
+        recordingToken: body.recordingToken,
+      },
       write,
       controller.signal,
     )

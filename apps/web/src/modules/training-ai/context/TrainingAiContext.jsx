@@ -457,7 +457,7 @@ export function TrainingAiProvider({ children }) {
    * sentences that arrived (the API stores the same partial reply).
    */
   const sendSpokenTurn = useCallback(
-    async (rawText, { gender = 'f', onSentence, onTurn, signal } = {}) => {
+    async (rawText, { gender = 'f', onSentence, onTurn, signal, recordingToken } = {}) => {
       const text = String(rawText || '').trim()
       if (phase !== 'running' || !session?.id || !text || busyRef.current) return { ok: false }
       busyRef.current = true
@@ -474,7 +474,7 @@ export function TrainingAiProvider({ children }) {
         const offsetMs = session.startedAt ? Math.max(0, stamp - session.startedAt) : undefined
         const turn = await trainingApi.streamVoiceTurn(
           session.id,
-          { text, gender, offsetMs },
+          { text, gender, offsetMs, recordingToken },
           {
             signal,
             onEvent: (event) => {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import { config } from '../../core/config.js'
 import { withTransaction } from '../../core/db.js'
@@ -274,31 +275,37 @@ export async function getSessionFor(actor: Actor, id: string) {
 // Each spoken message keeps its own recording: the trainee's words as the microphone heard them, the persona's
 // words as the speech service made them. The report plays them one after the other, in the order of the call.
 
-type PendingClip = { audio: Buffer; contentType: string; text: string; at: number }
+type PendingClip = { token: string; audio: Buffer; contentType: string; text: string; at: number }
 
 /** The last thing each trainee said, waiting for the turn that will give it a message to belong to. */
 const pendingClips = new Map<string, PendingClip>()
 const PENDING_CLIP_TTL_MS = 5 * 60_000
 
 function sameWords(a: string, b: string) {
-  const clean = (value: string) => normalizeText(value).replace(/\s+/g, ' ').trim()
+  const clean = (value: string) => normalizeText(value).replace(/[^a-z0-9]+/g, ' ').trim()
   return clean(a) === clean(b)
 }
 
-function rememberClip(sessionId: string, clip: PendingClip) {
+function rememberClip(sessionId: string, clip: Omit<PendingClip, 'token'>) {
+  const token = randomUUID()
   if (pendingClips.size > 200) {
     for (const [key, value] of pendingClips) if (Date.now() - value.at > PENDING_CLIP_TTL_MS) pendingClips.delete(key)
     if (pendingClips.size > 1000) pendingClips.clear()
   }
-  pendingClips.set(sessionId, clip)
+  pendingClips.set(sessionId, { ...clip, token })
+  return token
 }
 
-/** The recording of what was transcribed, when it is the same words the turn carries. */
-function takePendingClip(sessionId: string, text: string): PendingClip | null {
+/** Associates the captured speech with its exact transcription request, tolerating browser text normalization. */
+function takePendingClip(sessionId: string, text: string, token?: string): PendingClip | null {
   const clip = pendingClips.get(sessionId)
   if (!clip) return null
+  if (Date.now() - clip.at > PENDING_CLIP_TTL_MS) {
+    pendingClips.delete(sessionId)
+    return null
+  }
+  if (token ? clip.token !== token : !sameWords(clip.text, text)) return null
   pendingClips.delete(sessionId)
-  if (Date.now() - clip.at > PENDING_CLIP_TTL_MS || !sameWords(clip.text, text)) return null
   return clip
 }
 
@@ -539,7 +546,7 @@ export type SpokenTurnEvent =
 export async function streamSpokenTurnFor(
   actor: Actor,
   sessionId: string,
-  input: { text: string; gender: Gender; offsetMs?: number; durationMs?: number },
+  input: { text: string; gender: Gender; offsetMs?: number; durationMs?: number; recordingToken?: string },
   emit: (event: SpokenTurnEvent) => void,
   signal: AbortSignal,
 ) {
@@ -610,7 +617,7 @@ export async function streamSpokenTurnFor(
     if (signal.aborted) return
     throw new AppError(502, 'AI_PROVIDER_ERROR', 'O provedor de IA devolveu uma resposta vazia.')
   }
-  const userClip = takePendingClip(sessionId, input.text)
+  const userClip = takePendingClip(sessionId, input.text, input.recordingToken)
   const stored = await saveTurn(turn, full, { offsetMs: input.offsetMs, durationMs: input.durationMs })
   // Stored in the background: the persona's reply does not wait for the files.
   const clips: { messageId: string; audio: Buffer; extension: string }[] = []
@@ -776,8 +783,10 @@ export async function transcribeSessionAudioFor(actor: Actor, sessionId: string,
   const done = performance.now()
   const timing = { lookupMs: Math.round(lookedUp - started), sttMs: Math.round(done - lookedUp), bytes: audio.length }
   log('info', 'training-ai stt', timing)
-  if (text.trim()) rememberClip(session.id, { audio, contentType, text, at: Date.now() })
-  return { text, timing }
+  const recordingToken = text.trim()
+    ? rememberClip(session.id, { audio, contentType, text, at: Date.now() })
+    : null
+  return { text, timing, recordingToken }
 }
 
 const LANGUAGE_TTL_MS = 60_000

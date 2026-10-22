@@ -162,6 +162,7 @@ export const messageWrite = z.object({
 /** A spoken turn: what the trainee said (already transcribed) and the voice the persona answers in. */
 export const voiceTurnWrite = messageWrite.extend({
   gender: z.enum(['f', 'm']).default('f'),
+  recordingToken: z.string().uuid().optional(),
 })
 
 export const speakWrite = z.object({
