@@ -863,13 +863,10 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     expect(done?.type).toBe('done')
     const { userMessage, aiMessage } = done?.data
 
-    // The files are written in the background: wait for them.
-    let flagged: Array<{ id: string; hasAudio?: boolean }> = []
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      flagged = (await operator.get(`${BASE}/sessions/${session.id}`)).body.data.messages
-      if (flagged.filter((item) => item.hasAudio).length === 2) break
-      await new Promise((resolve) => setTimeout(resolve, 25))
-    }
+    // The streamed turn does not finish until its recordings are persisted.
+    const flagged: Array<{ id: string; hasAudio?: boolean }> = (
+      await operator.get(`${BASE}/sessions/${session.id}`)
+    ).body.data.messages
     expect(flagged.filter((item) => item.hasAudio).map((item) => item.id).sort()).toEqual([userMessage.id, aiMessage.id].sort())
 
     const fetchClip = (messageId: string, who = operator) =>
@@ -1094,6 +1091,34 @@ describe('rubric', () => {
     })
     expect(report.score).toBe(100)
     expect(report.nextSteps).toEqual(['Manter a prática com um agente de dificuldade maior.'])
+  })
+
+  it('includes criterion-specific trainee evidence in positive and negative feedback', () => {
+    const messages = [
+      { id: 'u1', role: 'user' as const, speaker: 'Você', text: 'Bom dia, posso agendar uma reunião?', timestamp: new Date().toISOString() },
+      { id: 'u2', role: 'user' as const, speaker: 'Você', text: 'O investimento é de R$ 10 por mês.', timestamp: new Date().toISOString() },
+      { id: 'u3', role: 'user' as const, speaker: 'Você', text: 'Compre agora!', timestamp: new Date().toISOString() },
+    ]
+    const judgment = judgeByRules(template, messages.map((message) => message.text))
+    const report = buildReport({
+      sessionId: 's',
+      scenario: { id: 'sc', title: 'Cenário' },
+      persona: { id: 'p', name: 'Ana' },
+      template,
+      mediaMode: 'text',
+      judgeSource: 'rules',
+      judgment,
+      messages,
+      completedAt: new Date(),
+    })
+
+    expect(report.positives).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Sua fala: “Bom dia, posso agendar uma reunião?”'),
+        expect.stringContaining('Sua fala: “O investimento é de R$ 10 por mês.”'),
+      ]),
+    )
+    expect(report.negatives[0]).toContain('Sua fala:')
   })
 })
 

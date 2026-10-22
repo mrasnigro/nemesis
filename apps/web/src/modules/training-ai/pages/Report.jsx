@@ -174,7 +174,10 @@ export default function TrainingReportPage() {
   const positives = report.positives || report.strengths || []
   const negatives = report.negatives || []
   const suggestions = report.suggestions || report.improvements || []
-  const scoreValue = Math.round(Number(report.score) || 0)
+  const hasScore = report.score !== null && report.score !== undefined && Number.isFinite(Number(report.score))
+  const scoreValue = hasScore ? Math.round(Number(report.score)) : null
+  const hasRecording =
+    Boolean(report.hasAudio) || (Array.isArray(report.messages) && report.messages.some((message) => message.hasAudio))
   const criteriaList = Array.isArray(report.criteria) ? report.criteria : []
   const criteriaTotal = criteriaList.length
   const criteriaPassed = criteriaList.filter((item) => item.passed).length
@@ -202,6 +205,7 @@ export default function TrainingReportPage() {
         id: report.sessionId,
         report: {
           ...stored.report,
+          score: stored.report?.score ?? stored.score ?? report.score,
           durationMs: stored.durationMs ?? report.durationMs,
           hasAudio: report.hasAudio,
           completedAt: stored.report?.completedAt || stored.completedAt || report.completedAt,
@@ -230,10 +234,18 @@ export default function TrainingReportPage() {
         </div>
       </header>
 
-      {report.judgeSource === 'rules' || report.judgeSource === 'openai+rules' ? (
+      {report.judgeSource === 'builtin' ||
+      report.judgeSource === 'rules' ||
+      report.judgeSource === 'openai+rules' ? (
         <p className="training-ai__composer-hint" role="status">
-          Esta nota usou apenas as palavras-chave do playbook, porque a avaliação por IA não respondeu. Use “Novo
-          feedback” no fim da página para avaliar a conversa de novo.
+          {report.judgeSource === 'builtin'
+            ? 'Esta simulação foi avaliada pelo provedor interno de regras. A nota considera as palavras-chave do playbook, não uma análise contextual da conversa.'
+            : 'Esta nota usou palavras-chave do playbook para os critérios sem avaliação contextual da IA. Use “Novo feedback” no fim da página para avaliar a conversa de novo.'}
+        </p>
+      ) : null}
+      {report.mediaMode === 'voice' && !hasRecording ? (
+        <p className="training-ai__composer-hint" role="status">
+          A transcrição foi salva, mas não há gravação de áudio disponível para esta simulação.
         </p>
       ) : null}
 
@@ -242,7 +254,7 @@ export default function TrainingReportPage() {
         aria-label="Pontuação da ligação"
       >
         <div className="training-ai__score-hero-value">
-          <strong>{scoreValue}</strong>
+          <strong>{scoreValue ?? '—'}</strong>
           <span>/ {scoreMax}</span>
         </div>
         <div className="training-ai__score-hero-text">
@@ -291,7 +303,7 @@ export default function TrainingReportPage() {
                 <article>
                   <span>Desempenho</span>
                   <b className={`training-ai__score-badge training-ai__score-badge--lg training-ai__score-badge--${scoreTone(report.score)}`}>
-                    {Number(report.score) || 0}
+                    {scoreValue ?? '—'}
                   </b>
                 </article>
               </div>

@@ -553,6 +553,7 @@ export function TrainingAiProvider({ children }) {
         ok: true,
         report: {
           ...stored.report,
+          score: stored.report.score ?? stored.score,
           durationMs: stored.durationMs,
           hasAudio: stored.hasAudio,
           completedAt: stored.report.completedAt || stored.completedAt,

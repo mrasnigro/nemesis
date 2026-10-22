@@ -612,7 +612,7 @@ export async function streamSpokenTurnFor(
   const clips: { messageId: string; audio: Buffer; extension: string }[] = []
   if (userClip) clips.push({ messageId: stored.userMessage.id, audio: userClip.audio, extension: clipExtension(userClip.contentType) })
   if (spoken.length) clips.push({ messageId: stored.aiMessage.id, audio: Buffer.concat(spoken), extension: 'mp3' })
-  if (clips.length) void storeClips(customerOf(actor), sessionId, clips)
+  if (clips.length) await storeClips(customerOf(actor), sessionId, clips)
   const timing: SpokenTurnTiming = {
     prepareMs: Math.round(preparedAt - startedAt),
     firstTokenAt,

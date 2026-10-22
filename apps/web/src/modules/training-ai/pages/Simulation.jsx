@@ -200,6 +200,7 @@ export default function TrainingSimulationPage() {
   const [turnsLeft, setTurnsLeft] = useState(null)
   const lastSpokenMessageIdRef = useRef(null)
   const bootAttemptRef = useRef(null)
+  const simulationRouteKeyRef = useRef(null)
   const recorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const startCancelledRef = useRef(false)
@@ -230,12 +231,16 @@ export default function TrainingSimulationPage() {
       (phase === 'setup' || phase === 'briefing' || phase === 'running')
 
     if (hasActiveSession) {
+      simulationRouteKeyRef.current = location.key
       setBootError('')
       return
     }
 
-    // Finished sessions navigate to the report via another effect.
-    if (phase === 'finished' && selectedScenario?.id === scenarioId) {
+    if (
+      phase === 'finished' &&
+      selectedScenario?.id === scenarioId &&
+      simulationRouteKeyRef.current === location.key
+    ) {
       return
     }
 
@@ -263,6 +268,7 @@ export default function TrainingSimulationPage() {
         setBootError('Não foi possível iniciar este cenário. Volte às personas e tente de novo.')
         return undefined
       }
+      simulationRouteKeyRef.current = location.key
     } catch (error) {
       console.error('[training-ai] startSimulation failed', error)
       setBootError('Erro ao iniciar a simulação. Veja o console para detalhes.')
@@ -276,6 +282,7 @@ export default function TrainingSimulationPage() {
   }, [
     canSimulate,
     catalogReady,
+    location.key,
     location.state,
     phase,
     scenarioId,
@@ -285,8 +292,17 @@ export default function TrainingSimulationPage() {
 
   useEffect(() => {
     if (!personaRouteId || scenarioId) return
-    if (selectedPersona?.id === personaRouteId && (phase === 'briefing' || phase === 'running')) return
-    if (phase === 'finished' && selectedPersona?.id === personaRouteId) return
+    if (selectedPersona?.id === personaRouteId && (phase === 'briefing' || phase === 'running')) {
+      simulationRouteKeyRef.current = location.key
+      return
+    }
+    if (
+      phase === 'finished' &&
+      selectedPersona?.id === personaRouteId &&
+      simulationRouteKeyRef.current === location.key
+    ) {
+      return
+    }
     if (!canSimulate) {
       setBootError('Sem permissão para iniciar simulações.')
       return
@@ -304,6 +320,7 @@ export default function TrainingSimulationPage() {
       const started = startPersonaSimulation(personaRouteId, location.state?.mediaMode)
       if (cancelled) return
       if (!started) setBootError('Não foi possível abrir esta persona.')
+      else simulationRouteKeyRef.current = location.key
     })()
     return () => {
       cancelled = true
@@ -315,6 +332,7 @@ export default function TrainingSimulationPage() {
     canSimulate,
     catalogReady,
     ensurePersona,
+    location.key,
     location.state,
     personaRouteId,
     phase,
@@ -551,9 +569,10 @@ export default function TrainingSimulationPage() {
 
   useEffect(() => {
     if (phase === 'finished' && evaluation?.sessionId) {
+      if (simulationRouteKeyRef.current !== location.key) return
       navigate(`/modules/training-ai/relatorio/sessao/${evaluation.sessionId}`, { replace: true })
     }
-  }, [evaluation, navigate, phase])
+  }, [evaluation, location.key, navigate, phase])
 
   const scenario =
     selectedScenario ||
