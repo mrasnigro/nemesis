@@ -91,6 +91,8 @@ export const trainingApi = {
     }
     return response.json().then((payload) => payload?.data ?? payload)
   },
+  deleteSessionAudio: (id) =>
+    platformRequest(`${BASE}/sessions/${id}/audio`, { method: 'DELETE' }).then((payload) => payload.data),
   sessionAudioUrl: (id) => `${PLATFORM_API_BASE}${BASE}/sessions/${id}/audio`,
 
   /** The recording of one message of a call (the trainee's or the persona's), as a Blob. */

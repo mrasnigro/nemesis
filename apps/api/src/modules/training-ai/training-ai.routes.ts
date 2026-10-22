@@ -7,6 +7,7 @@ import {
   createTemplateController,
   deletePersonaController,
   deleteScenarioController,
+  deleteSessionAudioController,
   deleteTemplateController,
   createGroupController,
   dashboardsController,
@@ -99,6 +100,7 @@ trainingAiRouter.post(
   }),
   asyncHandler(saveSessionAudioController),
 )
+trainingAiRouter.delete('/sessions/:sessionId/audio', asyncHandler(deleteSessionAudioController))
 trainingAiRouter.get('/sessions/:sessionId/audio', asyncHandler(readSessionAudioController))
 // The call's recordings, one per spoken message, for the report's player.
 trainingAiRouter.get('/sessions/:sessionId/messages/:messageId/audio', asyncHandler(readMessageAudioController))

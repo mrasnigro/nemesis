@@ -860,8 +860,8 @@ describe('server voice (STT -> LLM -> TTS)', () => {
       .buffer(true)
       .parse(parseText)
     const done = readLines(turn).pop()
-    expect(done?.type).toBe('done')
-    const { userMessage, aiMessage } = done?.data
+    if (done?.type !== 'done' || !done.data) throw new Error('A resposta de voz não concluiu o turno.')
+    const { userMessage, aiMessage } = done.data
 
     // The streamed turn does not finish until its recordings are persisted.
     const flagged: Array<{ id: string; hasAudio?: boolean }> = (
@@ -889,6 +889,22 @@ describe('server voice (STT -> LLM -> TTS)', () => {
     // The opening line has no clip, and nobody else may listen.
     expect((await fetchClip(flagged[0].id)).status).toBe(404)
     expect((await fetchClip(userMessage.id, colleague)).status).toBe(404)
+
+    const finished = await operator.post(`${BASE}/sessions/${session.id}/finish`)
+    expect(finished.status, JSON.stringify(finished.body)).toBe(200)
+    const uploaded = await operator
+      .post(`${BASE}/sessions/${session.id}/audio`)
+      .set('Content-Type', 'audio/webm')
+      .send(Buffer.from('legacy-recording'))
+    expect(uploaded.status).toBe(201)
+
+    const removed = await operator.delete(`${BASE}/sessions/${session.id}/audio`)
+    expect(removed.status, JSON.stringify(removed.body)).toBe(200)
+    expect(removed.body.data.hasAudio).toBe(false)
+    expect((await operator.get(`${BASE}/sessions/${session.id}`)).body.data.report.hasAudio).toBe(false)
+    expect((await fetchClip(userMessage.id)).status).toBe(404)
+    expect((await operator.get(`${BASE}/sessions/${session.id}/audio`)).status).toBe(404)
+    expect((await colleague.delete(`${BASE}/sessions/${session.id}/audio`)).status).toBe(404)
   })
 
   it('keeps the text of a sentence the voice could not speak', async () => {

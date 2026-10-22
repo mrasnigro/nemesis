@@ -14,6 +14,7 @@ import {
   clipExtension,
   listMessageClips,
   messageClipPath,
+  removeTrainingAudioFiles,
   writeMessageClip,
   writeTrainingAudio,
 } from './trainingAudio.js'
@@ -263,7 +264,10 @@ export function listSessionPage(actor: Actor, query: z.infer<typeof sessionListQ
 export async function getSessionFor(actor: Actor, id: string) {
   const row = await getSession(customerOf(actor), id, actor.isManager ? null : actor.userId)
   if (!row) throw new AppError(404, 'NOT_FOUND', 'Session not found')
-  return withClipFlags(customerOf(actor), row)
+  const session = await withClipFlags(customerOf(actor), row)
+  return session.report
+    ? { ...session, report: { ...session.report, canDeleteAudio: row.userId === actor.userId } }
+    : session
 }
 
 // ------------------------------------------------------------- recordings of the call
@@ -735,6 +739,17 @@ export async function saveSessionAudioFor(actor: Actor, sessionId: string, audio
   const relative = await writeTrainingAudio(customerOf(actor), session.id, audio, extension)
   await setSessionAudio(customerOf(actor), session.id, relative)
   return { hasAudio: true }
+}
+
+export async function deleteSessionAudioFor(actor: Actor, sessionId: string) {
+  const session = await ownSession(actor, sessionId)
+  if (session.status !== 'completed') {
+    throw new AppError(409, 'SESSION_OPEN', 'Encerre a simulação antes de apagar a gravação.')
+  }
+  await removeTrainingAudioFiles(customerOf(actor), session.id)
+  await setSessionAudio(customerOf(actor), session.id, null)
+  pendingClips.delete(session.id)
+  return { hasAudio: false }
 }
 
 /** A running voice session: the only time speech is transcribed or synthesized. Keeps the endpoints from being open TTS/STT proxies. */

@@ -7,6 +7,7 @@ import { PLATFORM_API_BASE } from '../../../core/api/platformClient.js'
 import { trainingApi } from '../services/api/client.js'
 import SectionRadar from '../components/SectionRadar.jsx'
 import SessionAudioPlayer from '../components/SessionAudioPlayer.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useTrainingAi } from '../context/TrainingAiContext.jsx'
 import { scenarioTypeLabel } from '../data/personas.js'
 import { estimateSessionMetrics } from '../utils/agentDisplay.js'
@@ -71,6 +72,9 @@ export default function TrainingReportPage() {
   const [audioUrl, setAudioUrl] = useState('')
   const [rejudging, setRejudging] = useState(false)
   const [rejudgeError, setRejudgeError] = useState('')
+  const [confirmDeleteAudio, setConfirmDeleteAudio] = useState(false)
+  const [deletingAudio, setDeletingAudio] = useState(false)
+  const [audioDeleteError, setAudioDeleteError] = useState('')
 
   // /relatorio/sessao/:id opens that session; /relatorio/:scenarioId opens the latest one for the scenario.
   const targetId =
@@ -216,6 +220,31 @@ export default function TrainingReportPage() {
       setRejudgeError(error?.message || 'Não foi possível gerar um novo feedback.')
     } finally {
       setRejudging(false)
+    }
+  }
+
+  async function handleDeleteAudio() {
+    if (!report.sessionId || deletingAudio) return
+    setDeletingAudio(true)
+    setAudioDeleteError('')
+    try {
+      await trainingApi.deleteSessionAudio(report.sessionId)
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+      setAudioUrl('')
+      setLoaded({
+        id: report.sessionId,
+        report: {
+          ...report,
+          hasAudio: false,
+          messages: (report.messages || []).map(({ hasAudio: _hasAudio, ...message }) => message),
+        },
+        error: '',
+      })
+      setConfirmDeleteAudio(false)
+    } catch (error) {
+      setAudioDeleteError(error?.message || 'Não foi possível apagar a gravação.')
+    } finally {
+      setDeletingAudio(false)
     }
   }
 
@@ -403,7 +432,18 @@ export default function TrainingReportPage() {
               palavras-chave.
             </p>
           </div>
+          {hasRecording && report.canDeleteAudio !== false ? (
+            <button
+              type="button"
+              className="imp-btn imp-btn--ghost"
+              onClick={() => setConfirmDeleteAudio(true)}
+              disabled={deletingAudio}
+            >
+              Apagar gravação
+            </button>
+          ) : null}
         </div>
+        {audioDeleteError ? <p className="training-ai__composer-hint" role="alert">{audioDeleteError}</p> : null}
         <SessionAudioPlayer
           sessionId={report.sessionId}
           messages={report.messages || []}
@@ -413,6 +453,20 @@ export default function TrainingReportPage() {
         />
       </div>
       ) : null}
+
+      <ConfirmDialog
+        open={confirmDeleteAudio}
+        title="Apagar gravação?"
+        message="O áudio desta simulação será removido permanentemente. A transcrição e a avaliação serão mantidas."
+        cancelLabel="Cancelar"
+        confirmLabel={deletingAudio ? 'Apagando…' : 'Apagar gravação'}
+        onCancel={() => {
+          if (!deletingAudio) setConfirmDeleteAudio(false)
+        }}
+        onConfirm={() => {
+          void handleDeleteAudio()
+        }}
+      />
 
       <div className="training-ai__insights-split" hidden={tab !== 'template'}>
         <div className="imp-panel">

@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { config } from '../../core/config.js'
 import { AppError } from '../../core/errors.js'
@@ -22,6 +22,23 @@ export async function writeTrainingAudio(customerId: string, sessionId: string, 
   await mkdir(path.dirname(absolute), { recursive: true })
   await writeFile(absolute, audio)
   return relative.replace(/\\/g, '/')
+}
+
+export async function removeTrainingAudioFiles(customerId: string, sessionId: string) {
+  const safeSessionId = safeId(sessionId)
+  const customerDir = trainingAudioAbsolute(customerId)
+  let names: string[] = []
+  try {
+    names = await readdir(customerDir)
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+  }
+  await Promise.all(
+    names
+      .filter((name) => name.startsWith(`${safeSessionId}.`))
+      .map((name) => rm(path.join(customerDir, name), { force: true })),
+  )
+  await rm(clipDir(customerId, sessionId), { recursive: true, force: true })
 }
 
 // ---------------------------------------------------------------- one clip per spoken message

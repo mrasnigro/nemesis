@@ -695,7 +695,7 @@ export async function replaceSessionReport(
   return update.affectedRows > 0
 }
 
-export async function setSessionAudio(customerId: string, sessionId: string, audioPath: string): Promise<boolean> {
+export async function setSessionAudio(customerId: string, sessionId: string, audioPath: string | null): Promise<boolean> {
   const [update] = await pool.query<ResultSetHeader>(
     `UPDATE training_sessions
      SET audio_path = :audioPath

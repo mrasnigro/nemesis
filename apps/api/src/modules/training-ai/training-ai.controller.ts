@@ -10,6 +10,7 @@ import {
   deleteTemplateFor,
   createGroupFor,
   dashboardsFor,
+  deleteSessionAudioFor,
   deleteGroupFor,
   directoryFor,
   getGroupFor,
@@ -184,6 +185,10 @@ export async function saveSessionAudioController(req: Request, res: Response) {
   const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)
   const contentType = String(req.headers['content-type'] || 'audio/webm')
   res.status(201).json({ data: await saveSessionAudioFor(actor(req), req.params.sessionId, audio, contentType) })
+}
+
+export async function deleteSessionAudioController(req: Request, res: Response) {
+  res.json({ data: await deleteSessionAudioFor(actor(req), req.params.sessionId) })
 }
 
 export async function transcribeSessionController(req: Request, res: Response) {
