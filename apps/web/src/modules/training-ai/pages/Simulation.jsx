@@ -11,12 +11,7 @@ import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { setBrowserSpeechSpeed } from '../services/avatar/browserAvatarProvider.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
-import {
-  isServerCaptureSupported,
-  micErrorMessage,
-  openVadMic,
-  TURN_END_SILENCE_MS,
-} from '../services/voice/vadCapture.js'
+import { isServerCaptureSupported, micErrorMessage, openVadMic } from '../services/voice/vadCapture.js'
 import {
   createSpeechQueue,
   isLikelyHallucination,
@@ -29,8 +24,13 @@ import {
 } from '../services/voice/serverVoice.js'
 import { trainingApi } from '../services/api/client.js'
 
-/** Pause after the trainee stops talking before the turn is sent on its own. */
-const SILENCE_SEND_MS = TURN_END_SILENCE_MS
+/**
+ * Quiet time that ends a turn. A sales call has thinking pauses of well over a second; 0.7s was closing the
+ * microphone between phrases. Two seconds still feels like a conversation and leaves room to breathe.
+ */
+const TURN_PAUSE_MS = 2000
+const SILENCE_SEND_MS = TURN_PAUSE_MS
+const END_OF_TURN_MS = TURN_PAUSE_MS
 
 /**
  * Logs where the time of one spoken turn went, in the browser console ("[voice-latency]"), measured from the
@@ -44,14 +44,14 @@ function reportLatency(ref, stage) {
   if (stage !== 'play' || mark.reported || !mark.sentenceAt) return
   mark.reported = true
   console.info('[voice-latency]', {
-    endOfSpeechWaitMs: TURN_END_SILENCE_MS,
+    endOfSpeechWaitMs: END_OF_TURN_MS,
     transcribeMs: Math.round(mark.transcribedAt - mark.segmentAt),
     serverStt: mark.server,
     audioBytes: mark.bytes,
     replyFirstSentenceMs: Math.round(mark.sentenceAt - mark.transcribedAt),
     sentenceToSoundMs: Math.round(now - mark.sentenceAt),
     handoverToSoundMs: Math.round(now - mark.segmentAt),
-    fromEndOfVoiceMs: Math.round(now - mark.segmentAt) + TURN_END_SILENCE_MS,
+    fromEndOfVoiceMs: Math.round(now - mark.segmentAt) + END_OF_TURN_MS,
   })
 }
 
@@ -477,10 +477,7 @@ export default function TrainingSimulationPage() {
     }
 
     if (!micRef.current) {
-        micRef.current = openVadMic({
-          deviceId: micIdRef.current || undefined,
-          silenceMs: TURN_END_SILENCE_MS,
-        })
+        micRef.current = openVadMic({ deviceId: micIdRef.current || undefined, silenceMs: END_OF_TURN_MS })
     }
     micRef.current
       .then((mic) => {
@@ -516,41 +513,29 @@ export default function TrainingSimulationPage() {
     setVoiceNotice('')
     micFailedRef.current = false
     const handsFree = practiceMediaMode === 'voice'
-    let disposed = false
     const recognizer = createSpeechRecognizer({
       lang: personaLanguage,
       onText: (text) => {
-        if (disposed) return
-        draftRef.current = text
         setDraft(text)
         if (!handsFree) return
-        // Keep a full turn-end pause after the last recognized word.
+        // The turn ends after a short pause: send what was said without a click.
         window.clearTimeout(silenceTimerRef.current)
         if (text.trim().length >= 2) {
           silenceTimerRef.current = window.setTimeout(() => sendRef.current?.(), SILENCE_SEND_MS)
         }
       },
       onEnd: () => {
-        if (disposed) return
-        if (!handsFree) {
-          setListening(false)
+        // The browser ends recognition on a short quiet spell. That is not the end of the turn: the pause
+        // timer is. Reopen the microphone and keep what was already heard.
+        setListening(false)
+        if (!handsFree || !autoListenRef.current || micFailedRef.current) {
+          window.clearTimeout(silenceTimerRef.current)
           return
         }
-        window.clearTimeout(silenceTimerRef.current)
-        if (draftRef.current.trim().length >= 2) {
-          silenceTimerRef.current = window.setTimeout(() => {
-            setListening(false)
-            sendRef.current?.()
-          }, SILENCE_SEND_MS)
-        } else {
-          setListening(false)
-          if (!autoListenRef.current || micFailedRef.current) return
-          // The browser closes the mic after a quiet spell; keep the call open.
-          window.setTimeout(() => {
-            const live = liveRef.current
-            if (live.running && !live.speaking && !live.busy && autoListenRef.current) setListening(true)
-          }, 250)
-        }
+        window.setTimeout(() => {
+          const live = liveRef.current
+          if (live.running && !live.speaking && !live.busy && autoListenRef.current) setListening(true)
+        }, 250)
       },
       onError: (message) => {
         micFailedRef.current = true
@@ -559,7 +544,6 @@ export default function TrainingSimulationPage() {
     })
     recognizer.start(draftRef.current)
     return () => {
-      disposed = true
       window.clearTimeout(silenceTimerRef.current)
       recognizer.stop()
     }

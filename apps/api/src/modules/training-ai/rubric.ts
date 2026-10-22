@@ -242,18 +242,6 @@ export function buildReport(input: {
   const passed = criteria.filter((item) => item.passed)
   const failed = criteria.filter((item) => !item.passed)
   const communication = communicationMetrics(input.messages)
-  const traineeMessages = input.messages.filter((message) => message.role === 'user')
-  const criteriaById = new Map(flattenCriteria(input.template).map((criterion) => [criterion.id, criterion]))
-  const feedbackWithEvidence = (criterion: (typeof criteria)[number], fallback: string) => {
-    const definition = criteriaById.get(criterion.id)
-    const keywords = definition?.passRule.keywords.map(normalizeText).filter(Boolean) ?? []
-    const relevantMessage = traineeMessages.find((message) =>
-      keywords.some((keyword) => normalizeText(message.text).includes(keyword)),
-    )
-    const message = relevantMessage ?? traineeMessages.at(-1)
-    const quote = message?.text.trim().slice(0, 180)
-    return quote ? `${fallback} Sua fala: “${quote}”` : fallback
-  }
 
   const strengths = passed.length ? passed.map((item) => item.name) : ['Manteve a simulação até o final']
   const improvements = failed.length
@@ -261,6 +249,7 @@ export function buildReport(input: {
     : ['Aprofundar perguntas de diagnóstico na próxima rodada']
 
   // Each failed criterion points at a trainee message so the report can link back to the transcript.
+  const traineeMessages = input.messages.filter((message) => message.role === 'user')
   const coachFeedback = failed.slice(0, 6).map((criterion, index) => {
     const message = traineeMessages[Math.min(index, Math.max(0, traineeMessages.length - 1))] ?? null
     return {
@@ -300,12 +289,8 @@ export function buildReport(input: {
     sections,
     criteria,
     communication,
-    positives: passed.length
-      ? passed.map((item) => feedbackWithEvidence(item, item.rationale || item.name))
-      : ['Manteve a simulação até o final'],
-    negatives: failed.map((item) =>
-      feedbackWithEvidence(item, item.rationale || item.yesNoQuestion || item.name),
-    ),
+    positives: passed.length ? passed.map((item) => item.rationale || item.name) : ['Manteve a simulação até o final'],
+    negatives: failed.map((item) => item.rationale || item.yesNoQuestion || item.name),
     suggestions: failed.map((item) => item.yesNoQuestion || item.name),
     sellerInstructions:
       typeof input.scenario.sellerInstructions === 'string' ? input.scenario.sellerInstructions : '',

@@ -47,7 +47,7 @@ export default function TrainingProfilePage() {
           </div>
           <div>
             <span className="training-ai__tile-label">Score médio</span>
-            <strong>{metrics?.avgScore || '—'}</strong>
+            <strong>{Number.isFinite(Number(metrics?.avgScore)) ? Math.round(Number(metrics.avgScore)) : '—'}</strong>
           </div>
         </div>
         {canManage ? (
