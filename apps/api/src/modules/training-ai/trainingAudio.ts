@@ -11,7 +11,7 @@ export function trainingAudioAbsolute(relative: string) {
   const root = rootDir()
   const absolute = path.resolve(root, relative)
   if (absolute !== root && !absolute.startsWith(root + path.sep)) {
-    throw new AppError(400, 'INVALID_PATH', 'Caminho de Ã¡udio invÃ¡lido')
+    throw new AppError(400, 'INVALID_PATH', 'Caminho de áudio inválido')
   }
   return absolute
 }
@@ -71,7 +71,7 @@ function clipDir(customerId: string, sessionId: string) {
 
 /** Message ids and extensions can come from a URL: only plain id characters may reach the file system. The folder is checked to stay inside the recordings root. */
 function safeId(value: string) {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(value)) throw new AppError(400, 'INVALID_PATH', 'Identificador invÃ¡lido')
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(value)) throw new AppError(400, 'INVALID_PATH', 'Identificador inválido')
   return value
 }
 
