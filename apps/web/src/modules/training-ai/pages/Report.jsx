@@ -371,10 +371,16 @@ export default function TrainingReportPage() {
               </dl>
             </div>
             <div className="training-ai__sim-report-feedback">
+              {report.summary ? (
+                <article>
+                  <h4>Resumo da conversa</h4>
+                  <p>{report.summary}</p>
+                </article>
+              ) : null}
               <article>
                 <h4>Pontos Positivos</h4>
                 {positives.length ? (
-                  <ul>{positives.map((item) => <li key={item}>{item}</li>)}</ul>
+                  <ul>{positives.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
                 ) : (
                   <p>Nenhum ponto positivo registrado.</p>
                 )}
@@ -382,7 +388,7 @@ export default function TrainingReportPage() {
               <article>
                 <h4>Pontos Negativos</h4>
                 {negatives.length ? (
-                  <ul>{negatives.map((item) => <li key={item}>{item}</li>)}</ul>
+                  <ul>{negatives.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul>
                 ) : (
                   <p>Nenhum ponto negativo registrado.</p>
                 )}

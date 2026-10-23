@@ -349,7 +349,11 @@ describe('sessions', () => {
     expect(done.score).toBe(0)
     expect(done.report.band.label).toBe('Precisa reforço')
     expect(done.report.improvements).toHaveLength(2)
-    expect(done.report.coachFeedback[0].messageText).toContain('desconto')
+    // Coaching links only to the message that relates to the criterion: the "desconto" line breaks the
+    // avoid-rule, while the missing greeting has no message to point at.
+    const anchored = done.report.coachFeedback.filter((item: { messageText: string | null }) => item.messageText)
+    expect(anchored).toHaveLength(1)
+    expect(anchored[0].messageText).toContain('desconto')
   })
 
   it('ignores any score or report the client sends', async () => {
@@ -1139,6 +1143,58 @@ describe('rubric', () => {
     )
     expect(report.negatives[0]).toContain('Sua fala:')
   })
+
+  it('quotes the trainee only when the message matches the criterion', () => {
+    const messages = [
+      { id: 'u1', role: 'user' as const, speaker: 'Você', text: 'Olá, tudo bem?', timestamp: new Date().toISOString() },
+    ]
+    const report = buildReport({
+      sessionId: 's',
+      scenario: { id: 'sc', title: 'Cenário' },
+      persona: { id: 'p', name: 'Ana' },
+      template,
+      mediaMode: 'text',
+      judgeSource: 'rules',
+      judgment: judgeByRules(template, messages.map((message) => message.text)),
+      messages,
+      completedAt: new Date(),
+    })
+    // c1 and c2 failed and nothing said relates to them: no unrelated quote, no coaching link.
+    expect(report.negatives.filter((item) => item.includes('Sua fala'))).toHaveLength(0)
+    expect(report.coachFeedback.every((item) => item.messageId === null)).toBe(true)
+  })
+
+  it('uses the AI feedback written for the conversation', () => {
+    const messages = [
+      { id: 'u1', role: 'user' as const, speaker: 'Você', text: 'Bom dia, posso agendar uma reunião?', timestamp: new Date().toISOString() },
+    ]
+    const judgment = {
+      ...judgeByRules(template, messages.map((message) => message.text), 'openai'),
+      feedback: {
+        summary: 'Abriu bem com a Ana, mas não tratou o preço.',
+        strengths: ['Pediu a reunião logo: “posso agendar uma reunião?”'],
+        improvements: ['Não citou o investimento quando a Ana perguntou.', '  '],
+      },
+    }
+    const report = buildReport({
+      sessionId: 's',
+      scenario: { id: 'sc', title: 'Cenário' },
+      persona: { id: 'p', name: 'Ana' },
+      template,
+      mediaMode: 'text',
+      judgeSource: 'openai',
+      judgment,
+      messages,
+      completedAt: new Date(),
+    })
+    expect(report.summary).toBe('Abriu bem com a Ana, mas não tratou o preço.')
+    expect(report.positives).toEqual(['Pediu a reunião logo: “posso agendar uma reunião?”'])
+    expect(report.negatives).toEqual(['Não citou o investimento quando a Ana perguntou.'])
+    expect(report.strengths).toEqual(report.positives)
+    expect(report.coachNotes).toBe(report.summary)
+    // The score still comes only from the criteria.
+    expect(report.score).toBe(70)
+  })
 })
 
 describe('openai-compatible provider', () => {
@@ -1298,6 +1354,31 @@ describe('openai-compatible provider', () => {
       { criterionId: 'c1', passed: true, rationale: 'Cumprimentou.' },
       { criterionId: 'c2', passed: false, rationale: 'Sem agenda.' },
     ])
+    expect(judgment.feedback).toBeNull()
+  })
+
+  it('asks for feedback about this persona and returns it with the verdicts', async () => {
+    let sent = ''
+    const ai = provider((_url, init) => {
+      sent = String(init.body)
+      return completion(
+        JSON.stringify({
+          criteria: [{ criterionId: 'c1', passed: true }, { criterionId: 'c2', passed: false }],
+          summary: 'Cumprimentou a Ana, mas não propôs agenda.',
+          strengths: ['Abriu com “Bom dia”.', 42],
+          improvements: ['Propor um horário quando a Ana disse “Sem tempo”.'],
+        }),
+      )
+    })
+    const judgment = await ai.judge({ template, persona, scenario, messages })
+    const payload = JSON.parse(JSON.parse(sent).messages[1].content)
+    expect(payload.persona).toMatchObject({ name: 'Ana', role: 'Diretora', objections: ['Sem tempo'] })
+    expect(JSON.parse(sent).messages[0].content).toContain('"strengths"')
+    expect(judgment.feedback).toEqual({
+      summary: 'Cumprimentou a Ana, mas não propôs agenda.',
+      strengths: ['Abriu com “Bom dia”.'],
+      improvements: ['Propor um horário quando a Ana disse “Sem tempo”.'],
+    })
   })
 
   it('falls back to the playbook rules for criteria the model skipped or when it fails', async () => {
@@ -1336,7 +1417,8 @@ describe('openai-compatible provider', () => {
   it('treats the transcript as data in the judge prompt', async () => {
     let sent = ''
     const ai = provider((_url, init) => {
-      sent = String(init.body)
+      // The empty answer makes the judge retry with plain settings: check the first, strict request.
+      if (!sent) sent = String(init.body)
       return completion('{"criteria":[]}')
     })
     await ai.judge({

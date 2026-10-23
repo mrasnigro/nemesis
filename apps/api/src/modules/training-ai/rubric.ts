@@ -29,7 +29,10 @@ export type FlatCriterion = Criterion & { sectionId: string; sectionName: string
 
 export type CriterionVerdict = { criterionId: string; passed: boolean; rationale: string }
 
-export type Judgment = { provider: string; criteria: CriterionVerdict[] }
+/** Feedback the AI judge writes for this one conversation. Absent when the playbook rules judged it. */
+export type JudgeFeedback = { summary: string; strengths: string[]; improvements: string[] }
+
+export type Judgment = { provider: string; criteria: CriterionVerdict[]; feedback?: JudgeFeedback | null }
 
 export type ChatMessage = {
   id: string
@@ -201,15 +204,16 @@ export function communicationMetrics(messages: ChatMessage[]) {
   }
 }
 
-function evidenceFor(messages: ChatMessage[]) {
-  const trainee = messages.filter((message) => message.role === 'user')
-  const message = trainee[trainee.length - 1]
+/** The trainee message that contains one of the criterion's keywords, if any. */
+function matchingMessage(criterion: Criterion | undefined, traineeMessages: ChatMessage[]): ChatMessage | null {
+  const patterns = (criterion?.passRule.keywords ?? []).map(keywordPattern).filter((item): item is RegExp => item !== null)
+  if (!patterns.length) return null
+  return traineeMessages.find((message) => patterns.some((pattern) => pattern.test(normalizeText(message.text)))) ?? null
+}
+
+function evidenceOf(message: ChatMessage | null) {
   if (!message) return null
-  return {
-    messageId: message.id,
-    timestamp: message.timestamp,
-    quote: message.text.slice(0, 400),
-  }
+  return { messageId: message.id, timestamp: message.timestamp, quote: message.text.slice(0, 400) }
 }
 
 export function coachNotes(score: number): string {
@@ -233,37 +237,58 @@ export function buildReport(input: {
   completedAt: Date
 }) {
   const rubric = evaluateRubric(input.template, input.judgment)
-  const evidence = evidenceFor(input.messages)
-  const criteria = rubric.criteria.map((item) => ({ ...item, evidence }))
-  const sections = rubric.sections.map((section) => ({
-    ...section,
-    criteria: section.criteria.map((item) => ({ ...item, evidence })),
-  }))
+  const traineeMessages = input.messages.filter((message) => message.role === 'user')
+  const criteriaById = new Map(flattenCriteria(input.template).map((criterion) => [criterion.id, criterion]))
+  const lastTraineeMessage = traineeMessages[traineeMessages.length - 1] ?? null
+  // The trainee message that matches each criterion's keywords: the evidence shown and the coaching anchor.
+  const matched = new Map(rubric.criteria.map((item) => [item.id, matchingMessage(criteriaById.get(item.id), traineeMessages)]))
+  const withEvidence = <C extends { id: string }>(item: C) => ({
+    ...item,
+    evidence: evidenceOf(matched.get(item.id) ?? lastTraineeMessage),
+  })
+  const criteria = rubric.criteria.map(withEvidence)
+  const sections = rubric.sections.map((section) => ({ ...section, criteria: section.criteria.map(withEvidence) }))
   const passed = criteria.filter((item) => item.passed)
   const failed = criteria.filter((item) => !item.passed)
   const communication = communicationMetrics(input.messages)
-  const traineeMessages = input.messages.filter((message) => message.role === 'user')
-  const criteriaById = new Map(flattenCriteria(input.template).map((criterion) => [criterion.id, criterion]))
+  const feedback = cleanFeedback(input.judgment.feedback)
 
-  function feedbackWithEvidence(criterion: (typeof criteria)[number], fallback: string, index: number) {
-    const definition = criteriaById.get(criterion.id)
-    const keywords = definition?.passRule.keywords.map(normalizeText).filter(Boolean) ?? []
-    const relevantMessage = traineeMessages.find((message) =>
-      keywords.some((keyword) => normalizeText(message.text).includes(keyword)),
-    )
-    const message = relevantMessage ?? traineeMessages[index % Math.max(traineeMessages.length, 1)]
-    const quote = message?.text.trim().slice(0, 180)
-    return quote ? `${fallback} Sua fala: “${quote}”` : fallback
+  /** A criterion line, with the trainee's own words only when they really match the criterion. */
+  function criterionLine(criterion: (typeof criteria)[number], text: string) {
+    const quote = matched.get(criterion.id)?.text.trim().slice(0, 180)
+    return quote ? `${text} Sua fala: “${quote}”` : text
   }
 
-  const strengths = passed.length ? passed.map((item) => item.name) : ['Manteve a simulação até o final']
-  const improvements = failed.length
-    ? failed.map((item) => item.yesNoQuestion || item.name)
-    : ['Aprofundar perguntas de diagnóstico na próxima rodada']
+  // Without the AI's own feedback, the call's measured habits make the lists specific to this conversation.
+  const habits = communicationNotes(communication)
 
-  // Each failed criterion points at a trainee message so the report can link back to the transcript.
-  const coachFeedback = failed.slice(0, 6).map((criterion, index) => {
-    const message = traineeMessages[Math.min(index, Math.max(0, traineeMessages.length - 1))] ?? null
+  const positives = feedback?.strengths.length
+    ? feedback.strengths
+    : [
+        ...passed.map((item) => criterionLine(item, item.rationale || item.name)),
+        ...habits.good,
+      ]
+  const negatives = feedback?.improvements.length
+    ? feedback.improvements
+    : [
+        ...failed.map((item) => criterionLine(item, item.rationale || item.yesNoQuestion || item.name)),
+        ...habits.bad,
+      ]
+
+  const strengths = feedback?.strengths.length
+    ? feedback.strengths
+    : passed.length
+      ? passed.map((item) => item.name)
+      : ['Manteve a simulação até o final']
+  const improvements = feedback?.improvements.length
+    ? feedback.improvements
+    : failed.length
+      ? failed.map((item) => item.yesNoQuestion || item.name)
+      : ['Aprofundar perguntas de diagnóstico na próxima rodada']
+
+  // Each failed criterion links to the trainee message that relates to it; none when nothing relates.
+  const coachFeedback = failed.slice(0, 6).map((criterion) => {
+    const message = matched.get(criterion.id) ?? null
     return {
       id: `fb_${criterion.id}`,
       criterionId: criterion.id,
@@ -276,11 +301,11 @@ export function buildReport(input: {
     }
   })
 
-  const nextSteps = improvements.length && failed.length
+  const nextSteps = failed.length
     ? [
-        `Refazer o cenário focando em: ${improvements[0]}`,
+        `Refazer o cenário focando em: ${failed[0].yesNoQuestion || failed[0].name}`,
         'Revisar o playbook e as perguntas sim/não que falharam.',
-        'Praticar abertura e próximo passo com o mesmo agente.',
+        `Praticar abertura e próximo passo com ${input.persona.name}.`,
       ]
     : ['Manter a prática com um agente de dificuldade maior.']
 
@@ -301,21 +326,43 @@ export function buildReport(input: {
     sections,
     criteria,
     communication,
-    positives: passed.length
-      ? passed.map((item, index) => feedbackWithEvidence(item, item.rationale || item.name, index))
-      : ['Manteve a simulação até o final'],
-    negatives: failed.map((item, index) =>
-      feedbackWithEvidence(item, item.rationale || item.yesNoQuestion || item.name, index),
-    ),
+    summary: feedback?.summary ?? '',
+    positives: positives.length ? positives : ['Manteve a simulação até o final'],
+    negatives,
     suggestions: failed.map((item) => item.yesNoQuestion || item.name),
     sellerInstructions:
       typeof input.scenario.sellerInstructions === 'string' ? input.scenario.sellerInstructions : '',
     negotiatorType: typeof input.persona.negotiatorType === 'string' ? input.persona.negotiatorType : '',
     strengths,
     improvements,
-    coachNotes: coachNotes(rubric.score),
+    coachNotes: feedback?.summary || coachNotes(rubric.score),
     coachFeedback,
     nextSteps,
     completedAt: input.completedAt.toISOString(),
   }
+}
+
+const FEEDBACK_ITEMS = 4
+const FEEDBACK_CHARS = 300
+
+/** The AI's feedback, trimmed to what the report shows. Null when it has nothing usable. */
+export function cleanFeedback(raw: unknown): JudgeFeedback | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  const text = (item: unknown) => (typeof item === 'string' ? item.trim().slice(0, FEEDBACK_CHARS) : '')
+  const list = (items: unknown) =>
+    Array.isArray(items) ? items.map(text).filter(Boolean).slice(0, FEEDBACK_ITEMS) : []
+  const feedback = { summary: text(value.summary), strengths: list(value.strengths), improvements: list(value.improvements) }
+  return feedback.summary || feedback.strengths.length || feedback.improvements.length ? feedback : null
+}
+
+/** Talk share, pace, monologue and filler words of this call, as report lines. */
+function communicationNotes(metrics: ReturnType<typeof communicationMetrics>) {
+  const good: string[] = []
+  const bad: string[] = []
+  if (metrics.talkListenStatus === 'Ideal') good.push(`Equilibrou fala e escuta: falou ${metrics.talkListenPct}% do tempo.`)
+  else if (metrics.talkListenPct > 50) bad.push(`Falou ${metrics.talkListenPct}% do tempo; o ideal é 40–50%. Faça mais perguntas e escute.`)
+  else if (metrics.talkListenPct > 0) bad.push(`Falou só ${metrics.talkListenPct}% do tempo; o ideal é 40–50%. Conduza mais a conversa.`)
+  if (metrics.fillersStatus !== 'Bom') bad.push(`Usou ${metrics.fillersPerMinute} vícios de linguagem por minuto (“né”, “tipo”…); o ideal é menos de 2.`)
+  return { good, bad }
 }
