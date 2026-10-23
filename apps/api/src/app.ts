@@ -57,7 +57,14 @@ export function createApp() {
   app.disable('x-powered-by')
   app.set('trust proxy', config.trustProxy)
   app.use(requestContext)
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }))
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'same-site' },
+      // The web app plays the persona's voice, call recordings and the mic test from blob: URLs.
+      // Helmet's default CSP has no media-src, so the browser would block all of that sound.
+      contentSecurityPolicy: { directives: { mediaSrc: ["'self'", 'blob:', 'data:'] } },
+    }),
+  )
   app.use(cors({ origin: config.corsOrigins, credentials: true }))
   app.use(express.json({ limit: '1mb' }))
   app.use(cookieParser())
