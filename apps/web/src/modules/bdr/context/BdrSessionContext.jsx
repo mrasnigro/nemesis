@@ -238,6 +238,7 @@ function reducer(state, action) {
           mode: 'manual',
           contactMethod: action.contactMethod,
           manualPhone: action.phone.trim(),
+          connectPhone: String(action.connectPhone || '').trim(),
         }),
       }
     }
@@ -571,16 +572,22 @@ export function BdrSessionProvider({ children }) {
             code: 'NO_CAMPAIGN',
           })
         }
-        const request = async () =>
-          call.mode === 'manual'
-            ? {
-                attempt: await bdrRepository.startManualAttempt(
-                  call.manualPhone,
-                  stateRef.current.selectedCampaignId,
-                ),
-                queue: null,
-              }
-            : bdrRepository.startAttempt(stateRef.current.selectedCampaignId)
+        const request = async () => {
+          if (call.mode !== 'manual') return bdrRepository.startAttempt(stateRef.current.selectedCampaignId)
+          if (call.connectPhone) {
+            return {
+              attempt: await bdrRepository.startBridgeAttempt(call.manualPhone, call.connectPhone),
+              queue: null,
+            }
+          }
+          return {
+            attempt: await bdrRepository.startManualAttempt(
+              call.manualPhone,
+              stateRef.current.selectedCampaignId,
+            ),
+            queue: null,
+          }
+        }
         let attempt
         let queue
         for (let retry = 0; ; retry += 1) {
@@ -697,10 +704,10 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'START_AUTOMATIC' })
   }, [])
 
-  const startManual = useCallback((phone, contactMethod) => {
-    const check = validateManualStart({ phone, contactMethod })
+  const startManual = useCallback((phone, contactMethod, connectPhone = '') => {
+    const check = validateManualStart({ phone, contactMethod, connectPhone })
     if (!check.ok) return check
-    dispatch({ type: 'START_MANUAL', phone, contactMethod })
+    dispatch({ type: 'START_MANUAL', phone, contactMethod, connectPhone })
     return { ok: true }
   }, [])
 
@@ -895,8 +902,8 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'START_AUTOMATIC' })
   }, [])
 
-  const setExtension = useCallback(async (extension) => {
-    const config = await bdrRepository.setExtension(extension)
+  const setExtension = useCallback(async (extension, sipPassword) => {
+    const config = await bdrRepository.setExtension(extension, sipPassword)
     dispatch({ type: 'SET_DIALER_CONFIG', config })
     return config
   }, [])

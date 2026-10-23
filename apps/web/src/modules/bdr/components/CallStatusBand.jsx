@@ -23,14 +23,19 @@ export default function CallStatusBand() {
   const ringingLead = call.attempt?.lead
   const ringingPhone = ringingLead?.phone || call.manualPhone || call.attempt?.phone || ''
   const waiting = searching && !call.attempt && call.queueWait
-  const label = connected
+  const whatsappAttendance = connected && call.contactMethod === 'whatsapp' && !call.attempt
+  const label = whatsappAttendance
+    ? 'Atendimento WhatsApp'
+    : connected
     ? 'Falando'
     : ringing
       ? `Chamando${ringingLead?.attempts > 1 ? ` · tentativa ${ringingLead.attempts}` : ''}`
       : waiting
         ? 'Aguardando leads'
         : 'Buscando próximo lead'
-  const detail = connected
+  const detail = whatsappAttendance
+    ? 'Sem ligação telefônica — registre o contato no script.'
+    : connected
     ? phone || '...'
     : ringing
       ? [ringingPhone, ringingLead?.company].filter(Boolean).join(' · ')

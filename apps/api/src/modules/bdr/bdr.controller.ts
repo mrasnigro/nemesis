@@ -20,17 +20,20 @@ import {
   attemptListQuery,
   attemptOutcome,
   attemptStart,
+  bridgeAttemptStart,
   callListQuery,
   callWrite,
   campaignListQuery,
   campaignWrite,
   extensionWrite,
   leadImport,
+  leadSchedule,
   manualAttemptStart,
   meetingListQuery,
   meetingPatch,
   meetingWrite,
   telephonySettingsWrite,
+  transferWrite,
 } from './bdr.schemas.js'
 import {
   attemptReadyForCall,
@@ -38,6 +41,10 @@ import {
   getDialerConfig,
   hangupAttempt,
   listAttempts,
+  listOpenInbound,
+  scheduleCampaignLead,
+  startBridgeAttempt,
+  transferAttempt,
   markAttemptOutcome,
   pollAttempt,
   startAutomaticAttempt,
@@ -45,9 +52,10 @@ import {
 } from './dialer.service.js'
 import { presentSummary, queueCallSummary } from './callSummary.js'
 import { importLeads, leadSummary } from './leads.repository.js'
-import { recordingAbsolutePath } from './recordingStorage.js'
+import { recordingAbsolutePath, recordingContentType } from './recordingStorage.js'
 import { recordingForCall, recordingStatusByCall } from './recordings.js'
 import {
+  getOperatorWebRtcConfig,
   getTelephonySettings,
   saveTelephonySettings,
   setOperatorExtension,
@@ -175,9 +183,10 @@ export async function callRecordingController(req: Request, res: Response) {
   if (!recording || recording.status !== 'stored' || !recording.path) {
     throw new AppError(404, 'NOT_FOUND', 'Recording not available')
   }
-  res.type('audio/mpeg')
+  const extension = recording.path.slice(recording.path.lastIndexOf('.'))
+  res.type(recordingContentType(recording.path))
   if (req.query.download === '1') {
-    res.setHeader('Content-Disposition', `attachment; filename="ligacao-${req.params.callId}.mp3"`)
+    res.setHeader('Content-Disposition', `attachment; filename="ligacao-${req.params.callId}${extension}"`)
   }
   res.sendFile(recordingAbsolutePath(recording.path))
 }
@@ -241,9 +250,16 @@ export async function dialerConfigController(req: Request, res: Response) {
 }
 
 export async function setExtensionController(req: Request, res: Response) {
-  const { extension } = extensionWrite.parse(req.body)
-  await setOperatorExtension(customerId(req), req.user!.id, extension)
+  const { extension, sipPassword } = extensionWrite.parse(req.body)
+  await setOperatorExtension(customerId(req), req.user!.id, extension, sipPassword)
   res.json({ data: await getDialerConfig(req.user!) })
+}
+
+export async function dialerWebRtcConfigController(req: Request, res: Response) {
+  const phoneConfig = await getOperatorWebRtcConfig(customerId(req), req.user!.id)
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Pragma', 'no-cache')
+  res.json({ data: phoneConfig })
 }
 
 export async function startAttemptController(req: Request, res: Response) {
@@ -262,6 +278,29 @@ export async function startManualAttemptController(req: Request, res: Response) 
   customerId(req)
   const body = manualAttemptStart.parse(req.body)
   res.status(201).json({ data: await startManualAttempt(req.user!, body.phone, body.campaignId ?? null) })
+}
+
+export async function startBridgeAttemptController(req: Request, res: Response) {
+  customerId(req)
+  const body = bridgeAttemptStart.parse(req.body)
+  res.status(201).json({ data: await startBridgeAttempt(req.user!, body.phone, body.otherPhone) })
+}
+
+export async function transferAttemptController(req: Request, res: Response) {
+  customerId(req)
+  const body = transferWrite.parse(req.body)
+  res.json({ data: await transferAttempt(req.user!, req.params.attemptId, body.extension) })
+}
+
+export async function inboundCallsController(req: Request, res: Response) {
+  res.json({ data: await listOpenInbound(customerId(req)) })
+}
+
+export async function scheduleLeadController(req: Request, res: Response) {
+  customerId(req)
+  const body = leadSchedule.parse(req.body)
+  const lead = await scheduleCampaignLead(req.user!, req.params.campaignId, body.phone, new Date(body.at))
+  res.json({ data: lead })
 }
 
 export async function pollAttemptController(req: Request, res: Response) {

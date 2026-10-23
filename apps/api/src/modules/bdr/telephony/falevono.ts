@@ -168,7 +168,7 @@ export function createFaleVonoProvider(options: FaleVonoOptions): TelephonyProvi
       if (!response.ok) return null
       if ((response.headers.get('content-type') || '').includes('json')) return null
       const audio = Buffer.from(await response.arrayBuffer())
-      return audio.length > 0 ? audio : null
+      return audio.length > 0 ? { audio, format: 'mp3' } : null
     },
   }
 }

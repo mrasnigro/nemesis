@@ -37,12 +37,14 @@ export default function ManualDialForm({ open = true, onClose }) {
   const navigate = useNavigate()
   const { startManual } = useBdrSession()
   const [phone, setPhone] = useState('')
+  const [otherPhone, setOtherPhone] = useState('')
   const [contactMethod, setContactMethod] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) return undefined
     setPhone('')
+    setOtherPhone('')
     setContactMethod('')
     setError('')
     const onKey = (event) => {
@@ -61,7 +63,7 @@ export default function ManualDialForm({ open = true, onClose }) {
   function handleSubmit(event) {
     event.preventDefault()
     if (!canStart) return
-    const result = startManual(phone, contactMethod)
+    const result = startManual(phone, contactMethod, otherPhone)
     if (!result.ok) {
       setError(result.error)
       return
@@ -100,6 +102,16 @@ export default function ManualDialForm({ open = true, onClose }) {
               placeholder="(11) 99999-9999"
               autoFocus
               onChange={(e) => setPhone(e.target.value)}
+            />
+          </label>
+
+          <label className="bdr-manual-modal__field">
+            Conectar com outro número (opcional)
+            <input
+              type="tel"
+              value={otherPhone}
+              placeholder="Deixe vazio para tocar o seu ramal"
+              onChange={(e) => setOtherPhone(e.target.value)}
             />
           </label>
 

@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import type { RowDataPacket } from 'mysql2'
 import { config } from '../../core/config.js'
 import { pool } from '../../core/db.js'
@@ -171,7 +172,8 @@ export async function processCallSummary(callId: string) {
     if (!transcript && ai.canTranscribe && recordingStatus === 'stored' && row.recording_path != null) {
       const audio = await readFile(recordingAbsolutePath(String(row.recording_path)))
       if (audio.length <= MAX_TRANSCRIBE_BYTES) {
-        transcript = (await ai.transcribe(audio)) || null
+        const format = path.extname(String(row.recording_path)).toLowerCase() === '.wav' ? 'wav' : 'mp3'
+        transcript = (await ai.transcribe(audio, format)) || null
         await pool.query(`UPDATE bdr_calls SET transcript_text = :transcript WHERE id = :callId`, {
           callId,
           transcript,

@@ -15,7 +15,9 @@ import DiscagemCallHistory from '../components/DiscagemCallHistory.jsx'
 import DialAttemptsLog from '../components/DialAttemptsLog.jsx'
 import EndCallModal from '../components/EndCallModal.jsx'
 import ScheduleMeetingModal from '../components/ScheduleMeetingModal.jsx'
+import AsteriskWebPhone from '../components/AsteriskWebPhone.jsx'
 import { useBdrSession } from '../hooks/useBdrSession.js'
+import { bdrRepository } from '../services/bdrRepository.js'
 import '../styles/bdr-pages.css'
 import '../styles/bdr-foundation.css'
 
@@ -31,8 +33,13 @@ export default function BdrDiscagemPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [endCallOpen, setEndCallOpen] = useState(false)
   const [sessionHistory, setSessionHistory] = useState([])
+  const [webRtcReady, setWebRtcReady] = useState(false)
+  const [transferTo, setTransferTo] = useState('')
+  const [transferMessage, setTransferMessage] = useState('')
+  const [inboundCalls, setInboundCalls] = useState([])
   const {
     call,
+    dialerConfig,
     dialAllowed,
     scheduleAllowed,
     startAutomatic,
@@ -47,6 +54,43 @@ export default function BdrDiscagemPage() {
     resumeDialing,
     recentAttempts,
   } = useBdrSession()
+  const usesAsterisk = dialerConfig?.provider === 'asterisk'
+
+  useEffect(() => {
+    if (!usesAsterisk) return undefined
+    let cancelled = false
+    async function loadInbound() {
+      try {
+        const rows = await bdrRepository.listInbound()
+        if (!cancelled) setInboundCalls(rows)
+      } catch {
+        if (!cancelled) setInboundCalls([])
+      }
+    }
+    void loadInbound()
+    const timer = window.setInterval(() => void loadInbound(), 4000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [usesAsterisk])
+
+  async function transferCall(event) {
+    event.preventDefault()
+    const extension = transferTo.trim()
+    if (!extension || !call.attempt?.id) return
+    setTransferMessage('')
+    try {
+      await bdrRepository.transferAttempt(call.attempt.id, extension)
+      setTransferTo('')
+      setTransferMessage(`Transferida para o ramal ${extension}.`)
+    } catch (error) {
+      setTransferMessage(error?.message || 'Não foi possível transferir.')
+    }
+  }
+
+  const requiresWebRtc = usesAsterisk && dialerConfig?.webrtcConfigured && dialerConfig?.hasWebRtcCredentials
+  const phoneReady = !requiresWebRtc || webRtcReady
 
   useEffect(() => {
     autoStartedRef.current = false
@@ -54,13 +98,14 @@ export default function BdrDiscagemPage() {
 
   useEffect(() => {
     if (mode !== 'automatic') return
+    if (!dialerConfig || !phoneReady) return
     if (!dialAllowed || call.status !== 'idle') return
     if (autoStartedRef.current) return
     autoStartedRef.current = true
     startAutomatic()
-  }, [mode, dialAllowed, call.status, startAutomatic])
+  }, [mode, dialAllowed, call.status, startAutomatic, dialerConfig, phoneReady])
 
-  const showManualModal = mode === 'manual' && call.status === 'idle'
+  const showManualModal = mode === 'manual' && call.status === 'idle' && Boolean(dialerConfig) && phoneReady
   const inCall = call.status === 'searching' || call.status === 'connected'
   const connected = call.status === 'connected'
   const openSchedule = () => setScheduleOpen(true)
@@ -103,6 +148,23 @@ export default function BdrDiscagemPage() {
           Voltar
         </button>
       </header>
+
+      {requiresWebRtc ? <AsteriskWebPhone onReadyChange={setWebRtcReady} /> : null}
+
+      {usesAsterisk && !requiresWebRtc ? (
+        <p className="bdr-section__card">
+          Telefone WebRTC não habilitado para este ramal. Configure WSS/domínio no painel e salve a senha SIP do operador
+          para usar o navegador; um telefone SIP externo continua disponível.
+        </p>
+      ) : null}
+
+      {mode === 'automatic' && requiresWebRtc && !phoneReady && !dialError ? (
+        <p className="bdr-section__card">Conecte o telefone WebRTC antes de iniciar a discagem.</p>
+      ) : null}
+
+      {mode === 'manual' && requiresWebRtc && !phoneReady && !dialError ? (
+        <p className="bdr-section__card">Conecte o telefone WebRTC para abrir a discagem manual.</p>
+      ) : null}
 
       {!dialAllowed && !dialError && call.status === 'idle' && mode !== 'manual' ? (
         <article className="bdr-section__card">
@@ -175,6 +237,43 @@ export default function BdrDiscagemPage() {
               <IconClock className="bdr-discagem__cta-icon" />
               Agendar Reunião
             </button>
+            {inboundCalls.length ? (
+              <div className="bdr-setup__note" role="status">
+                {inboundCalls.map((item) => (
+                  <p key={item.id}>
+                    Ligação recebida de {item.phone} ({item.status === 'answered' ? 'atendida' : 'tocando'}){' '}
+                    <button
+                      type="button"
+                      className="bdr-discagem__schedule"
+                      onClick={() => {
+                        void bdrRepository.hangupAttempt(item.id).finally(() => {
+                          setInboundCalls((current) => current.filter((call) => call.id !== item.id))
+                        })
+                      }}
+                    >
+                      Encerrar
+                    </button>
+                  </p>
+                ))}
+              </div>
+            ) : null}
+            {connected && usesAsterisk && call.attempt?.id ? (
+              <form className="bdr-setup__row" onSubmit={transferCall}>
+                <label htmlFor="bdr-transfer-extension">Transferir</label>
+                <input
+                  id="bdr-transfer-extension"
+                  className="bdr-setup__input"
+                  value={transferTo}
+                  onChange={(event) => setTransferTo(event.target.value)}
+                  placeholder="Ramal"
+                  maxLength={40}
+                />
+                <button type="submit" className="bdr-discagem__schedule">
+                  Transferir
+                </button>
+              </form>
+            ) : null}
+            {transferMessage ? <p className="bdr-setup__note">{transferMessage}</p> : null}
             {canMarkVoicemail ? (
               <button
                 type="button"

@@ -162,6 +162,70 @@ describe('telephony settings', () => {
     expect(update.body.data).toMatchObject({ maxAttempts: 5, hasCredentials: true })
   })
 
+  it('stores Asterisk ARI settings with an encrypted password', async () => {
+    const response = await manager.put('/api/modules/bdr/telephony/settings').send({
+      provider: 'asterisk',
+      ariUrl: 'https://pbx.example.test:8089/ari',
+      ariUsername: 'imp-bdr',
+      ariPassword: 'asterisk-secret',
+      trunkEndpoint: 'vono',
+      webrtcWssUrl: 'wss://pbx.example.test:8089/ws',
+      sipDomain: 'pbx.example.test',
+      amdEnabled: true,
+      callerId: '+554130000000',
+      maxChannels: 5,
+      dialPrefix: '0',
+    })
+    expect(response.status).toBe(200)
+    expect(response.body.data).toMatchObject({
+      provider: 'asterisk',
+      ariUrl: 'https://pbx.example.test:8089/ari',
+      ariUsername: 'imp-bdr',
+      trunkEndpoint: 'vono',
+      webrtcWssUrl: 'wss://pbx.example.test:8089/ws',
+      sipDomain: 'pbx.example.test',
+      amdEnabled: true,
+      callerId: '+554130000000',
+      maxChannels: 5,
+      hasCredentials: true,
+    })
+    expect(JSON.stringify(response.body)).not.toContain('asterisk-secret')
+
+    const [stored] = await rows(
+      'SELECT ari_password_enc FROM bdr_telephony_settings WHERE customer_id = :customerId',
+      { customerId },
+    )
+    expect(stored.ari_password_enc).toBeTruthy()
+    expect(String(stored.ari_password_enc)).not.toContain('asterisk-secret')
+  })
+
+  it('returns SIP credentials only to their authenticated operator and never caches them', async () => {
+    await operator.put('/api/modules/bdr/dialer/extension').send({
+      extension: '1001',
+      sipPassword: 'operator-sip-secret',
+    })
+
+    const response = await operator.get('/api/modules/bdr/dialer/webrtc-config')
+    expect(response.status).toBe(200)
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.body.data).toEqual({
+      server: 'wss://pbx.example.test:8089/ws',
+      domain: 'pbx.example.test',
+      extension: '1001',
+      password: 'operator-sip-secret',
+    })
+    expect((await manager.get('/api/modules/bdr/dialer/webrtc-config')).status).toBe(409)
+    expect((await outsider.get('/api/modules/bdr/dialer/webrtc-config')).status).toBe(409)
+
+    const [stored] = await rows(
+      `SELECT sip_password_enc FROM bdr_operator_extensions
+       WHERE customer_id = :customerId AND extension = '1001'`,
+      { customerId },
+    )
+    expect(stored.sip_password_enc).toBeTruthy()
+    expect(String(stored.sip_password_enc)).not.toContain('operator-sip-secret')
+  })
+
   it('validates retry rules', async () => {
     const response = await manager.put('/api/modules/bdr/telephony/settings').send({ ringTimeoutSeconds: 1 })
     expect(response.status).toBe(400)
@@ -424,6 +488,19 @@ describe('saved calls', () => {
       expect(audio.status).toBe(200)
       expect(audio.headers['content-type']).toContain('audio/mpeg')
       expect((await outsider.get(`/api/modules/bdr/calls/${callId}/recording`)).status).toBe(404)
+
+      const wavRelative = `${customerId}/${callId}.wav`
+      const wavAbsolute = path.resolve(config.RECORDINGS_DIR, wavRelative)
+      await writeFile(wavAbsolute, 'RIFF....WAVEfmt ')
+      await pool.query(
+        `UPDATE bdr_dial_attempts SET recording_path = :relative WHERE id = :id`,
+        { relative: wavRelative, id: attempt.id },
+      )
+      const wav = await operator.get(`/api/modules/bdr/calls/${callId}/recording`)
+      expect(wav.status).toBe(200)
+      expect(wav.headers['content-type']).toContain('audio/wav')
+      const wavDownload = await operator.get(`/api/modules/bdr/calls/${callId}/recording?download=1`)
+      expect(wavDownload.headers['content-disposition']).toContain('.wav')
     } finally {
       await rm(path.dirname(absolute), { recursive: true, force: true })
     }

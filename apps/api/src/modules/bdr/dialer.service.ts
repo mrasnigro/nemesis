@@ -1,5 +1,6 @@
 import type { RowDataPacket } from 'mysql2'
 import { ulid } from 'ulid'
+import { config } from '../../core/config.js'
 import { pool } from '../../core/db.js'
 import { AppError } from '../../core/errors.js'
 import type { AuthUser } from '../../types/express.js'
@@ -12,8 +13,10 @@ import {
   type LeadStatus,
 } from './leads.repository.js'
 import { scheduleRecordingFetch } from './recordings.js'
+import { withinCallingHours } from './telephony/callingHours.js'
 import { normalizePhone } from './telephony/phone.js'
 import {
+  hasOperatorSipCredentials,
   getOperatorExtension,
   getTelephonySettings,
   resolveProvider,
@@ -42,10 +45,11 @@ function attemptFromRow(row: Row) {
     campaignId: row.campaign_id == null ? null : String(row.campaign_id),
     leadId: row.lead_id == null ? null : String(row.lead_id),
     callId: row.call_id == null ? null : String(row.call_id),
-    userId: String(row.user_id),
+    userId: row.user_id == null ? null : String(row.user_id),
     phone: String(row.phone),
     extension: String(row.operator_extension),
     provider: String(row.provider),
+    direction: row.direction == null ? 'outbound' : String(row.direction),
     providerCallId: row.provider_call_id == null ? null : String(row.provider_call_id),
     status: String(row.status) as AttemptStatus,
     outcome: row.outcome == null ? null : (String(row.outcome) as DialOutcome),
@@ -67,6 +71,7 @@ function target(attempt: Attempt): DialTarget {
     startedAt: attempt.startedAt,
     endedAt: attempt.endedAt,
     providerCallId: attempt.providerCallId,
+    wasAnswered: attempt.status === 'answered' || attempt.answeredAt !== null,
   }
 }
 
@@ -80,8 +85,17 @@ async function loadAttempt(customerId: string, attemptId: string) {
 
 async function ownAttempt(user: AuthUser, attemptId: string) {
   const attempt = await loadAttempt(user.customerId!, attemptId)
-  if (!attempt || attempt.userId !== user.id) throw new AppError(404, 'NOT_FOUND', 'Attempt not found')
-  return attempt
+  if (!attempt) throw new AppError(404, 'NOT_FOUND', 'Attempt not found')
+  if (attempt.userId === user.id) return attempt
+  const extension = await getOperatorExtension(user.id)
+  if (attempt.direction === 'inbound' && extension && attempt.extension === extension) return attempt
+  throw new AppError(404, 'NOT_FOUND', 'Attempt not found')
+}
+
+function requireNationalPhone(raw: string) {
+  const phone = normalizePhone(raw)
+  if (!phone) throw new AppError(400, 'VALIDATION_ERROR', 'Telefone inválido (use DDD + número)')
+  return phone
 }
 
 async function requireProvider(customerId: string): Promise<TelephonyProvider> {
@@ -92,10 +106,10 @@ async function requireProvider(customerId: string): Promise<TelephonyProvider> {
   return provider
 }
 
-async function requireExtension(userId: string) {
-  const extension = await getOperatorExtension(userId)
-  if (!extension) throw new AppError(409, 'NO_EXTENSION', 'Informe o seu ramal antes de discar')
-  return extension
+function assertCallingHours(settings: TelephonySettings) {
+  if (!withinCallingHours(new Date(), settings, config.PABX_TIMEZONE)) {
+    throw new AppError(409, 'CALLING_HOURS', 'Fora do horário permitido para ligações')
+  }
 }
 
 function retryDelayMinutes(settings: TelephonySettings, outcome: DialOutcome) {
@@ -105,6 +119,14 @@ function retryDelayMinutes(settings: TelephonySettings, outcome: DialOutcome) {
 }
 
 async function settleUnansweredLead(customerId: string, leadId: string, outcome: DialOutcome) {
+  if (outcome === 'invalid') {
+    await settleLead(customerId, leadId, {
+      status: 'failed',
+      lastOutcome: outcome,
+      nextAttemptAt: null,
+    })
+    return
+  }
   if (outcome === 'cancelled') {
     await settleLead(customerId, leadId, {
       status: 'queued',
@@ -134,22 +156,27 @@ async function endAttempt(attempt: Attempt, outcome: DialOutcome, customerId: st
   if (attempt.leadId) await settleUnansweredLead(customerId, attempt.leadId, outcome)
 }
 
-/** Closes attempts left ringing by a closed tab, so their leads return to the queue. */
-async function releaseStaleAttempts(customerId: string) {
+/** Closes attempts left ringing by a closed tab and hangs up the trunk leg. */
+async function releaseStaleAttempts(customerId: string, provider: TelephonyProvider) {
   const [rows] = await pool.query<Row[]>(
     `SELECT * FROM bdr_dial_attempts
      WHERE customer_id = :customerId AND status = 'ringing' AND updated_at < :cutoff`,
     { customerId, cutoff: new Date(Date.now() - STALE_RINGING_MS) },
   )
-  for (const row of rows) await endAttempt(attemptFromRow(row), 'cancelled', customerId)
+  for (const row of rows) {
+    const attempt = attemptFromRow(row)
+    await provider.hangup(target(attempt)).catch(() => null)
+    await endAttempt(attempt, 'cancelled', customerId)
+  }
 }
 
-/** One open dial per operator: a new dial (or a reload) cancels the previous ringing one. */
-async function cancelOpenAttempts(user: AuthUser, provider: TelephonyProvider) {
+/** One open dial per operator: a new dial cancels that operator's ringing call, including an inbound call on their ramal. */
+async function cancelOpenAttempts(user: AuthUser, provider: TelephonyProvider, extension: string | null) {
   const [rows] = await pool.query<Row[]>(
     `SELECT * FROM bdr_dial_attempts
-     WHERE customer_id = :customerId AND user_id = :userId AND status = 'ringing'`,
-    { customerId: user.customerId, userId: user.id },
+     WHERE customer_id = :customerId AND status = 'ringing'
+       AND (user_id = :userId OR (direction = 'inbound' AND operator_extension = :extension))`,
+    { customerId: user.customerId, userId: user.id, extension },
   )
   for (const row of rows) {
     const attempt = attemptFromRow(row)
@@ -158,10 +185,26 @@ async function cancelOpenAttempts(user: AuthUser, provider: TelephonyProvider) {
   }
 }
 
+async function beginOutbound(user: AuthUser) {
+  const customerId = user.customerId!
+  const provider = await requireProvider(customerId)
+  assertCallingHours(await getTelephonySettings(customerId))
+  const extension = await getOperatorExtension(user.id)
+  await releaseStaleAttempts(customerId, provider)
+  await cancelOpenAttempts(user, provider, extension)
+  return { customerId, provider, extension }
+}
+
 async function originate(
   user: AuthUser,
   provider: TelephonyProvider,
-  input: { phone: string; extension: string; campaignId: string | null; leadId: string | null },
+  input: {
+    phone: string
+    extension: string
+    campaignId: string | null
+    leadId: string | null
+    connectPhone?: string | null
+  },
 ) {
   const id = ulid()
   const now = new Date()
@@ -184,7 +227,7 @@ async function originate(
   )
   const attempt = (await loadAttempt(user.customerId!, id))!
   try {
-    await provider.originate(target(attempt))
+    await provider.originate({ ...target(attempt), connectPhone: input.connectPhone ?? null })
   } catch (error) {
     await endAttempt(attempt, 'failed', user.customerId!)
     throw error
@@ -198,6 +241,7 @@ async function present(customerId: string, attempt: Attempt) {
     id: attempt.id,
     status: attempt.status,
     outcome: attempt.outcome,
+    direction: attempt.direction,
     phone: attempt.phone,
     campaignId: attempt.campaignId,
     callId: attempt.callId,
@@ -209,15 +253,18 @@ async function present(customerId: string, attempt: Attempt) {
 }
 
 export async function getDialerConfig(user: AuthUser) {
-  const [settings, extension, provider] = await Promise.all([
+  const [settings, extension, hasWebRtcCredentials, provider] = await Promise.all([
     getTelephonySettings(user.customerId!),
     getOperatorExtension(user.id),
+    hasOperatorSipCredentials(user.customerId!, user.id),
     resolveProvider(user.customerId!).catch(() => null),
   ])
   return {
     provider: settings.provider,
     configured: provider != null,
     extension,
+    hasWebRtcCredentials,
+    webrtcConfigured: Boolean(settings.webrtcWssUrl && settings.sipDomain),
     ringTimeoutSeconds: settings.ringTimeoutSeconds,
     maxAttempts: settings.maxAttempts,
   }
@@ -229,10 +276,8 @@ export async function startAutomaticAttempt(user: AuthUser, campaignId: string) 
   const campaign = await getCampaign(customerId, campaignId)
   if (!campaign) throw new AppError(404, 'NOT_FOUND', 'Campaign not found')
   if (campaign.status !== 'active') throw new AppError(409, 'CAMPAIGN_PAUSED', 'Campanha pausada')
-  const provider = await requireProvider(customerId)
-  const extension = await requireExtension(user.id)
-  await cancelOpenAttempts(user, provider)
-  await releaseStaleAttempts(customerId)
+  const { provider, extension } = await beginOutbound(user)
+  if (!extension) throw new AppError(409, 'NO_EXTENSION', 'Informe o seu ramal antes de discar')
 
   const lead = await reserveNextLead(customerId, campaignId, user.id)
   if (!lead) return null
@@ -246,13 +291,90 @@ export async function startAutomaticAttempt(user: AuthUser, campaignId: string) 
 }
 
 export async function startManualAttempt(user: AuthUser, rawPhone: string, campaignId: string | null) {
-  const phone = normalizePhone(rawPhone)
-  if (!phone) throw new AppError(400, 'VALIDATION_ERROR', 'Telefone inválido (use DDD + número)')
-  const provider = await requireProvider(user.customerId!)
-  const extension = await requireExtension(user.id)
-  await cancelOpenAttempts(user, provider)
+  const phone = requireNationalPhone(rawPhone)
+  const { provider, extension, customerId } = await beginOutbound(user)
+  if (!extension) throw new AppError(409, 'NO_EXTENSION', 'Informe o seu ramal antes de discar')
   const attempt = await originate(user, provider, { phone, extension, campaignId, leadId: null })
-  return present(user.customerId!, attempt)
+  return present(customerId, attempt)
+}
+
+/** Rings two external numbers and bridges them. Each conversation uses two trunk channels. */
+export async function startBridgeAttempt(user: AuthUser, rawPhone: string, rawOtherPhone: string) {
+  const phone = requireNationalPhone(rawPhone)
+  const otherPhone = requireNationalPhone(rawOtherPhone)
+  if (phone === otherPhone) throw new AppError(400, 'VALIDATION_ERROR', 'Informe dois números diferentes')
+  const { customerId, provider } = await beginOutbound(user)
+  const attempt = await originate(user, provider, {
+    phone,
+    extension: otherPhone,
+    campaignId: null,
+    leadId: null,
+    connectPhone: otherPhone,
+  })
+  return present(customerId, attempt)
+}
+
+export async function transferAttempt(user: AuthUser, attemptId: string, extension: string) {
+  const customerId = user.customerId!
+  const attempt = await ownAttempt(user, attemptId)
+  if (attempt.status !== 'answered') {
+    throw new AppError(409, 'ATTEMPT_NOT_ANSWERED', 'A transferência só pode ocorrer com a chamada atendida')
+  }
+  const provider = await requireProvider(customerId)
+  if (!provider.transfer) throw new AppError(409, 'TRANSFER_UNSUPPORTED', 'Este provedor não transfere chamadas')
+  await provider.transfer(target(attempt), extension)
+  const now = new Date()
+  await pool.query(
+    `UPDATE bdr_dial_attempts SET operator_extension = :extension, updated_at = :now WHERE id = :id`,
+    { id: attempt.id, extension, now },
+  )
+  return present(customerId, (await loadAttempt(customerId, attempt.id))!)
+}
+
+export async function scheduleCampaignLead(user: AuthUser, campaignId: string, rawPhone: string, at: Date) {
+  if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Escolha um horário futuro')
+  }
+  const phone = requireNationalPhone(rawPhone)
+  const customerId = user.customerId!
+  const campaign = await getCampaign(customerId, campaignId)
+  if (!campaign) throw new AppError(404, 'NOT_FOUND', 'Campaign not found')
+  const [rows] = await pool.query<Row[]>(
+    `SELECT id, status FROM bdr_leads
+     WHERE customer_id = :customerId AND campaign_id = :campaignId AND phone = :phone AND deleted_at IS NULL
+     LIMIT 1`,
+    { customerId, campaignId, phone },
+  )
+  const lead = rows[0]
+  if (!lead) throw new AppError(404, 'NOT_FOUND', 'Lead não encontrado nesta campanha')
+  const status = String(lead.status)
+  if (status === 'dialing' || status === 'in_call') {
+    throw new AppError(409, 'LEAD_BUSY', 'Este lead já está em ligação')
+  }
+  await settleLead(customerId, String(lead.id), {
+    status: 'queued',
+    lastOutcome: 'scheduled',
+    nextAttemptAt: at,
+  })
+  return getLead(customerId, String(lead.id))
+}
+
+export async function listOpenInbound(customerId: string) {
+  const [rows] = await pool.query<Row[]>(
+    `SELECT id, phone, operator_extension, status, started_at
+     FROM bdr_dial_attempts
+     WHERE customer_id = :customerId AND direction = 'inbound' AND status IN ('ringing', 'answered')
+     ORDER BY started_at DESC
+     LIMIT 20`,
+    { customerId },
+  )
+  return rows.map((row) => ({
+    id: String(row.id),
+    phone: String(row.phone),
+    extension: String(row.operator_extension),
+    status: String(row.status),
+    startedAt: new Date(String(row.started_at)).toISOString(),
+  }))
 }
 
 /** Advances a ringing attempt from the PABX's live view; called by the operator console while it waits. */
@@ -264,7 +386,7 @@ export async function pollAttempt(user: AuthUser, attemptId: string) {
   const provider = await requireProvider(customerId)
   const settings = await getTelephonySettings(customerId)
   const live = await provider.liveState(target(attempt))
-  const elapsedMs = Date.now() - attempt.startedAt.getTime()
+  const leadElapsedMs = Date.now() - attempt.startedAt.getTime()
   const now = new Date()
 
   if (live.state === 'talking') {
@@ -283,11 +405,13 @@ export async function pollAttempt(user: AuthUser, attemptId: string) {
        WHERE id = :id`,
       { id: attempt.id, providerCallId: live.providerCallId ?? null, now },
     )
-    if (elapsedMs > settings.ringTimeoutSeconds * 1000) {
+    const sinceMs = live.ringingSince ? new Date(live.ringingSince).getTime() : attempt.startedAt.getTime()
+    const ringElapsedMs = Date.now() - (Number.isFinite(sinceMs) ? sinceMs : attempt.startedAt.getTime())
+    if (ringElapsedMs > settings.ringTimeoutSeconds * 1000) {
       await provider.hangup(target(attempt)).catch(() => null)
       await endAttempt(attempt, 'no_answer', customerId)
     }
-  } else if (attempt.providerSeen || elapsedMs > SETUP_GRACE_MS) {
+  } else if (attempt.providerSeen || leadElapsedMs > SETUP_GRACE_MS) {
     const outcome = (await provider.finalOutcome(target(attempt)).catch(() => null)) ?? 'no_answer'
     await endAttempt(attempt, outcome === 'answered' ? 'abandoned' : outcome, customerId)
   } else {
@@ -421,6 +545,7 @@ export async function listAttempts(
         leadName: row.lead_contact == null ? null : String(row.lead_contact),
         status: attempt.status,
         outcome: attempt.outcome,
+        direction: attempt.direction,
         startedAt: attempt.startedAt.toISOString(),
         answeredAt: attempt.answeredAt?.toISOString() ?? null,
         endedAt: attempt.endedAt?.toISOString() ?? null,

@@ -30,6 +30,7 @@ const schema = z.object({
   TELEPHONY_DEFAULT_PROVIDER: z.enum(['none', 'simulated']).default('none'),
   PABX_TIMEZONE: z.string().default('America/Sao_Paulo'),
   RECORDINGS_DIR: z.string().default('storage/recordings'),
+  ASTERISK_ARI_APP: z.string().min(1).default('imp-bdr'),
   /** Treinamento IA. `builtin` is a rule-based stand-in and is refused in production; `openai` is any OpenAI-compatible chat API. */
   TRAINING_AI_PROVIDER: z.enum(['builtin', 'openai']).default('builtin'),
   TRAINING_AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),

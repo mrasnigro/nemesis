@@ -40,6 +40,13 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `007_bdr_drop_unused.sql` | Drops `bdr_dial_attempts.provider_json` |
 | `008_training_sessions_flow.sql` | Adds `persona_id`, `media_mode`, `ai_provider`, `judge_source` to `training_sessions`; creates `training_session_messages` (one row per message, unique `(session_id, seq)`); moves transcripts that older sessions kept inside `session_json` into that table |
 | `009_bdr_call_summary.sql` | Adds the AI call summary to `bdr_calls`: `summary_text`, `summary_source`, `summary_status`, `summary_tries`, `summary_updated_at`, `transcript_text`. The summary built from the record is computed on read and not stored |
+| `018_bdr_asterisk_settings.sql` | Adds per-customer Asterisk ARI/trunk settings |
+| `019_bdr_asterisk_channel_leases.sql` | Persists trunk-scoped active Asterisk channel reservations |
+| `020_bdr_webrtc_settings.sql` | Adds per-customer SIP WSS URL and domain for browser phones |
+| `021_bdr_operator_sip_credentials.sql` | Adds encrypted per-operator SIP registration passwords |
+| `022_bdr_asterisk_amd.sql` | Adds the per-customer opt-in for dialplan-based answering-machine detection |
+| `023_bdr_call_controls.sql` | Adds calling hours, inbound extension, recording opt-out, and inbound/outbound direction on dial attempts |
+| `024_bdr_lease_slots.sql` | Counts trunk channels per dial attempt so a two-number bridge reserves two slots |
 
 ## How BDR tables relate
 

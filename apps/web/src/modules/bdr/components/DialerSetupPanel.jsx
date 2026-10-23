@@ -2,8 +2,18 @@ import { useEffect, useState } from 'react'
 import { useBdrSession } from '../hooks/useBdrSession.js'
 import { bdrRepository } from '../services/bdrRepository.js'
 import { parseLeadCsv } from '../services/leadCsv.js'
+import { dialOutcomeLabel } from '../data/catalogs.js'
+
+function callResult(row) {
+  if (row.status === 'ringing') return 'Tocando'
+  if (row.status === 'answered' && !row.endedAt) return 'Em atendimento'
+  if (row.outcome === 'answered' || (row.status === 'answered' && row.outcome == null)) return 'Atendida'
+  if (row.direction === 'inbound' && (row.outcome === 'no_answer' || row.outcome === 'cancelled')) return 'Perdida'
+  return dialOutcomeLabel(row.outcome)
+}
 
 const PROVIDER_LABELS = {
+  asterisk: 'Asterisk (ARI)',
   falevono: 'FaleVono',
   simulated: 'Simulador (desenvolvimento)',
   none: 'Não configurada',
@@ -16,11 +26,16 @@ export default function DialerSetupPanel() {
   const { dialerConfig, setExtension, selectedCampaign, reloadCampaigns, selectCampaign } =
     useBdrSession()
   const [extensionDraft, setExtensionDraft] = useState('')
+  const [sipPasswordDraft, setSipPasswordDraft] = useState('')
   const [extensionMessage, setExtensionMessage] = useState('')
   const [summary, setSummary] = useState(null)
   const [importMessage, setImportMessage] = useState('')
   const [importing, setImporting] = useState(false)
   const [newCampaignName, setNewCampaignName] = useState('')
+  const [schedulePhone, setSchedulePhone] = useState('')
+  const [scheduleAt, setScheduleAt] = useState('')
+  const [scheduleMessage, setScheduleMessage] = useState('')
+  const [callLog, setCallLog] = useState([])
 
   useEffect(() => {
     setExtensionDraft(dialerConfig?.extension || '')
@@ -43,13 +58,29 @@ export default function DialerSetupPanel() {
     }
   }, [campaignId, importMessage])
 
+  useEffect(() => {
+    let cancelled = false
+    bdrRepository
+      .listDialAttempts()
+      .then((rows) => {
+        if (!cancelled) setCallLog(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setCallLog([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [scheduleMessage, importMessage])
+
   async function saveExtension(event) {
     event.preventDefault()
     const value = extensionDraft.trim()
     if (!value) return
     try {
-      await setExtension(value)
-      setExtensionMessage('Ramal salvo.')
+      await setExtension(value, sipPasswordDraft)
+      setSipPasswordDraft('')
+      setExtensionMessage(sipPasswordDraft ? 'Ramal e credencial WebRTC salvos.' : 'Ramal salvo.')
     } catch (error) {
       setExtensionMessage(error?.message || 'Não foi possível salvar o ramal.')
     }
@@ -80,6 +111,21 @@ export default function DialerSetupPanel() {
       setImportMessage(error?.message || 'Falha ao importar.')
     } finally {
       setImporting(false)
+    }
+  }
+
+  async function scheduleCall(event) {
+    event.preventDefault()
+    if (!campaignId || !schedulePhone.trim() || !scheduleAt) return
+    setScheduleMessage('')
+    try {
+      const at = new Date(scheduleAt)
+      await bdrRepository.scheduleLead(campaignId, schedulePhone.trim(), at.toISOString())
+      setSchedulePhone('')
+      setScheduleAt('')
+      setScheduleMessage('Ligação agendada. O lead volta para a fila nesse horário.')
+    } catch (error) {
+      setScheduleMessage(error?.message || 'Não foi possível agendar a ligação.')
     }
   }
 
@@ -119,10 +165,27 @@ export default function DialerSetupPanel() {
           placeholder="ex.: 1001"
           maxLength={40}
         />
+        {provider === 'asterisk' ? (
+          <>
+            <label htmlFor="bdr-sip-password">Senha SIP/WebRTC</label>
+            <input
+              id="bdr-sip-password"
+              className="bdr-setup__input"
+              type="password"
+              autoComplete="new-password"
+              value={sipPasswordDraft}
+              onChange={(event) => setSipPasswordDraft(event.target.value)}
+              placeholder={dialerConfig?.hasWebRtcCredentials ? 'salva — deixe em branco para manter' : ''}
+            />
+          </>
+        ) : null}
         <button type="submit" className="bdr-setup__button">
           Salvar
         </button>
       </form>
+      {provider === 'asterisk' ? (
+        <p className="bdr-setup__note">A senha SIP é armazenada criptografada e só é entregue ao seu navegador após autenticação.</p>
+      ) : null}
       {extensionMessage ? <p className="bdr-setup__note">{extensionMessage}</p> : null}
 
       <div className="bdr-setup__queue">
@@ -151,6 +214,40 @@ export default function DialerSetupPanel() {
           Colunas reconhecidas: Telefone (obrigatória), Empresa, Nome, E-mail, CNPJ, Endereço, Cidade, UF, CEP.
         </p>
         {importMessage ? <p className="bdr-setup__note">{importMessage}</p> : null}
+        <form className="bdr-setup__row" onSubmit={scheduleCall}>
+          <label htmlFor="bdr-schedule-phone">Agendar ligação</label>
+          <input
+            id="bdr-schedule-phone"
+            className="bdr-setup__input"
+            value={schedulePhone}
+            onChange={(event) => setSchedulePhone(event.target.value)}
+            placeholder="Telefone do lead"
+          />
+          <input
+            id="bdr-schedule-at"
+            className="bdr-setup__input"
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(event) => setScheduleAt(event.target.value)}
+            aria-label="Data e hora da próxima ligação"
+          />
+          <button type="submit" className="bdr-setup__button" disabled={!campaignId}>
+            Agendar
+          </button>
+        </form>
+        {scheduleMessage ? <p className="bdr-setup__note">{scheduleMessage}</p> : null}
+        {callLog.length ? (
+          <div className="bdr-setup__queue">
+            <h3>Registro de ligações</h3>
+            <ul className="bdr-setup__stats">
+              {callLog.map((row) => (
+                <li key={row.id}>
+                  {row.direction === 'inbound' ? 'Recebida' : 'Realizada'} · {row.phone} · {callResult(row)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <form className="bdr-setup__row" onSubmit={createCampaign}>
