@@ -1,0 +1,8 @@
+process.env.NODE_ENV = 'test'
+process.env.DB_HOST = '127.0.0.1'
+process.env.DB_PORT = '3306'
+process.env.DB_USER = 'imp'
+process.env.DB_PASSWORD = 'imp'
+process.env.DB_NAME = 'imp_test'
+process.env.JWT_SECRET = 'test-secret-that-is-long-enough'
+process.env.TELEPHONY_SECRET_KEY = 'test-only-telephony-secret-key-0123456789'

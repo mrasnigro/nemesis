@@ -17,6 +17,7 @@ export type DialTarget = {
   startedAt: Date
   endedAt?: Date | null
   providerCallId: string | null
+  wasAnswered?: boolean
 }
 
 export type LiveStatus = {
@@ -34,4 +35,5 @@ export interface TelephonyProvider {
   /** Provider classification of a call that ended without being seen as talking. */
   finalOutcome(target: DialTarget): Promise<DialOutcome | null>
   fetchRecording(target: DialTarget): Promise<Buffer | null>
+  recoverActive?(): Promise<void>
 }

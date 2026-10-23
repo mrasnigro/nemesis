@@ -72,8 +72,23 @@ export const extensionWrite = z.object({
 })
 
 export const telephonySettingsWrite = z.object({
-  provider: z.enum(['none', 'simulated', 'falevono']).optional(),
+  provider: z.enum(['none', 'simulated', 'falevono', 'asterisk']).optional(),
   baseUrl: z.string().url().nullable().optional(),
+  ariUrl: z
+    .string()
+    .url()
+    .max(255)
+    .refine((value) => {
+      const url = new URL(value)
+      return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash
+    })
+    .nullable()
+    .optional(),
+  ariUsername: z.string().trim().min(1).max(128).nullable().optional(),
+  ariPassword: z.string().min(1).max(200).optional(),
+  trunkEndpoint: z.string().trim().min(1).max(80).regex(/^[\w.-]+$/).nullable().optional(),
+  callerId: z.string().trim().max(40).nullable().optional(),
+  maxChannels: z.number().int().min(1).max(100).optional(),
   apiToken: z.string().min(1).max(200).optional(),
   apiKey: z.string().min(1).max(200).optional(),
   deviceId: z.string().trim().min(1).max(40).nullable().optional(),

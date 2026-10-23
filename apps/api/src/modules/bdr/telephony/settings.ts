@@ -2,18 +2,24 @@ import type { RowDataPacket } from 'mysql2'
 import { config } from '../../../core/config.js'
 import { pool } from '../../../core/db.js'
 import { AppError } from '../../../core/errors.js'
+import { asteriskProviderConfigured, createAsteriskProvider } from './asterisk.js'
 import { createFaleVonoProvider } from './falevono.js'
 import { decryptSecret, encryptSecret } from './secrets.js'
 import { simulatedProvider } from './simulated.js'
 import type { TelephonyProvider } from './types.js'
 
-export type ProviderName = 'none' | 'simulated' | 'falevono'
+export type ProviderName = 'none' | 'simulated' | 'falevono' | 'asterisk'
 
 export type TelephonySettings = {
   provider: ProviderName
   baseUrl: string | null
   hasCredentials: boolean
   deviceId: string | null
+  ariUrl: string | null
+  ariUsername: string | null
+  trunkEndpoint: string | null
+  callerId: string | null
+  maxChannels: number
   dialPrefix: string
   ringTimeoutSeconds: number
   maxAttempts: number
@@ -22,11 +28,20 @@ export type TelephonySettings = {
   retryVoicemailMinutes: number
 }
 
-type StoredSettings = TelephonySettings & { apiTokenEnc: string | null; apiKeyEnc: string | null }
+type StoredSettings = TelephonySettings & {
+  apiTokenEnc: string | null
+  apiKeyEnc: string | null
+  ariPasswordEnc: string | null
+}
 
 const DEFAULTS = {
   baseUrl: null,
   deviceId: null,
+  ariUrl: null,
+  ariUsername: null,
+  trunkEndpoint: null,
+  callerId: null,
+  maxChannels: 5,
   dialPrefix: '0',
   ringTimeoutSeconds: 30,
   maxAttempts: 3,
@@ -48,32 +63,44 @@ async function loadStored(customerId: string): Promise<StoredSettings> {
       hasCredentials: false,
       apiTokenEnc: null,
       apiKeyEnc: null,
+      ariPasswordEnc: null,
     }
   }
+  const apiTokenEnc = row.api_token_enc == null ? null : String(row.api_token_enc)
+  const apiKeyEnc = row.api_key_enc == null ? null : String(row.api_key_enc)
+  const ariPasswordEnc = row.ari_password_enc == null ? null : String(row.ari_password_enc)
+  const provider = String(row.provider) as ProviderName
   return {
-    provider: String(row.provider) as ProviderName,
+    provider,
     baseUrl: row.base_url == null ? null : String(row.base_url),
     deviceId: row.device_id == null ? null : String(row.device_id),
+    ariUrl: row.ari_url == null ? null : String(row.ari_url),
+    ariUsername: row.ari_username == null ? null : String(row.ari_username),
+    trunkEndpoint: row.trunk_endpoint == null ? null : String(row.trunk_endpoint),
+    callerId: row.caller_id == null ? null : String(row.caller_id),
+    maxChannels: Number(row.max_channels ?? 5),
     dialPrefix: String(row.dial_prefix ?? '0'),
     ringTimeoutSeconds: Number(row.ring_timeout_seconds),
     maxAttempts: Number(row.max_attempts),
     retryBusyMinutes: Number(row.retry_busy_minutes),
     retryNoAnswerMinutes: Number(row.retry_no_answer_minutes),
     retryVoicemailMinutes: Number(row.retry_voicemail_minutes),
-    hasCredentials: Boolean(row.api_token_enc && row.api_key_enc),
-    apiTokenEnc: row.api_token_enc == null ? null : String(row.api_token_enc),
-    apiKeyEnc: row.api_key_enc == null ? null : String(row.api_key_enc),
+    hasCredentials: provider === 'asterisk' ? Boolean(ariPasswordEnc) : Boolean(apiTokenEnc && apiKeyEnc),
+    apiTokenEnc,
+    apiKeyEnc,
+    ariPasswordEnc,
   }
 }
 
 export async function getTelephonySettings(customerId: string): Promise<TelephonySettings> {
-  const { apiTokenEnc: _token, apiKeyEnc: _key, ...settings } = await loadStored(customerId)
+  const { apiTokenEnc: _token, apiKeyEnc: _key, ariPasswordEnc: _password, ...settings } = await loadStored(customerId)
   return settings
 }
 
 export type TelephonySettingsInput = Partial<Omit<TelephonySettings, 'hasCredentials'>> & {
   apiToken?: string
   apiKey?: string
+  ariPassword?: string
 }
 
 export async function saveTelephonySettings(customerId: string, input: TelephonySettingsInput) {
@@ -84,16 +111,22 @@ export async function saveTelephonySettings(customerId: string, input: Telephony
   }
   const apiTokenEnc = input.apiToken ? encryptSecret(input.apiToken) : current.apiTokenEnc
   const apiKeyEnc = input.apiKey ? encryptSecret(input.apiKey) : current.apiKeyEnc
+  const ariPasswordEnc = input.ariPassword ? encryptSecret(input.ariPassword) : current.ariPasswordEnc
   await pool.query(
     `INSERT INTO bdr_telephony_settings
-      (customer_id, provider, base_url, api_token_enc, api_key_enc, device_id, dial_prefix,
+      (customer_id, provider, base_url, api_token_enc, api_key_enc, device_id, ari_url, ari_username,
+       ari_password_enc, trunk_endpoint, caller_id, max_channels, dial_prefix,
        ring_timeout_seconds, max_attempts, retry_busy_minutes, retry_no_answer_minutes, retry_voicemail_minutes, updated_at)
      VALUES
-      (:customerId, :provider, :baseUrl, :apiTokenEnc, :apiKeyEnc, :deviceId, :dialPrefix,
+      (:customerId, :provider, :baseUrl, :apiTokenEnc, :apiKeyEnc, :deviceId, :ariUrl, :ariUsername,
+       :ariPasswordEnc, :trunkEndpoint, :callerId, :maxChannels, :dialPrefix,
        :ringTimeoutSeconds, :maxAttempts, :retryBusyMinutes, :retryNoAnswerMinutes, :retryVoicemailMinutes, :now)
      ON DUPLICATE KEY UPDATE
        provider = VALUES(provider), base_url = VALUES(base_url), api_token_enc = VALUES(api_token_enc),
-       api_key_enc = VALUES(api_key_enc), device_id = VALUES(device_id), dial_prefix = VALUES(dial_prefix),
+       api_key_enc = VALUES(api_key_enc), device_id = VALUES(device_id), ari_url = VALUES(ari_url),
+       ari_username = VALUES(ari_username), ari_password_enc = VALUES(ari_password_enc),
+       trunk_endpoint = VALUES(trunk_endpoint), caller_id = VALUES(caller_id), max_channels = VALUES(max_channels),
+       dial_prefix = VALUES(dial_prefix),
        ring_timeout_seconds = VALUES(ring_timeout_seconds), max_attempts = VALUES(max_attempts),
        retry_busy_minutes = VALUES(retry_busy_minutes), retry_no_answer_minutes = VALUES(retry_no_answer_minutes),
        retry_voicemail_minutes = VALUES(retry_voicemail_minutes), updated_at = VALUES(updated_at)`,
@@ -104,6 +137,12 @@ export async function saveTelephonySettings(customerId: string, input: Telephony
       apiTokenEnc,
       apiKeyEnc,
       deviceId: next.deviceId,
+      ariUrl: next.ariUrl,
+      ariUsername: next.ariUsername,
+      ariPasswordEnc,
+      trunkEndpoint: next.trunkEndpoint,
+      callerId: next.callerId,
+      maxChannels: next.maxChannels,
       dialPrefix: next.dialPrefix,
       ringTimeoutSeconds: next.ringTimeoutSeconds,
       maxAttempts: next.maxAttempts,
@@ -130,6 +169,27 @@ export async function resolveProvider(customerId: string): Promise<TelephonyProv
       apiKey: decryptSecret(stored.apiKeyEnc),
       deviceId: stored.deviceId,
       dialPrefix: stored.dialPrefix,
+    })
+  }
+  if (stored.provider === 'asterisk') {
+    const password = stored.ariPasswordEnc ? decryptSecret(stored.ariPasswordEnc) : undefined
+    const options = {
+      baseUrl: stored.ariUrl ?? undefined,
+      username: stored.ariUsername ?? undefined,
+      password,
+      trunkEndpoint: stored.trunkEndpoint ?? undefined,
+    }
+    if (!asteriskProviderConfigured(options)) return null
+    return createAsteriskProvider({
+      customerId,
+      baseUrl: options.baseUrl,
+      username: options.username,
+      password: options.password,
+      app: config.ASTERISK_ARI_APP,
+      trunkEndpoint: options.trunkEndpoint,
+      dialPrefix: stored.dialPrefix,
+      callerId: stored.callerId,
+      maxChannels: stored.maxChannels,
     })
   }
   return null

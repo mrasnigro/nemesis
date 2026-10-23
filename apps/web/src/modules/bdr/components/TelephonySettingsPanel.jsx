@@ -3,6 +3,7 @@ import { useBdrSession } from '../hooks/useBdrSession.js'
 import { bdrRepository } from '../services/bdrRepository.js'
 
 const PROVIDERS = [
+  { id: 'asterisk', label: 'Asterisk (ARI)' },
   { id: 'falevono', label: 'FaleVono' },
   { id: 'none', label: 'Desativada' },
   // The API rejects this one in production; it is only offered while developing.
@@ -13,6 +14,11 @@ const EMPTY_FORM = {
   provider: 'none',
   baseUrl: '',
   deviceId: '',
+  ariUrl: '',
+  ariUsername: '',
+  trunkEndpoint: '',
+  callerId: '',
+  maxChannels: '5',
   dialPrefix: '0',
   ringTimeoutSeconds: '30',
   maxAttempts: '3',
@@ -21,6 +27,7 @@ const EMPTY_FORM = {
   retryVoicemailMinutes: '240',
   apiToken: '',
   apiKey: '',
+  ariPassword: '',
 }
 
 function toForm(settings) {
@@ -29,6 +36,11 @@ function toForm(settings) {
     provider: settings.provider,
     baseUrl: settings.baseUrl || '',
     deviceId: settings.deviceId || '',
+    ariUrl: settings.ariUrl || '',
+    ariUsername: settings.ariUsername || '',
+    trunkEndpoint: settings.trunkEndpoint || '',
+    callerId: settings.callerId || '',
+    maxChannels: String(settings.maxChannels ?? 5),
     dialPrefix: settings.dialPrefix ?? '0',
     ringTimeoutSeconds: String(settings.ringTimeoutSeconds),
     maxAttempts: String(settings.maxAttempts),
@@ -43,6 +55,11 @@ function toPayload(form) {
     provider: form.provider,
     baseUrl: form.baseUrl.trim() || null,
     deviceId: form.deviceId.trim() || null,
+    ariUrl: form.ariUrl.trim() || null,
+    ariUsername: form.ariUsername.trim() || null,
+    trunkEndpoint: form.trunkEndpoint.trim() || null,
+    callerId: form.callerId.trim() || null,
+    maxChannels: Number(form.maxChannels),
     dialPrefix: form.dialPrefix.trim(),
     ringTimeoutSeconds: Number(form.ringTimeoutSeconds),
     maxAttempts: Number(form.maxAttempts),
@@ -53,6 +70,7 @@ function toPayload(form) {
   // Secrets are write-only: blank means "keep the stored value".
   if (form.apiToken.trim()) payload.apiToken = form.apiToken.trim()
   if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
+  if (form.ariPassword.trim()) payload.ariPassword = form.ariPassword.trim()
   return payload
 }
 
@@ -106,6 +124,7 @@ export default function TelephonySettingsPanel() {
   }
 
   const needsCredentials = form.provider === 'falevono'
+  const usesAsterisk = form.provider === 'asterisk'
 
   return (
     <section className="bdr-home__panel bdr-setup">
@@ -176,6 +195,84 @@ export default function TelephonySettingsPanel() {
                 value={form.apiKey}
                 onChange={update('apiKey')}
                 placeholder={hasCredentials ? 'salva — deixe em branco para manter' : ''}
+              />
+            </div>
+          </>
+        ) : null}
+
+        {usesAsterisk ? (
+          <>
+            <p className="bdr-setup__note">
+              As credenciais são armazenadas criptografadas no servidor. Configure o endpoint SIP do operador na tela
+              do discador; credenciais SIP do tronco pertencem ao Asterisk, não a esta configuração.
+            </p>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-url">URL ARI</label>
+              <input
+                id="bdr-ari-url"
+                className="bdr-setup__input"
+                type="url"
+                value={form.ariUrl}
+                onChange={update('ariUrl')}
+                placeholder="https://pbx.example.com:8089/ari"
+                required
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-username">Usuário ARI</label>
+              <input
+                id="bdr-ari-username"
+                className="bdr-setup__input"
+                value={form.ariUsername}
+                onChange={update('ariUsername')}
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-password">Senha ARI</label>
+              <input
+                id="bdr-ari-password"
+                className="bdr-setup__input"
+                type="password"
+                autoComplete="new-password"
+                value={form.ariPassword}
+                onChange={update('ariPassword')}
+                placeholder={hasCredentials ? 'salva — deixe em branco para manter' : ''}
+                required={!hasCredentials}
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-trunk">Endpoint PJSIP do tronco</label>
+              <input
+                id="bdr-ari-trunk"
+                className="bdr-setup__input"
+                value={form.trunkEndpoint}
+                onChange={update('trunkEndpoint')}
+                placeholder="vono"
+                required
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-caller-id">Identificação de origem (opcional)</label>
+              <input
+                id="bdr-ari-caller-id"
+                className="bdr-setup__input"
+                value={form.callerId}
+                onChange={update('callerId')}
+                maxLength={40}
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-ari-channels">Limite de canais</label>
+              <input
+                id="bdr-ari-channels"
+                className="bdr-setup__input"
+                type="number"
+                min={1}
+                max={100}
+                value={form.maxChannels}
+                onChange={update('maxChannels')}
               />
             </div>
           </>

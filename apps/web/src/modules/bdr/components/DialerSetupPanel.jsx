@@ -4,6 +4,7 @@ import { bdrRepository } from '../services/bdrRepository.js'
 import { parseLeadCsv } from '../services/leadCsv.js'
 
 const PROVIDER_LABELS = {
+  asterisk: 'Asterisk (ARI)',
   falevono: 'FaleVono',
   simulated: 'Simulador (desenvolvimento)',
   none: 'Não configurada',

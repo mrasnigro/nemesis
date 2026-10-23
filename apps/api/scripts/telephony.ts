@@ -13,6 +13,8 @@ import {
  *
  *   npm run telephony -- --user imp --provider falevono --base-url https://vono.me \
  *     --token <API_TOKEN> --key <API_KEY> --device 12
+ *   npm run telephony -- --user imp --provider asterisk --ari-url https://pbx.example/ari \
+ *     --ari-username imp-bdr --ari-password <ARI_PASSWORD> --trunk-endpoint vono
  *   npm run telephony -- --user bdr1 --extension 1001
  *   npm run telephony -- --user imp --provider simulated --extension 1001
  */
@@ -24,6 +26,12 @@ const { values } = parseArgs({
     token: { type: 'string' },
     key: { type: 'string' },
     device: { type: 'string' },
+    'ari-url': { type: 'string' },
+    'ari-username': { type: 'string' },
+    'ari-password': { type: 'string' },
+    'trunk-endpoint': { type: 'string' },
+    'caller-id': { type: 'string' },
+    'max-channels': { type: 'string' },
     'dial-prefix': { type: 'string' },
     'ring-timeout': { type: 'string' },
     'max-attempts': { type: 'string' },
@@ -47,6 +55,12 @@ async function main() {
   if (values.token) input.apiToken = values.token
   if (values.key) input.apiKey = values.key
   if (values.device) input.deviceId = values.device
+  if (values['ari-url']) input.ariUrl = values['ari-url']
+  if (values['ari-username']) input.ariUsername = values['ari-username']
+  if (values['ari-password']) input.ariPassword = values['ari-password']
+  if (values['trunk-endpoint']) input.trunkEndpoint = values['trunk-endpoint']
+  if (values['caller-id']) input.callerId = values['caller-id']
+  if (values['max-channels']) input.maxChannels = Number(values['max-channels'])
   if (values['dial-prefix'] != null) input.dialPrefix = values['dial-prefix']
   if (values['ring-timeout']) input.ringTimeoutSeconds = Number(values['ring-timeout'])
   if (values['max-attempts']) input.maxAttempts = Number(values['max-attempts'])

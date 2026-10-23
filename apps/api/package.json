@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src tests scripts",
     "test": "vitest run",
+    "test:asterisk": "vitest run --config vitest.asterisk.config.ts",
     "migrate": "tsx src/core/migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "telephony": "tsx scripts/telephony.ts"
@@ -33,10 +34,12 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "ulid": "^3.0.1",
+    "ws": "^8.18.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",
+    "@types/ws": "^8.5.13",
     "oxlint": "^1.86.0",
     "supertest": "^7.3.0",
     "vitest": "^3.2.7"

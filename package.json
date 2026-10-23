@@ -20,6 +20,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:asterisk": "npm run test:asterisk -w @imp/api",
     "db:up": "docker compose up -d mysql",
     "db:migrate": "npm run migrate -w @imp/api",
     "db:seed": "npm run seed -w @imp/api",

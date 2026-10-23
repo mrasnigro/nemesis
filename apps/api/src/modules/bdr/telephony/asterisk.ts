@@ -1,0 +1,641 @@
+import { createHash } from 'node:crypto'
+import type { RowDataPacket } from 'mysql2/promise'
+import WebSocket, { type ClientOptions } from 'ws'
+import { AppError } from '../../../core/errors.js'
+import { pool } from '../../../core/db.js'
+import type { DialOutcome, DialTarget, LiveStatus, TelephonyProvider } from './types.js'
+
+export type AsteriskOptions = {
+  customerId: string
+  baseUrl: string
+  username: string
+  password: string
+  app: string
+  trunkEndpoint: string
+  dialPrefix: string
+  callerId: string | null
+  maxChannels: number
+  fetchImpl?: typeof fetch
+  socketFactory?: (url: string, options: ClientOptions) => WebSocket
+  leaseStore?: AsteriskLeaseStore
+}
+
+type AriChannel = { id: string; state?: string }
+type AriBridge = { id: string; channels?: string[] }
+type AriEvent = {
+  type?: string
+  application?: string
+  args?: string[]
+  channel?: { id?: string }
+  cause?: number
+}
+type AttemptSession = {
+  attemptId: string
+  customerId: string
+  externalChannelId: string | null
+  operatorChannelId: string | null
+  bridgeId: string | null
+  stage: 'originating' | 'agent_ringing' | 'talking' | 'ended' | 'failed'
+  outcome: DialOutcome | null
+  extension: string
+  externalStarted: boolean
+  operatorStarted: boolean
+  operatorJoined: boolean
+}
+type AriSession = {
+  socket: WebSocket | null
+  connecting: Promise<void> | null
+  recovery: Promise<void> | null
+  calls: Map<string, AttemptSession>
+}
+
+export type AsteriskLease = {
+  customerId: string
+  attemptId: string
+  trunkKey: string
+  phone: string
+  extension: string
+  startedAt: Date
+  wasAnswered: boolean
+  providerCallId: string | null
+}
+
+export type AsteriskLeaseStore = {
+  acquire(customerId: string, attemptId: string, trunkKey: string, maxChannels: number): Promise<boolean>
+  release(customerId: string, attemptId: string): Promise<void>
+  list(customerId: string): Promise<AsteriskLease[]>
+}
+
+type LeaseRow = RowDataPacket & {
+  customer_id: string
+  attempt_id: string
+  trunk_key: string
+  phone: string
+  operator_extension: string
+  started_at: Date | string
+  status: string
+  provider_call_id: string | null
+}
+
+const databaseLeaseStore: AsteriskLeaseStore = {
+  async acquire(customerId, attemptId, trunkKey, maxChannels) {
+    const connection = await pool.getConnection()
+    const lockName = `bdr:${trunkKey.slice(0, 59)}`
+    let lockAcquired = false
+    let transactionStarted = false
+    try {
+      const [lockRows] = await connection.query<(RowDataPacket & { lock_acquired: number | null })[]>(
+        'SELECT GET_LOCK(:lockName, 10) AS lock_acquired',
+        { lockName },
+      )
+      lockAcquired = Number(lockRows[0]?.lock_acquired) === 1
+      if (!lockAcquired) throw new AppError(503, 'TELEPHONY_LIMIT_LOCK_TIMEOUT', 'Could not reserve an Asterisk channel')
+
+      await connection.beginTransaction()
+      transactionStarted = true
+      const [counts] = await connection.query<(RowDataPacket & { active: number | string })[]>(
+        'SELECT COUNT(*) AS active FROM bdr_asterisk_channel_leases WHERE trunk_key = :trunkKey',
+        { trunkKey },
+      )
+      if (Number(counts[0]?.active ?? 0) >= maxChannels) {
+        await connection.rollback()
+        return false
+      }
+      await connection.query(
+        `INSERT INTO bdr_asterisk_channel_leases (customer_id, attempt_id, trunk_key, acquired_at)
+         VALUES (:customerId, :attemptId, :trunkKey, :acquiredAt)`,
+        { customerId, attemptId, trunkKey, acquiredAt: new Date() },
+      )
+      await connection.commit()
+      transactionStarted = false
+      return true
+    } catch (error) {
+      if (transactionStarted) await connection.rollback()
+      throw error
+    } finally {
+      try {
+        if (lockAcquired) {
+          await connection.query('SELECT RELEASE_LOCK(:lockName)', { lockName })
+        }
+      } finally {
+        connection.release()
+      }
+    }
+  },
+
+  async release(customerId, attemptId) {
+    await pool.query(
+      'DELETE FROM bdr_asterisk_channel_leases WHERE customer_id = :customerId AND attempt_id = :attemptId',
+      { customerId, attemptId },
+    )
+  },
+
+  async list(customerId) {
+    const [rows] = await pool.query<LeaseRow[]>(
+      `SELECT l.customer_id, l.attempt_id, a.phone, a.operator_extension, a.started_at, a.status, a.provider_call_id
+       FROM bdr_asterisk_channel_leases l
+       JOIN bdr_dial_attempts a ON a.id = l.attempt_id
+       WHERE l.customer_id = :customerId AND a.status IN ('ringing', 'answered')`,
+      { customerId },
+    )
+    return rows.map((row) => ({
+      customerId: String(row.customer_id),
+      attemptId: String(row.attempt_id),
+      trunkKey: String(row.trunk_key),
+      phone: String(row.phone),
+      extension: String(row.operator_extension),
+      startedAt: new Date(row.started_at),
+      wasAnswered: row.status === 'answered',
+      providerCallId: row.provider_call_id == null ? null : String(row.provider_call_id),
+    }))
+  },
+}
+
+const sessions = new Map<string, AriSession>()
+const REQUEST_TIMEOUT_MS = 10_000
+const SOCKET_TIMEOUT_MS = 10_000
+
+function sessionKey(options: AsteriskOptions) {
+  return createHash('sha256')
+    .update([options.baseUrl, options.username, options.password, options.app, options.trunkEndpoint].join('\0'))
+    .digest('hex')
+}
+
+export function asteriskProviderConfigured(
+  options: Partial<Pick<AsteriskOptions, 'baseUrl' | 'username' | 'password' | 'trunkEndpoint'>>,
+): options is Pick<AsteriskOptions, 'baseUrl' | 'username' | 'password' | 'trunkEndpoint'> {
+  return Boolean(options.baseUrl && options.username && options.password && options.trunkEndpoint)
+}
+
+function channelOutcome(cause: number | undefined, wasTalking: boolean): DialOutcome {
+  if (cause === 17) return 'busy'
+  if (cause === 18 || cause === 19) return 'no_answer'
+  if (cause === 16) return wasTalking ? 'abandoned' : 'no_answer'
+  return 'failed'
+}
+
+function base64Auth(username: string, password: string) {
+  return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+}
+
+function getSession(options: AsteriskOptions): AriSession {
+  const key = sessionKey(options)
+  let session = sessions.get(key)
+  if (!session) {
+    session = { socket: null, connecting: null, recovery: null, calls: new Map() }
+    sessions.set(key, session)
+  }
+  return session
+}
+
+export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvider {
+  const base = options.baseUrl.replace(/\/+$/, '')
+  const doFetch = options.fetchImpl ?? fetch
+  const socketFactory = options.socketFactory ?? ((url, clientOptions) => new WebSocket(url, clientOptions))
+  const leaseStore = options.leaseStore ?? databaseLeaseStore
+  const session = getSession(options)
+  const trunkKey = createHash('sha256').update(`${base}\0${options.trunkEndpoint}`).digest('hex')
+  const authorization = base64Auth(options.username, options.password)
+
+  async function request<T>(method: string, endpoint: string, body?: unknown): Promise<T> {
+    let response: Response
+    try {
+      response = await doFetch(`${base}${endpoint}`, {
+        method,
+        headers: {
+          Authorization: authorization,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+    } catch (error) {
+      throw new AppError(502, 'ASTERISK_UNREACHABLE', `Asterisk ARI did not respond: ${String(error)}`)
+    }
+    const text = await response.text()
+    let payload: unknown = null
+    if (text) {
+      try {
+        payload = JSON.parse(text)
+      } catch {
+        payload = text
+      }
+    }
+    if (!response.ok) {
+      const detail =
+        typeof payload === 'object' && payload !== null && 'message' in payload
+          ? String(payload.message)
+          : `HTTP ${response.status}`
+      throw new AppError(
+        502,
+        response.status === 404 ? 'ASTERISK_NOT_FOUND' : 'ASTERISK_ERROR',
+        `Asterisk ARI: ${detail}`,
+      )
+    }
+    return payload as T
+  }
+
+  function websocketUrl() {
+    const url = new URL(base)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.pathname = `${url.pathname.replace(/\/+$/, '')}/events`
+    url.searchParams.set('app', options.app)
+    url.searchParams.set('subscribeAll', 'true')
+    return url.toString()
+  }
+
+  async function ensureEvents() {
+    if (session.socket?.readyState === WebSocket.OPEN) return
+    if (session.connecting) return session.connecting
+
+    session.connecting = new Promise<void>((resolve, reject) => {
+      const socket = socketFactory(websocketUrl(), { headers: { Authorization: authorization } })
+      session.socket = socket
+      let settled = false
+      const timeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        socket.close()
+        reject(new AppError(502, 'ASTERISK_UNREACHABLE', 'Asterisk ARI event socket timed out'))
+      }, SOCKET_TIMEOUT_MS)
+      timeout.unref?.()
+
+      socket.on('open', () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timeout)
+        resolve()
+      })
+      socket.on('message', (raw) => {
+        let event: AriEvent
+        try {
+          event = JSON.parse(raw.toString()) as AriEvent
+        } catch (error) {
+          console.error(JSON.stringify({ level: 'warn', message: 'invalid Asterisk ARI event', err: String(error) }))
+          return
+        }
+        void handleEvent(event).catch((error) => {
+          console.error(
+            JSON.stringify({ level: 'error', message: 'Asterisk ARI event handling failed', err: String(error) }),
+          )
+        })
+      })
+      socket.on('error', (error) => {
+        if (!settled) {
+          settled = true
+          clearTimeout(timeout)
+          reject(new AppError(502, 'ASTERISK_UNREACHABLE', `Asterisk ARI event socket failed: ${error.message}`))
+        } else {
+          console.error(
+            JSON.stringify({ level: 'error', message: 'Asterisk ARI event socket error', err: error.message }),
+          )
+        }
+      })
+      socket.on('close', () => {
+        if (session.socket === socket) session.socket = null
+      })
+    }).finally(() => {
+      session.connecting = null
+    })
+    return session.connecting
+  }
+
+  async function addToBridge(bridgeId: string, channelId: string) {
+    await request(
+      'POST',
+      `/bridges/${encodeURIComponent(bridgeId)}/addChannel?${new URLSearchParams({ channel: channelId })}`,
+    )
+  }
+
+  function channelId(attemptId: string, role: 'external' | 'operator') {
+    return `imp-${attemptId}-${role}`
+  }
+
+  function leaseTarget(lease: AsteriskLease): DialTarget {
+    return {
+      attemptId: lease.attemptId,
+      phone: lease.phone,
+      extension: lease.extension,
+      startedAt: lease.startedAt,
+      providerCallId: lease.providerCallId,
+      wasAnswered: lease.wasAnswered,
+    }
+  }
+
+  async function originateOperator(call: AttemptSession) {
+    if (call.operatorStarted) return
+    call.operatorStarted = true
+    const operator = await request<AriChannel>(
+      'POST',
+      `/channels?${new URLSearchParams({
+        endpoint: `PJSIP/${call.extension}`,
+        channelId: channelId(call.attemptId, 'operator'),
+        app: options.app,
+        appArgs: `${call.attemptId},operator`,
+      })}`,
+    )
+    call.operatorChannelId ??= operator.id
+  }
+
+  async function onExternalAnswered(call: AttemptSession, externalChannelId: string) {
+    call.externalChannelId = externalChannelId
+    if (call.bridgeId) return
+    const bridge = await request<AriBridge>('POST', '/bridges?type=mixing')
+    call.bridgeId = bridge.id
+    await addToBridge(bridge.id, externalChannelId)
+    call.stage = 'agent_ringing'
+    await originateOperator(call)
+  }
+
+  async function failAttempt(call: AttemptSession) {
+    call.stage = 'failed'
+    call.outcome = 'failed'
+    await leaseStore.release(call.customerId, call.attemptId)
+    await hangupChannels(call).catch((error) => {
+      console.error(JSON.stringify({ level: 'warn', message: 'failed to clean up Asterisk channels', err: String(error) }))
+    })
+  }
+
+  async function handleEvent(event: AriEvent) {
+    const channelId = event.channel?.id
+    if (!channelId) return
+
+    if (event.type === 'StasisStart' && event.application === options.app) {
+      const [attemptId, role] = event.args ?? []
+      if (!attemptId || (role !== 'external' && role !== 'operator')) return
+      const call = session.calls.get(attemptId)
+      if (!call) return
+
+      if (role === 'external') {
+        if (call.externalStarted) return
+        call.externalStarted = true
+        try {
+          await onExternalAnswered(call, channelId)
+        } catch (error) {
+          await failAttempt(call)
+          throw error
+        }
+        return
+      }
+
+      if (call.operatorJoined) return
+      call.operatorStarted = true
+      call.operatorJoined = true
+      call.operatorChannelId = channelId
+      if (!call.bridgeId) {
+        await failAttempt(call)
+        return
+      }
+      await addToBridge(call.bridgeId, channelId)
+      call.stage = 'talking'
+      return
+    }
+
+    if (event.type === 'ChannelDestroyed') {
+      const call = [...session.calls.values()].find(
+        (candidate) => candidate.externalChannelId === channelId || candidate.operatorChannelId === channelId,
+      )
+      if (!call || call.stage === 'ended' || call.stage === 'failed') return
+      const wasTalking = call.stage === 'talking'
+      call.outcome = channelOutcome(event.cause, wasTalking)
+      call.stage = 'ended'
+      await hangupChannels(call, channelId).catch((error) => {
+        console.error(JSON.stringify({ level: 'warn', message: 'failed to hang up Asterisk peer channel', err: String(error) }))
+      })
+      await leaseStore.release(call.customerId, call.attemptId)
+    }
+  }
+
+  async function hangupChannels(call: AttemptSession, except?: string) {
+    const ids = [call.externalChannelId, call.operatorChannelId].filter(
+      (channelId): channelId is string => Boolean(channelId && channelId !== except),
+    )
+    for (const channelId of new Set(ids)) {
+      await request('DELETE', `/channels/${encodeURIComponent(channelId)}`).catch((error) => {
+        if (!(error instanceof AppError && error.code === 'ASTERISK_NOT_FOUND')) throw error
+      })
+    }
+    if (call.bridgeId) {
+      await request('DELETE', `/bridges/${encodeURIComponent(call.bridgeId)}`).catch((error) => {
+        if (!(error instanceof AppError && error.code === 'ASTERISK_NOT_FOUND')) throw error
+      })
+      call.bridgeId = null
+    }
+  }
+
+  async function recoverAttempt(
+    target: DialTarget,
+    channels: AriChannel[],
+    bridges: AriBridge[],
+  ): Promise<AttemptSession> {
+    const externalId = channelId(target.attemptId, 'external')
+    const operatorId = channelId(target.attemptId, 'operator')
+    const external = channels.find((channel) => channel.id === externalId)
+    const operator = channels.find((channel) => channel.id === operatorId)
+    const bridge = bridges.find(
+      (candidate) => candidate.channels?.includes(externalId) && candidate.channels.includes(operatorId),
+    )
+    const call: AttemptSession = {
+      attemptId: target.attemptId,
+      customerId: options.customerId,
+      externalChannelId: external?.id ?? null,
+      operatorChannelId: operator?.id ?? null,
+      bridgeId: null,
+      stage: 'originating',
+      outcome: null,
+      extension: target.extension,
+      externalStarted: Boolean(external),
+      operatorStarted: Boolean(operator),
+      operatorJoined: Boolean(bridge),
+    }
+
+    if (!external && !operator) {
+      call.stage = 'ended'
+      call.outcome = target.wasAnswered ? 'abandoned' : 'no_answer'
+      session.calls.set(target.attemptId, call)
+      await leaseStore.release(options.customerId, target.attemptId)
+      return call
+    }
+
+    if (!external && operator) {
+      call.stage = 'ended'
+      call.outcome = target.wasAnswered ? 'abandoned' : 'failed'
+      session.calls.set(target.attemptId, call)
+      await hangupChannels(call)
+      await leaseStore.release(options.customerId, target.attemptId)
+      return call
+    }
+
+    call.bridgeId = bridge?.id ?? null
+    if (bridge) {
+      call.stage = 'talking'
+    } else if (external && operator) {
+      const recoveredBridge = await request<AriBridge>('POST', '/bridges?type=mixing')
+      call.bridgeId = recoveredBridge.id
+      await addToBridge(recoveredBridge.id, external.id)
+      await addToBridge(recoveredBridge.id, operator.id)
+      call.operatorJoined = true
+      call.stage = 'talking'
+    } else if (operator) {
+      call.stage = 'agent_ringing'
+    } else if (external?.state === 'Up') {
+      call.stage = 'originating'
+    } else {
+      call.stage = 'originating'
+    }
+    session.calls.set(target.attemptId, call)
+
+    if (external?.state === 'Up' && !operator && !bridge) {
+      call.externalStarted = true
+      try {
+        await onExternalAnswered(call, external.id)
+      } catch (error) {
+        await failAttempt(call)
+        await leaseStore.release(options.customerId, target.attemptId)
+        throw error
+      }
+    }
+    return call
+  }
+
+  async function recoverLeases() {
+    const leases = await leaseStore.list(options.customerId)
+    if (leases.length === 0) return
+    await ensureEvents()
+    const [channels, bridges] = await Promise.all([
+      request<AriChannel[]>('GET', '/channels'),
+      request<AriBridge[]>('GET', '/bridges'),
+    ])
+    for (const lease of leases) {
+      if (session.calls.has(lease.attemptId)) continue
+      await recoverAttempt(leaseTarget(lease), channels, bridges)
+    }
+  }
+
+  async function recoverLeasesOnce() {
+    if (session.recovery) return session.recovery
+    session.recovery = recoverLeases().finally(() => {
+      session.recovery = null
+    })
+    return session.recovery
+  }
+
+  function pruneFinishedCalls() {
+    for (const [attemptId, call] of session.calls) {
+      if (call.stage === 'ended' || call.stage === 'failed') session.calls.delete(attemptId)
+    }
+  }
+
+  return {
+    name: 'asterisk',
+    supportsRecording: false,
+
+    async originate(target: DialTarget) {
+      await recoverLeasesOnce()
+      pruneFinishedCalls()
+      if (!(await leaseStore.acquire(options.customerId, target.attemptId, trunkKey, options.maxChannels))) {
+        throw new AppError(409, 'TELEPHONY_CHANNEL_LIMIT', 'Asterisk channel limit reached')
+      }
+      const call: AttemptSession = {
+        attemptId: target.attemptId,
+        customerId: options.customerId,
+        externalChannelId: null,
+        operatorChannelId: null,
+        bridgeId: null,
+        stage: 'originating',
+        outcome: null,
+        extension: target.extension,
+        externalStarted: false,
+        operatorStarted: false,
+        operatorJoined: false,
+      }
+      session.calls.set(target.attemptId, call)
+      try {
+        await ensureEvents()
+        const channel = await request<AriChannel>(
+          'POST',
+          `/channels?${new URLSearchParams({
+            endpoint: `PJSIP/${options.dialPrefix}${target.phone}@${options.trunkEndpoint}`,
+            channelId: channelId(target.attemptId, 'external'),
+            app: options.app,
+            appArgs: `${target.attemptId},external`,
+            ...(options.callerId ? { callerId: options.callerId } : {}),
+          })}`,
+        )
+        call.externalChannelId ??= channel.id
+      } catch (error) {
+        call.stage = 'failed'
+        call.outcome = 'failed'
+        await leaseStore.release(options.customerId, target.attemptId)
+        throw error
+      }
+    },
+
+    async liveState(target: DialTarget): Promise<LiveStatus> {
+      const socketWasConnected = session.socket?.readyState === WebSocket.OPEN
+      await ensureEvents()
+      let call = session.calls.get(target.attemptId)
+      if (!call || !socketWasConnected) {
+        const [channels, bridges] = await Promise.all([
+          request<AriChannel[]>('GET', '/channels'),
+          request<AriBridge[]>('GET', '/bridges'),
+        ])
+        call = await recoverAttempt(target, channels, bridges)
+      }
+      if (call.stage === 'talking') return { state: 'talking', providerCallId: call.externalChannelId }
+      if (call.stage === 'ended' || call.stage === 'failed') return { state: 'gone' }
+      return { state: 'ringing', providerCallId: call.externalChannelId }
+    },
+
+    async hangup(target: DialTarget) {
+      let call = session.calls.get(target.attemptId)
+      if (!call) {
+        await ensureEvents()
+        const [channels, bridges] = await Promise.all([
+          request<AriChannel[]>('GET', '/channels'),
+          request<AriBridge[]>('GET', '/bridges'),
+        ])
+        call = await recoverAttempt(target, channels, bridges)
+      }
+      if (call.stage === 'ended' || call.stage === 'failed') {
+        await leaseStore.release(options.customerId, target.attemptId)
+        return
+      }
+      await hangupChannels(call)
+      call.stage = 'ended'
+      call.outcome ??= 'cancelled'
+      await leaseStore.release(options.customerId, target.attemptId)
+    },
+
+    async finalOutcome(target: DialTarget) {
+      let call = session.calls.get(target.attemptId)
+      if (!call) {
+        await ensureEvents()
+        const [channels, bridges] = await Promise.all([
+          request<AriChannel[]>('GET', '/channels'),
+          request<AriBridge[]>('GET', '/bridges'),
+        ])
+        call = await recoverAttempt(target, channels, bridges)
+      }
+      const outcome = call?.outcome ?? null
+      if (call && (call.stage === 'ended' || call.stage === 'failed')) session.calls.delete(target.attemptId)
+      return outcome
+    },
+
+    async fetchRecording() {
+      return null
+    },
+
+    async recoverActive() {
+      await recoverLeasesOnce()
+    },
+  }
+}
+
+export async function closeAsteriskSessions() {
+  const sockets = [...sessions.values()].flatMap((session) => (session.socket ? [session.socket] : []))
+  sessions.clear()
+  for (const socket of sockets) {
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close()
+  }
+}

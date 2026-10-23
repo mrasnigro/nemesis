@@ -162,6 +162,37 @@ describe('telephony settings', () => {
     expect(update.body.data).toMatchObject({ maxAttempts: 5, hasCredentials: true })
   })
 
+  it('stores Asterisk ARI settings with an encrypted password', async () => {
+    const response = await manager.put('/api/modules/bdr/telephony/settings').send({
+      provider: 'asterisk',
+      ariUrl: 'https://pbx.example.test:8089/ari',
+      ariUsername: 'imp-bdr',
+      ariPassword: 'asterisk-secret',
+      trunkEndpoint: 'vono',
+      callerId: '+554130000000',
+      maxChannels: 5,
+      dialPrefix: '0',
+    })
+    expect(response.status).toBe(200)
+    expect(response.body.data).toMatchObject({
+      provider: 'asterisk',
+      ariUrl: 'https://pbx.example.test:8089/ari',
+      ariUsername: 'imp-bdr',
+      trunkEndpoint: 'vono',
+      callerId: '+554130000000',
+      maxChannels: 5,
+      hasCredentials: true,
+    })
+    expect(JSON.stringify(response.body)).not.toContain('asterisk-secret')
+
+    const [stored] = await rows(
+      'SELECT ari_password_enc FROM bdr_telephony_settings WHERE customer_id = :customerId',
+      { customerId },
+    )
+    expect(stored.ari_password_enc).toBeTruthy()
+    expect(String(stored.ari_password_enc)).not.toContain('asterisk-secret')
+  })
+
   it('validates retry rules', async () => {
     const response = await manager.put('/api/modules/bdr/telephony/settings').send({ ringTimeoutSeconds: 1 })
     expect(response.status).toBe(400)

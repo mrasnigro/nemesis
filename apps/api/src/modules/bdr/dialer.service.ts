@@ -67,6 +67,7 @@ function target(attempt: Attempt): DialTarget {
     startedAt: attempt.startedAt,
     endedAt: attempt.endedAt,
     providerCallId: attempt.providerCallId,
+    wasAnswered: attempt.status === 'answered' || attempt.answeredAt !== null,
   }
 }
 
