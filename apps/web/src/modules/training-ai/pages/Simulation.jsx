@@ -11,7 +11,12 @@ import useMicTest from '../hooks/useMicTest.js'
 import { getAvatarEngine } from '../services/avatar/index.js'
 import { setBrowserSpeechSpeed } from '../services/avatar/browserAvatarProvider.js'
 import { createSpeechRecognizer, isSpeechRecognitionSupported } from '../services/voice/speechRecognition.js'
-import { isServerCaptureSupported, micErrorMessage, openVadMic } from '../services/voice/vadCapture.js'
+import {
+  isServerCaptureSupported,
+  micErrorMessage,
+  openVadMic,
+  TURN_END_SILENCE_MS,
+} from '../services/voice/vadCapture.js'
 import {
   createSpeechQueue,
   isLikelyHallucination,
@@ -24,13 +29,9 @@ import {
 } from '../services/voice/serverVoice.js'
 import { trainingApi } from '../services/api/client.js'
 
-/**
- * Quiet time that ends a turn. A sales call has thinking pauses of well over a second; 0.7s was closing the
- * microphone between phrases. Two seconds still feels like a conversation and leaves room to breathe.
- */
-const TURN_PAUSE_MS = 2000
-const SILENCE_SEND_MS = TURN_PAUSE_MS
-const END_OF_TURN_MS = TURN_PAUSE_MS
+/** Quiet time that ends a turn, the same for the server microphone and the browser dictation. */
+const SILENCE_SEND_MS = TURN_END_SILENCE_MS
+const END_OF_TURN_MS = TURN_END_SILENCE_MS
 
 /**
  * Logs where the time of one spoken turn went, in the browser console ("[voice-latency]"), measured from the
@@ -131,7 +132,6 @@ export default function TrainingSimulationPage() {
     isStarting,
     isGeneratingReply,
     isJudging,
-    evaluation,
     aiReady,
     aiUnavailableReason,
     aiStatus,
@@ -533,28 +533,35 @@ export default function TrainingSimulationPage() {
     setVoiceNotice('')
     micFailedRef.current = false
     const handsFree = practiceMediaMode === 'voice'
+    let disposed = false
+    let restartTimer = null
     const recognizer = createSpeechRecognizer({
       lang: personaLanguage,
       onText: (text) => {
+        if (disposed) return
+        draftRef.current = text
         setDraft(text)
         if (!handsFree) return
-        // The turn ends after a short pause: send what was said without a click.
+        // The turn ends after a pause: send what was said without a click.
         window.clearTimeout(silenceTimerRef.current)
         if (text.trim().length >= 2) {
           silenceTimerRef.current = window.setTimeout(() => sendRef.current?.(), SILENCE_SEND_MS)
         }
       },
       onEnd: () => {
-        // The browser ends recognition on a short quiet spell. That is not the end of the turn: the pause
-        // timer is. Reopen the microphone and keep what was already heard.
-        setListening(false)
+        if (disposed) return
         if (!handsFree || !autoListenRef.current || micFailedRef.current) {
           window.clearTimeout(silenceTimerRef.current)
+          setListening(false)
           return
         }
-        window.setTimeout(() => {
+        // Android Chrome ends recognition after any short quiet spell. That is not the end of the turn: the
+        // pause timer is. Restart the same recognizer, keeping what was heard, without leaving this effect,
+        // so the pending send timer is not cleared and the turn still goes out after the pause.
+        restartTimer = window.setTimeout(() => {
           const live = liveRef.current
-          if (live.running && !live.speaking && !live.busy && autoListenRef.current) setListening(true)
+          if (disposed || !live.running || live.speaking || live.busy || !autoListenRef.current) return
+          recognizer.start(draftRef.current)
         }, 250)
       },
       onError: (message) => {
@@ -564,17 +571,12 @@ export default function TrainingSimulationPage() {
     })
     recognizer.start(draftRef.current)
     return () => {
+      disposed = true
+      window.clearTimeout(restartTimer)
       window.clearTimeout(silenceTimerRef.current)
       recognizer.stop()
     }
   }, [listening, serverVoice, personaLanguage, sttSupported, practiceMediaMode])
-
-  useEffect(() => {
-    if (phase === 'finished' && evaluation?.sessionId) {
-      if (simulationRouteKeyRef.current !== location.key) return
-      navigate(`/modules/training-ai/relatorio/sessao/${evaluation.sessionId}`, { replace: true })
-    }
-  }, [evaluation, location.key, navigate, phase])
 
   const scenario =
     selectedScenario ||
@@ -730,6 +732,13 @@ export default function TrainingSimulationPage() {
     const audioBlob = await stopRecorder()
     const result = await finishSession(audioBlob)
     sendingRef.current = false
+    if (result.ok && result.sessionId) {
+      // Navigate from here, with the id of the session that just ended. An effect watching "finished" also
+      // fired when a new simulation opened while the previous result was still in memory, and sent the
+      // trainee back to the old report.
+      navigate(`/modules/training-ai/relatorio/sessao/${result.sessionId}`, { replace: true })
+      return
+    }
     if (!result.ok && result.error) setFinishHint(result.error)
   }
 

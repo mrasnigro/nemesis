@@ -6,9 +6,20 @@
 
 const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
 
+/**
+ * Quiet time after speech that ends the turn. Testers found 2s cut them off mid-thought: a sales call has
+ * thinking pauses of two seconds or more. Used by both the server microphone and the browser dictation.
+ */
+export const TURN_END_SILENCE_MS = 3000
+
 const DEFAULTS = {
-  /** Quiet time after speech that ends the turn. A thinking pause in a sales call is longer than a second. */
-  silenceMs: 2000,
+  /** Quiet time after speech that ends the turn. */
+  silenceMs: TURN_END_SILENCE_MS,
+  /**
+   * Once the trainee is talking, a level this fraction of the start threshold still counts as voice, so the
+   * quiet end of a word or a soft phrase does not start the pause clock.
+   */
+  holdRatio: 0.5,
   /** Sound shorter than this is a cough or a click, not a turn. */
   minSpeechMs: 250,
   /** A turn never runs longer than this. */
@@ -159,7 +170,8 @@ export async function openVadMic({ deviceId, ...tuning } = {}) {
       const base = Math.max(settings.minThreshold, noiseFloor * settings.noiseRatio)
       const threshold = guarded ? Math.max(settings.bargeMinThreshold, base * settings.bargeBoost) : base
       const minSpeechMs = guarded ? settings.bargeMinSpeechMs : settings.minSpeechMs
-      const voiced = current > threshold
+      // Starting a turn needs the full threshold; keeping it open needs less (hysteresis).
+      const voiced = current > (speaking && !guarded ? threshold * settings.holdRatio : threshold)
       // The persona's own sound is not room noise: it must not raise the floor for the trainee's next turn.
       if (!voiced && !guarded) noiseFloor = noiseFloor * 0.9 + current * 0.1
       onLevel?.(current)

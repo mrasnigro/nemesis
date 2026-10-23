@@ -535,7 +535,7 @@ export function TrainingAiProvider({ children }) {
       setShowConversation(true)
       setPhase('finished')
       refreshProgress()
-      return { ok: true }
+      return { ok: true, sessionId: finished.report?.sessionId || finished.id || session.id }
     } catch (error) {
       return failure(error, 'Não foi possível encerrar o treino.')
     } finally {
