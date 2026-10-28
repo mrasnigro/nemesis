@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import NavToggle, { useCompactNav } from '../components/NavToggle'
 import { BdrSessionProvider } from '../modules/bdr'
 import AttendanceTimer from '../modules/bdr/components/AttendanceTimer.jsx'
 import '../modules/bdr/styles/bdr-theme.css'
@@ -138,6 +139,22 @@ function DialerShell() {
   )
 
   const [openGroups, setOpenGroups] = useState(() => new Set())
+  const [menuOpen, setMenuOpen] = useState(false)
+  const compactNav = useCompactNav()
+  const showLabels = !collapsed || menuOpen
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!menuOpen) return undefined
+    function onKey(event) {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   function handleLogout() {
     logout()
@@ -157,11 +174,32 @@ function DialerShell() {
     <div
       className={`dialer-layout${collapsed ? ' dialer-layout--collapsed' : ' dialer-layout--expanded'}${
         isDiscagemRoute ? ' dialer-layout--discagem' : ''
-      }`}
+      }${menuOpen ? ' dialer-layout--menu-open' : ''}`}
     >
-      <aside className="dialer-layout__sidebar" aria-label="CRM IMP GROUP">
+      {menuOpen ? (
+        <button
+          type="button"
+          className="nav-backdrop"
+          aria-label="Fechar menu"
+          onClick={() => setMenuOpen(false)}
+        />
+      ) : null}
+      {isDiscagemRoute ? (
+        <NavToggle
+          className="dialer-layout__menu dialer-layout__menu--floating"
+          open={menuOpen}
+          controls="dialer-sidebar"
+          onClick={() => setMenuOpen((open) => !open)}
+        />
+      ) : null}
+      <aside
+        id="dialer-sidebar"
+        className="dialer-layout__sidebar"
+        aria-label="CRM IMP GROUP"
+        inert={compactNav && !menuOpen ? true : undefined}
+      >
         <div className="dialer-layout__brand">
-          {collapsed ? (
+          {!showLabels ? (
             <span className="dialer-layout__brand-mark" title="CRM IMP GROUP">
               CRM
             </span>
@@ -186,12 +224,17 @@ function DialerShell() {
           </span>
         </button>
 
-        <nav aria-label="Módulos">
+        <nav
+          aria-label="Módulos"
+          onClick={(event) => {
+            if (event.target.closest('a')) setMenuOpen(false)
+          }}
+        >
           {MODULE_NAV.map((group) => {
             const groupActive = activeGroupIds.includes(group.id)
-            const expanded = !collapsed && openGroups.has(group.id)
+            const expanded = showLabels && openGroups.has(group.id)
 
-            if (collapsed) {
+            if (!showLabels) {
               const firstLink = group.children.find((child) => child.to)
               const className = `dialer-layout__nav-link${groupActive ? ' dialer-layout__nav-link--active' : ''}`
               if (firstLink?.to) {
@@ -287,7 +330,7 @@ function DialerShell() {
             title="Voltar aos módulos"
             aria-label="Módulos IMP"
           >
-            {collapsed ? <DialerIcon name="modules" /> : 'Módulos IMP'}
+            {!showLabels ? <DialerIcon name="modules" /> : 'Módulos IMP'}
           </button>
         </div>
       </aside>
@@ -300,6 +343,12 @@ function DialerShell() {
                 isAgendamentosRoute ? ' dialer-layout__header-inner--agenda' : ''
               }`}
             >
+              <NavToggle
+                className="dialer-layout__menu"
+                open={menuOpen}
+                controls="dialer-sidebar"
+                onClick={() => setMenuOpen((open) => !open)}
+              />
               {isAgendamentosRoute ? (
                 <>
                   <h1 className="dialer-layout__page-title">Agendamentos Realizados</h1>

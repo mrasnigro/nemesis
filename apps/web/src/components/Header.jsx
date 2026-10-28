@@ -1,14 +1,18 @@
 import { useAuth } from '../auth/AuthContext'
+import NavToggle from './NavToggle'
 import './Header.css'
 
-export default function Header({ title, subtitle }) {
+export default function Header({ title, subtitle, menuOpen = false, onMenuToggle }) {
   const { user, logout } = useAuth()
 
   return (
     <header className="app-header">
-      <div className="app-header__titles">
-        <h1>{title}</h1>
-        {subtitle ? <p>{subtitle}</p> : null}
+      <div className="app-header__lead">
+        <NavToggle open={menuOpen} controls="app-sidebar" onClick={onMenuToggle} />
+        <div className="app-header__titles">
+          <h1>{title}</h1>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
       </div>
 
       <div className="app-header__actions">

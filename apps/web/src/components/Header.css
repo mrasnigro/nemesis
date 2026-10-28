@@ -12,6 +12,13 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
+.app-header__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .app-header__titles h1 {
   margin: 0;
   color: var(--text-h);
@@ -123,28 +130,114 @@
   background: rgba(251, 113, 133, 0.2);
 }
 
-@media (max-width: 900px) {
-  .app-header {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 1rem 1.25rem;
-  }
-
-  .app-header__actions {
-    flex-direction: column;
-    align-items: stretch;
+@media (max-width: 1100px) {
+  .app-header__titles {
+    min-width: 0;
+    flex: 1;
   }
 
   .app-header__search {
     min-width: 0;
+    flex: 1 1 12rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-header .nav-toggle {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 80;
+    display: inline-flex;
+  }
+
+  /* Row 1: title + user chip. Row 2: full-width search. */
+  .app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'lead user'
+      'search search';
+    align-items: center;
+    gap: 0.65rem 0.75rem;
+    padding: 0.75rem 1.25rem;
+  }
+
+  .app-header__actions {
+    display: contents;
+  }
+
+  .app-header__lead {
+    grid-area: lead;
+    align-items: center;
+    padding-left: 3.25rem;
+    min-height: 2.5rem;
+  }
+
+  .app-header__titles h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header__titles p {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+  }
+
+  .app-header__search {
+    grid-area: search;
+    flex: none;
+    min-width: 0;
+    width: 100%;
+    min-height: 2.5rem;
   }
 
   .app-header__user {
-    justify-content: flex-end;
+    grid-area: user;
+    justify-self: end;
+    padding: 0.3rem 0.3rem 0.3rem 0.75rem;
   }
 
   .app-header__user-meta {
-    align-items: flex-start;
-    margin-right: auto;
+    min-width: 0;
+    max-width: 11rem;
+  }
+
+  .app-header__user-meta strong,
+  .app-header__user-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header__logout {
+    min-height: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0.65rem 1rem;
+  }
+
+  .app-header__lead {
+    padding-left: 3.1rem;
+  }
+
+  .app-header__titles h1 {
+    font-size: 1.05rem;
+  }
+
+  /* Name/role are redundant on phones; keep avatar + Sair as the compact account control. */
+  .app-header__user-meta {
+    display: none;
+  }
+
+  .app-header__user {
+    padding: 0.25rem;
+    gap: 0.4rem;
   }
 }

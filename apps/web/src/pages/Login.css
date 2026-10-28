@@ -182,3 +182,25 @@
   font-weight: 600;
   color: var(--brand);
 }
+
+@media (max-width: 480px) {
+  .login-page {
+    align-items: start;
+    padding: 1rem;
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .login-page__brand {
+    margin-bottom: 1.75rem;
+  }
+
+  .login-page__brand h1 {
+    font-size: 1.75rem;
+  }
+
+  .login-page__credential {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+}

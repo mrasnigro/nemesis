@@ -79,3 +79,13 @@
   color: var(--text-muted);
   font-size: 0.82rem;
 }
+
+@media (max-width: 640px) {
+  .metric-card {
+    padding: 1rem;
+  }
+
+  .metric-card__value {
+    font-size: 1.45rem;
+  }
+}

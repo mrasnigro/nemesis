@@ -309,6 +309,17 @@
   }
 }
 
+@media (max-width: 640px) {
+  .webinar-m3__card-top,
+  .webinar-m3__compact-list a {
+    flex-direction: column;
+  }
+
+  .webinar-m3__compact-list span {
+    text-align: left;
+  }
+}
+
 .webinar-m5__legacy-banner {
   margin: 0 0 0.75rem;
   padding: 0.65rem 0.75rem;

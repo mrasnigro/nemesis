@@ -3389,3 +3389,93 @@
 .bdr-discagem-history__table td {
   color: #d1d5db;
 }
+
+@media (max-width: 768px) {
+  .bdr-agenda__calendar,
+  .bdr-agenda__day-panel,
+  .bdr-schedule-card,
+  .bdr-schedule-page__main,
+  .bdr-schedule-page__header-inner {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .bdr-schedule-page__header-inner {
+    flex-wrap: wrap;
+  }
+
+  .bdr-manual-modal,
+  .bdr-modal-scrim {
+    align-items: flex-start;
+    overflow: auto;
+  }
+
+  .bdr-manual-modal__dialog,
+  .bdr-modal {
+    max-height: calc(100svh - 1.5rem);
+    overflow: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .bdr-discagem__header h1 {
+    font-size: 1.5rem;
+    line-height: 1.9rem;
+  }
+
+  .bdr-call-band,
+  .bdr-call-band__left {
+    flex-wrap: wrap;
+  }
+
+  .bdr-call-band__right {
+    text-align: left;
+  }
+
+  .bdr-agenda__calendar,
+  .bdr-schedule-card {
+    overflow-x: auto;
+  }
+
+  .bdr-agenda__weekdays,
+  .bdr-agenda__grid,
+  .bdr-schedule-card__grid {
+    min-width: 20rem;
+    gap: 0.25rem;
+  }
+
+  .bdr-schedule-page__main {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .bdr-call-band,
+  .bdr-discagem__panels,
+  .bdr-lead-panel,
+  .bdr-script,
+  .bdr-objections {
+    min-width: 0;
+  }
+}
+
+/* In-call actions stay reachable: sticky bottom bar with 48px tap targets on tablets/phones */
+@media (max-width: 768px) {
+  .bdr-discagem__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.75rem 0 max(0.75rem, env(safe-area-inset-bottom));
+    border-top: 1px solid #1e293b;
+    background: #0f172a;
+  }
+
+  .bdr-discagem__schedule,
+  .bdr-discagem__hangup {
+    flex: 1 1 9rem;
+    min-height: 3rem;
+    padding: 0.6rem 1rem;
+  }
+}

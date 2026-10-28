@@ -212,16 +212,16 @@ const StudioRoom: React.FC = () => {
   if (!webinar) return null;
 
   return (
-    <div className="flex-1 flex w-full h-screen overflow-hidden">
+    <div className="flex-1 flex w-full h-dvh max-lg:flex-col overflow-hidden">
       {/* Left/Center Panel - Main Stage */}
-      <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 p-4 max-sm:p-2 gap-4 overflow-hidden">
         {/* Top bar with title */}
-        <div className="flex justify-between items-center bg-gray-800 p-4 rounded-lg">
-          <div>
-            <h2 className="text-xl font-bold text-white">{webinar.title}</h2>
-            <p className="text-sm text-gray-400">Instrutor: {webinar.instructor} • Categoria: {webinar.category}</p>
+        <div className="flex justify-between items-start gap-3 bg-gray-800 p-4 max-sm:p-3 rounded-lg max-sm:flex-col">
+          <div className="min-w-0">
+            <h2 className="text-xl max-sm:text-lg font-bold text-white break-words">{webinar.title}</h2>
+            <p className="text-sm text-gray-400 break-words">Instrutor: {webinar.instructor} • Categoria: {webinar.category}</p>
           </div>
-          <div className="text-right">
+          <div className="text-right max-sm:text-left shrink-0">
             <p className="text-xs text-gray-400 uppercase tracking-wider">ID da Sessão</p>
             <p className="font-mono text-sm text-gray-300">#{webinar.id}</p>
           </div>
@@ -335,7 +335,7 @@ const StudioRoom: React.FC = () => {
       </div>
 
       {/* Right Panel - Sidebar (Audience & Chat) */}
-      <div className="w-80 flex flex-col bg-gray-900 border-l border-gray-800 shrink-0 h-screen overflow-hidden">
+      <div className="w-80 max-lg:w-full max-lg:h-72 lg:h-dvh flex flex-col bg-gray-900 border-l max-lg:border-l-0 max-lg:border-t border-gray-800 shrink-0 overflow-hidden">
         <AudiencePanel webinarId={webinar.id} status={webinar.status} />
         <StudioChat webinarId={webinar.id} />
       </div>

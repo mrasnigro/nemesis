@@ -101,9 +101,15 @@
   .launcher-layout__user {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .launcher-layout__user-meta {
     align-items: flex-start;
+    min-width: 0;
+  }
+
+  .launcher-layout__main {
+    padding: 1rem 1rem 2rem;
   }
 }

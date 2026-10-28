@@ -7310,3 +7310,121 @@
 .training-ai__score-hero--rose {
   border-left-color: #e11d48;
 }
+
+@media (max-width: 900px) {
+  .training-ai__group-create-layout,
+  .training-ai__sim-report-stats,
+  .training-ai__persona-detail-fields > div,
+  .training-ai__section-composer,
+  .training-ai__template-criterion-fields,
+  .training-ai__rank-chart-frame {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__search {
+    display: flex;
+    flex: 1 1 16rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .training-ai__search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .training-ai__confirm-panel,
+  .training-ai__limit-panel,
+  .training-ai__avatar-modal-panel,
+  .training-ai__filter-card {
+    max-width: calc(100vw - 1.5rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .training-ai__template-stats,
+  .training-ai__history-date-fields,
+  .training-ai__podium,
+  .training-ai__cp-basics-grid,
+  .training-ai__cp-b2b-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .training-ai__avatar-gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .training-ai__history-calendar {
+    overflow-x: auto;
+  }
+
+  .training-ai__history-calendar-grid {
+    min-width: 20rem;
+  }
+
+  .training-ai__score-hero,
+  .training-ai__page-header-actions,
+  .training-ai__personas-actions,
+  .training-ai__filters {
+    width: 100%;
+  }
+
+  .training-ai__score-hero {
+    align-items: flex-start;
+  }
+
+  .training-ai__score-hero-value strong {
+    font-size: 2.1rem;
+  }
+
+  .training-ai__filter-modal {
+    left: 0;
+    right: auto;
+    width: min(100%, 22rem);
+    min-width: 0;
+  }
+
+  .training-ai__podium {
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .training-ai__confirm-modal,
+  .training-ai__limit-modal,
+  .training-ai__avatar-modal {
+    align-items: start;
+    padding: 0.75rem;
+    overflow: auto;
+  }
+}
+
+/* Responsive spacing: tokens shrink so nested content/panel/card padding doesn't eat the viewport */
+@media (max-width: 1024px) {
+  .module-workspace--training-ai {
+    --training-ai-page-inline: 1.5rem;
+    --training-ai-gap: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .module-workspace--training-ai {
+    --training-ai-page-inline: 0.85rem;
+    --training-ai-page-block: 1rem;
+    --training-ai-gap: 0.85rem;
+    --training-ai-panel-pad: 0.9rem;
+  }
+
+  /* Page header: title block on top, actions fill the row below */
+  .training-ai__page-header-actions,
+  .training-ai__personas-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  }
+
+  .training-ai__page-header-actions > .imp-btn,
+  .training-ai__personas-actions > .imp-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

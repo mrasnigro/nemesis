@@ -17,9 +17,18 @@
 @media (max-width: 900px) {
   .app-layout__shell {
     margin-left: 0;
+    min-width: 0;
   }
 
   .app-layout__content {
     padding: 1.25rem;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-layout__content {
+    padding: 1rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
 }

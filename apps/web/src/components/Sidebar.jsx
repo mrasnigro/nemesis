@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Building2,
@@ -38,13 +39,25 @@ const PROFILE_WORKSPACE = {
   closer: 'Workspace Closer',
 }
 
-export default function Sidebar({ items = [], featureItems = [], featureTitle }) {
+export default function Sidebar({
+  items = [],
+  featureItems = [],
+  featureTitle,
+  open = false,
+  hidden = false,
+  onNavigate,
+}) {
   const { user } = useAuth()
+  const [featuresOpen, setFeaturesOpen] = useState(false)
   const mainItems = items.filter((item) => !item.section)
   const moduleItems = items.filter((item) => item.section === 'Módulos')
 
   return (
-    <aside className="sidebar">
+    <aside
+      id="app-sidebar"
+      className={`sidebar${open ? ' sidebar--open' : ''}`}
+      inert={hidden ? true : undefined}
+    >
       <div className="sidebar__brand">
         <span className="sidebar__mark">IMP</span>
         <div>
@@ -65,6 +78,7 @@ export default function Sidebar({ items = [], featureItems = [], featureTitle })
             className={({ isActive }) =>
               `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
             }
+            onClick={onNavigate}
           >
             <NavIcon name={item.icon} />
             <span>{item.label}</span>
@@ -83,6 +97,7 @@ export default function Sidebar({ items = [], featureItems = [], featureTitle })
                 className={({ isActive }) =>
                   `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
                 }
+                onClick={onNavigate}
               >
                 <NavIcon name={item.icon} />
                 <span>{item.label}</span>
@@ -94,15 +109,25 @@ export default function Sidebar({ items = [], featureItems = [], featureTitle })
 
       {featureItems.length ? (
         <>
-          <p className="sidebar__section">{featureTitle || 'Funcionalidades'}</p>
-          <ul className="sidebar__features">
-            {featureItems.map((feature) => (
-              <li key={feature.id} className="sidebar__feature">
-                <span className="sidebar__feature-dot" aria-hidden="true" />
-                <span>{feature.label}</span>
-              </li>
-            ))}
-          </ul>
+          <button
+            type="button"
+            className="sidebar__features-toggle"
+            aria-expanded={featuresOpen}
+            onClick={() => setFeaturesOpen((current) => !current)}
+          >
+            {featureTitle || 'Funcionalidades'}
+          </button>
+          <div className={`sidebar__features-panel${featuresOpen ? ' is-open' : ''}`}>
+            <p className="sidebar__section">{featureTitle || 'Funcionalidades'}</p>
+            <ul className="sidebar__features">
+              {featureItems.map((feature) => (
+                <li key={feature.id} className="sidebar__feature">
+                  <span className="sidebar__feature-dot" aria-hidden="true" />
+                  <span>{feature.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       ) : null}
 

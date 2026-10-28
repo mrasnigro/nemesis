@@ -115,3 +115,38 @@ select:focus-visible {
   background: rgba(156, 163, 175, 0.3);
   border-radius: 999px;
 }
+
+img,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+p,
+li,
+dd,
+figcaption {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 720px) {
+  .imp-panel:has(table),
+  .imp-module:has(table),
+  .bdr-section__card:has(table),
+  .module-workspace__content:has(table),
+  .app-layout__content:has(table) {
+    overflow-x: auto;
+  }
+
+  .imp-table,
+  .training-ai__table {
+    min-width: 36rem;
+  }
+}

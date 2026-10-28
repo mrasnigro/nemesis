@@ -506,6 +506,12 @@
   }
 }
 
+@media (min-width: 901px) {
+  .dialer-layout > .nav-backdrop {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .dialer-layout__content {
     padding: 1rem;
@@ -515,52 +521,192 @@
     flex-direction: column;
   }
 
-  .dialer-layout--collapsed,
-  .dialer-layout--expanded {
-    --bdr-sidebar-width: 100%;
+  .dialer-layout .nav-toggle {
+    position: fixed;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 80;
+    display: inline-flex;
   }
 
-  .dialer-layout__sidebar {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .dialer-layout__collapse {
-    position: static;
-    margin-left: auto;
-    transform: none;
-  }
-
-  .dialer-layout__sidebar nav {
-    flex-direction: row;
-    flex: 1;
-    overflow-x: auto;
-  }
-
-  .dialer-layout--expanded .dialer-layout__nav-link,
-  .dialer-layout--collapsed .dialer-layout__nav-link {
+  .dialer-layout__sidebar,
+  .dialer-layout--discagem .dialer-layout__sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+    width: min(18.5rem, calc(100vw - 3rem));
     flex-direction: column;
-    min-width: 4.5rem;
-    font-size: 0.58rem;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    transform: translateX(-110%);
+    transition: transform 0.2s ease;
+    overflow: auto;
+    padding: 3.75rem 0.85rem 1rem;
   }
 
-  .dialer-layout__nav-link .dialer-layout__icon:last-child {
+  .dialer-layout--menu-open .dialer-layout__sidebar,
+  .dialer-layout--menu-open.dialer-layout--discagem .dialer-layout__sidebar {
+    transform: translateX(0);
+  }
+
+  .dialer-layout__collapse,
+  .dialer-layout--discagem .dialer-layout__collapse {
     display: none;
   }
 
-  .dialer-layout__sidebar-foot {
+  .dialer-layout__sidebar nav,
+  .dialer-layout--discagem .dialer-layout__sidebar nav {
+    flex-direction: column;
+    flex: 1;
+    overflow: visible;
     width: 100%;
   }
 
+  .dialer-layout__sidebar-foot {
+    display: block;
+    width: 100%;
+  }
+
+  .dialer-layout--discagem .dialer-layout__sidebar-foot {
+    display: block;
+  }
+
+  .dialer-layout--discagem .dialer-layout__brand {
+    justify-content: flex-start;
+    padding: 0.35rem 0.5rem 1rem;
+    border-bottom: 1px solid #374151;
+  }
+
   .dialer-layout__header-inner {
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem 0.75rem 3.75rem;
+    justify-content: flex-start;
   }
 
   .dialer-layout__header-actions {
     gap: 0.75rem;
     flex-wrap: wrap;
     justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .dialer-layout--discagem {
+    height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+  }
+
+  .dialer-layout--discagem.dialer-layout--menu-open,
+  .dialer-layout--discagem.dialer-layout--menu-open .dialer-layout__shell {
+    overflow: visible;
+  }
+
+  .dialer-layout--discagem .dialer-layout__content {
+    padding-top: 4rem;
+  }
+
+  .dialer-layout__header {
+    height: auto;
+    min-height: 4rem;
+  }
+
+  .dialer-layout__header-inner,
+  .dialer-layout__header-inner--agenda {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .dialer-layout__page-back {
+    margin-left: auto;
+    white-space: normal;
+  }
+
+  .dialer-layout__role-block {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .dialer-layout__header-actions {
+    width: 100%;
+  }
+
+  .dialer-layout__page-title {
+    font-size: 0.95rem;
+  }
+}
+
+/* Compact header controls on tablets/phones: timer flexes, 44px tap targets */
+@media (max-width: 900px) {
+  .dialer-layout__header-actions .attendance-timer {
+    width: auto;
+    height: auto;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.85rem;
+    flex: 1 1 11rem;
+  }
+
+  .dialer-layout__logout {
+    min-height: 2.75rem;
+    padding-inline: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .dialer-layout__header-inner,
+  .dialer-layout__header-inner--agenda {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 0.6rem 0.75rem 0.6rem 3.5rem;
+  }
+
+  .dialer-layout__header-actions {
+    flex-wrap: nowrap;
+    flex: 1;
+    gap: 0.5rem;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .dialer-layout__header-actions .attendance-timer {
+    flex-direction: row;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .dialer-layout__header-actions .attendance-timer__copy {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: 0.5rem;
+  }
+
+  .dialer-layout__header-actions .attendance-timer__label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+
+  .dialer-layout__header-actions .attendance-timer__value {
+    font-size: 0.95rem;
+  }
+
+  .dialer-layout__role-block {
+    display: none;
+  }
+
+  .dialer-layout__logout {
+    flex-shrink: 0;
+    border: 1px solid #374151;
+  }
+
+  .dialer-layout__page-back {
+    margin-left: 0;
+    padding: 0.5rem 1rem;
+  }
+
+  .dialer-layout__header-inner--agenda {
+    justify-content: space-between;
   }
 }

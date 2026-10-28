@@ -47,3 +47,13 @@
 .section-header__btn:hover {
   filter: brightness(1.08);
 }
+
+@media (max-width: 640px) {
+  .section-header {
+    flex-direction: column;
+  }
+
+  .section-header__actions {
+    width: 100%;
+  }
+}

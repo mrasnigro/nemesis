@@ -38,8 +38,8 @@ const StreamControls: React.FC<StreamControlsProps> = ({ status, onStatusChange,
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
-      <div className="flex items-center gap-6">
+    <div className="bg-gray-800 rounded-lg p-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
+      <div className="flex items-center gap-6 max-sm:gap-3 max-sm:flex-wrap">
         <div className="flex flex-col">
           <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">STATUS DA TRANSMISSÃO</span>
           {status === 'live' ? (
@@ -55,14 +55,14 @@ const StreamControls: React.FC<StreamControlsProps> = ({ status, onStatusChange,
         </div>
 
         {status === 'live' && (
-          <div className="flex flex-col border-l border-gray-700 pl-6">
+          <div className="flex flex-col border-l border-gray-700 pl-6 max-sm:border-l-0 max-sm:pl-0">
             <span className="text-gray-400 text-xs uppercase tracking-wider mb-1">TEMPO NO AR</span>
             <span className="text-white font-mono text-lg">{formatTime(duration)}</span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap max-md:justify-end">
         {status !== 'finished' && status !== 'completed' && (
           <>
             <button 
@@ -108,21 +108,21 @@ const StreamControls: React.FC<StreamControlsProps> = ({ status, onStatusChange,
         {(!status || status === "scheduled" || status === "draft" || status === "pending" || status === "") && status !== 'live' && status !== 'finished' && status !== 'completed' ? (
           <button 
             onClick={() => onStatusChange('live')}
-            className="ml-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2"
+            className="ml-4 max-sm:ml-0 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2"
           >
             ▶ INICIAR TRANSMISSÃO
           </button>
         ) : status === 'live' ? (
           <button 
             onClick={() => onStatusChange("finished")}
-            className="ml-4 bg-gray-700 hover:bg-gray-600 text-red-500 font-bold py-2 px-6 rounded-lg transition-colors border border-red-500 flex items-center gap-2"
+            className="ml-4 max-sm:ml-0 bg-gray-700 hover:bg-gray-600 text-red-500 font-bold py-2 px-6 rounded-lg transition-colors border border-red-500 flex items-center gap-2"
           >
             ⏹ ENCERRAR
           </button>
         ) : (
           <button 
             disabled
-            className="ml-4 bg-gray-800 text-gray-500 font-bold py-2 px-6 rounded-lg cursor-not-allowed border border-gray-700"
+            className="ml-4 max-sm:ml-0 bg-gray-800 text-gray-500 font-bold py-2 px-6 rounded-lg cursor-not-allowed border border-gray-700"
           >
             TRANSMISSÃO ENCERRADA
           </button>
