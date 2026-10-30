@@ -153,7 +153,7 @@ Before production, finish or explicitly remove those requirements, add resilient
 | 5 | Outcomes and voicemail detection | Busy, no answer and voicemail are classified correctly; AMD results are calibrated on real Vono calls |
 | 6 | Recording | The audio appears on the saved call, and the AI summary uses the transcript |
 | 7 | Browser WebRTC | Operator registers over WSS, accepts a test call, and sends/receives audio |
-| 8 | Line limit, health check, logs | A sixth simultaneous call is refused cleanly, and diagnostics show trunk status |
+| 8 | Line limit, health check, logs | With the 2-channel Vono plan, a third simultaneous call is refused cleanly, and diagnostics show trunk status |
 | 9 | Acceptance tests (section 7) | All pass, then switch the client to production |
 
 Inbound AI attendant and real-time AI conversation remain later phases. They build on the same Asterisk server and ARI connection.
@@ -165,7 +165,7 @@ Inbound AI attendant and real-time AI conversation remain later phases. They bui
 3. **Lab tests** on the real Asterisk server and trunk:
    - Calls to a real mobile, a landline, a voicemail, a busy line and an invalid number.
    - Operator closes the tab mid-ring.
-   - Five operators dialing at once.
+   - Two operators dialing at once (the Vono plan allows 2 simultaneous calls; a two-number bridge uses both).
    - Asterisk stopped while a call is in progress.
 4. **Measurements:** time from click to ring, audio quality, and recording availability time.
 5. **Production gate:** the simulated provider is off, secrets are real, LGPD recording notice and allowed calling hours are in place, and the Asterisk config and recordings are backed up.
