@@ -25,7 +25,7 @@ async function fetchOnce(attemptId: string) {
   const now = new Date()
   try {
     const provider = await resolveProvider(customerId)
-    const audio = provider?.supportsRecording
+    const recording = provider?.supportsRecording
       ? await provider.fetchRecording({
           attemptId,
           phone: String(row.phone),
@@ -35,11 +35,11 @@ async function fetchOnce(attemptId: string) {
           providerCallId: row.provider_call_id == null ? null : String(row.provider_call_id),
         })
       : null
-    if (audio) {
-      const relative = path.join(customerId, `${attemptId}.mp3`)
+    if (recording) {
+      const relative = path.join(customerId, `${attemptId}.${recording.format}`)
       const absolute = recordingAbsolutePath(relative)
       await mkdir(path.dirname(absolute), { recursive: true })
-      await writeFile(absolute, audio)
+      await writeFile(absolute, recording.audio)
       await pool.query(
         `UPDATE bdr_dial_attempts
          SET recording_status = 'stored', recording_path = :relative, recording_tries = :tries, updated_at = :now

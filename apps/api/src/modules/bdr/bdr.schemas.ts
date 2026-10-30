@@ -57,6 +57,22 @@ export const manualAttemptStart = z.object({
   campaignId: z.string().max(26).nullable().optional(),
 })
 
+export const bridgeAttemptStart = z.object({
+  phone: z.string().trim().min(1).max(40),
+  otherPhone: z.string().trim().min(1).max(40),
+})
+
+export const transferWrite = z.object({
+  extension: z.string().trim().min(1).max(40).regex(/^[\w.@-]+$/),
+})
+
+export const leadSchedule = z.object({
+  phone: z.string().trim().min(1).max(40),
+  at: z.string().datetime({ offset: true }),
+})
+
+const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+
 export const attemptOutcome = z.object({
   outcome: z.enum(['voicemail', 'no_answer', 'busy', 'failed']),
 })
@@ -69,6 +85,7 @@ export const attemptListQuery = pageQuery.extend({
 
 export const extensionWrite = z.object({
   extension: z.string().trim().min(1).max(40).regex(/^[\w.@-]+$/),
+  sipPassword: z.string().min(1).max(200).optional(),
 })
 
 export const telephonySettingsWrite = z.object({
@@ -89,6 +106,26 @@ export const telephonySettingsWrite = z.object({
   trunkEndpoint: z.string().trim().min(1).max(80).regex(/^[\w.-]+$/).nullable().optional(),
   callerId: z.string().trim().max(40).nullable().optional(),
   maxChannels: z.number().int().min(1).max(100).optional(),
+<<<<<<< HEAD
+=======
+  webrtcWssUrl: z
+    .string()
+    .url()
+    .max(255)
+    .refine((value) => {
+      const url = new URL(value)
+      return url.protocol === 'wss:' && !url.username && !url.password && !url.search && !url.hash
+    })
+    .nullable()
+    .optional(),
+  sipDomain: z.string().trim().min(1).max(255).regex(/^[a-zA-Z0-9.-]+(?::\d{1,5})?$/).nullable().optional(),
+  amdEnabled: z.boolean().optional(),
+  callingStart: clock.nullable().optional(),
+  callingEnd: clock.nullable().optional(),
+  callingDays: z.string().regex(/^$|^[1-7](,[1-7])*$/).optional(),
+  inboundExtension: z.string().trim().max(40).regex(/^[\w.@-]*$/).nullable().optional(),
+  recordCalls: z.boolean().optional(),
+>>>>>>> module/bdr
   apiToken: z.string().min(1).max(200).optional(),
   apiKey: z.string().min(1).max(200).optional(),
   deviceId: z.string().trim().min(1).max(40).nullable().optional(),

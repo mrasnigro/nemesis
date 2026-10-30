@@ -33,6 +33,18 @@ describe('call AI client', () => {
     expect(form.get('model')).toBe('whisper-test')
     expect(form.get('language')).toBe('pt')
     expect(form.get('file')).toBeInstanceOf(Blob)
+    expect((form.get('file') as Blob).type).toBe('audio/mpeg')
+  })
+
+  it('sends WAV recordings to transcription using the matching media type and filename', async () => {
+    const captured: Captured[] = []
+    const ai = createCallAi({
+      ...options,
+      fetchImpl: fakeFetch({ '/audio/transcriptions': { text: 'Teste de áudio.' } }, captured),
+    })
+    await ai.transcribe(Buffer.from('RIFF....WAVE'), 'wav')
+    const form = captured[0].init.body as FormData
+    expect(form.get('file')).toMatchObject({ type: 'audio/wav', name: 'ligacao.wav' })
   })
 
   it('summarizes the record and the transcript, treating both as data', async () => {

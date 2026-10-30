@@ -10,6 +10,16 @@ const PROVIDERS = [
   ...(import.meta.env.DEV ? [{ id: 'simulated', label: 'Simulador (desenvolvimento)' }] : []),
 ]
 
+const CALLING_DAYS = [
+  ['1', 'Seg'],
+  ['2', 'Ter'],
+  ['3', 'Qua'],
+  ['4', 'Qui'],
+  ['5', 'Sex'],
+  ['6', 'Sáb'],
+  ['7', 'Dom'],
+]
+
 const EMPTY_FORM = {
   provider: 'none',
   baseUrl: '',
@@ -17,6 +27,17 @@ const EMPTY_FORM = {
   ariUrl: '',
   ariUsername: '',
   trunkEndpoint: '',
+<<<<<<< HEAD
+=======
+  webrtcWssUrl: '',
+  sipDomain: '',
+  amdEnabled: false,
+  callingStart: '',
+  callingEnd: '',
+  callingDays: '1,2,3,4,5',
+  inboundExtension: '',
+  recordCalls: true,
+>>>>>>> module/bdr
   callerId: '',
   maxChannels: '5',
   dialPrefix: '0',
@@ -39,6 +60,17 @@ function toForm(settings) {
     ariUrl: settings.ariUrl || '',
     ariUsername: settings.ariUsername || '',
     trunkEndpoint: settings.trunkEndpoint || '',
+<<<<<<< HEAD
+=======
+    webrtcWssUrl: settings.webrtcWssUrl || '',
+    sipDomain: settings.sipDomain || '',
+    amdEnabled: Boolean(settings.amdEnabled),
+    callingStart: settings.callingStart || '',
+    callingEnd: settings.callingEnd || '',
+    callingDays: settings.callingDays || '1,2,3,4,5',
+    inboundExtension: settings.inboundExtension || '',
+    recordCalls: settings.recordCalls !== false,
+>>>>>>> module/bdr
     callerId: settings.callerId || '',
     maxChannels: String(settings.maxChannels ?? 5),
     dialPrefix: settings.dialPrefix ?? '0',
@@ -58,6 +90,17 @@ function toPayload(form) {
     ariUrl: form.ariUrl.trim() || null,
     ariUsername: form.ariUsername.trim() || null,
     trunkEndpoint: form.trunkEndpoint.trim() || null,
+<<<<<<< HEAD
+=======
+    webrtcWssUrl: form.webrtcWssUrl.trim() || null,
+    sipDomain: form.sipDomain.trim() || null,
+    amdEnabled: form.amdEnabled,
+    callingStart: form.callingStart || null,
+    callingEnd: form.callingEnd || null,
+    callingDays: form.callingDays,
+    inboundExtension: form.inboundExtension.trim() || null,
+    recordCalls: form.recordCalls,
+>>>>>>> module/bdr
     callerId: form.callerId.trim() || null,
     maxChannels: Number(form.maxChannels),
     dialPrefix: form.dialPrefix.trim(),
@@ -105,6 +148,16 @@ export default function TelephonySettingsPanel() {
   }, [])
 
   const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }))
+
+  function toggleDay(day) {
+    setForm((current) => {
+      const selected = new Set(current.callingDays.split(',').filter(Boolean))
+      if (selected.has(day)) selected.delete(day)
+      else selected.add(day)
+      const callingDays = CALLING_DAYS.map(([id]) => id).filter((id) => selected.has(id)).join(',')
+      return { ...current, callingDays }
+    })
+  }
 
   async function save(event) {
     event.preventDefault()
@@ -204,7 +257,12 @@ export default function TelephonySettingsPanel() {
           <>
             <p className="bdr-setup__note">
               As credenciais são armazenadas criptografadas no servidor. Configure o endpoint SIP do operador na tela
+<<<<<<< HEAD
               do discador; credenciais SIP do tronco pertencem ao Asterisk, não a esta configuração.
+=======
+              do discador; credenciais SIP do tronco pertencem ao Asterisk. Para WebRTC, habilite WSS com certificado TLS
+              confiável e configure o endpoint/domínio abaixo.
+>>>>>>> module/bdr
             </p>
             <div className="bdr-setup__row">
               <label htmlFor="bdr-ari-url">URL ARI</label>
@@ -254,6 +312,61 @@ export default function TelephonySettingsPanel() {
               />
             </div>
             <div className="bdr-setup__row">
+<<<<<<< HEAD
+=======
+              <label htmlFor="bdr-webrtc-wss">WebSocket SIP seguro (WSS)</label>
+              <input
+                id="bdr-webrtc-wss"
+                className="bdr-setup__input"
+                type="url"
+                value={form.webrtcWssUrl}
+                onChange={update('webrtcWssUrl')}
+                placeholder="wss://pbx.example.com:8089/ws"
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-sip-domain">Domínio SIP</label>
+              <input
+                id="bdr-sip-domain"
+                className="bdr-setup__input"
+                value={form.sipDomain}
+                onChange={update('sipDomain')}
+                placeholder="pbx.example.com"
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-asterisk-amd">Detectar caixa postal</label>
+              <input
+                id="bdr-asterisk-amd"
+                type="checkbox"
+                checked={form.amdEnabled}
+                onChange={(event) => setForm((current) => ({ ...current, amdEnabled: event.target.checked }))}
+              />
+              <span>Exige o contexto imp-bdr-amd instalado no Asterisk. O app Stasis desse contexto tem de ser o mesmo de ASTERISK_ARI_APP.</span>
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-inbound-extension">Ramal que recebe ligações</label>
+              <input
+                id="bdr-inbound-extension"
+                className="bdr-setup__input"
+                value={form.inboundExtension}
+                onChange={update('inboundExtension')}
+                placeholder="ex.: 1001"
+                maxLength={40}
+              />
+            </div>
+            <div className="bdr-setup__row">
+              <label htmlFor="bdr-record-calls">Gravar ligações</label>
+              <input
+                id="bdr-record-calls"
+                type="checkbox"
+                checked={form.recordCalls}
+                onChange={(event) => setForm((current) => ({ ...current, recordCalls: event.target.checked }))}
+              />
+              <span>Exige informar o interlocutor. Desmarcado, o Asterisk não grava a ponte.</span>
+            </div>
+            <div className="bdr-setup__row">
+>>>>>>> module/bdr
               <label htmlFor="bdr-ari-caller-id">Identificação de origem (opcional)</label>
               <input
                 id="bdr-ari-caller-id"
@@ -278,6 +391,42 @@ export default function TelephonySettingsPanel() {
           </>
         ) : null}
 
+<<<<<<< HEAD
+=======
+        <div className="bdr-setup__row">
+          <label htmlFor="bdr-calling-start">Horário permitido</label>
+          <input
+            id="bdr-calling-start"
+            className="bdr-setup__input"
+            type="time"
+            value={form.callingStart}
+            onChange={update('callingStart')}
+          />
+          <input
+            id="bdr-calling-end"
+            className="bdr-setup__input"
+            type="time"
+            aria-label="Fim do horário permitido"
+            value={form.callingEnd}
+            onChange={update('callingEnd')}
+          />
+        </div>
+        <div className="bdr-setup__row">
+          <span>Dias</span>
+          {CALLING_DAYS.map(([id, label]) => (
+            <label key={id}>
+              <input
+                type="checkbox"
+                checked={form.callingDays.split(',').includes(id)}
+                onChange={() => toggleDay(id)}
+              />
+              {label}
+            </label>
+          ))}
+          <span>Vazio no início e no fim significa sem restrição de horário.</span>
+        </div>
+
+>>>>>>> module/bdr
         <div className="bdr-setup__row">
           <label htmlFor="bdr-tel-prefix">Prefixo de discagem</label>
           <input

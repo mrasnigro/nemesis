@@ -81,11 +81,16 @@ export const bdrRepository = {
     return payload.data
   },
 
-  async setExtension(extension) {
+  async setExtension(extension, sipPassword) {
     const payload = await request('/api/modules/bdr/dialer/extension', {
       method: 'PUT',
-      body: { extension },
+      body: { extension, ...(sipPassword ? { sipPassword } : {}) },
     })
+    return payload.data
+  },
+
+  async getWebRtcConfig() {
+    const payload = await request('/api/modules/bdr/dialer/webrtc-config')
     return payload.data
   },
 
@@ -97,6 +102,31 @@ export const bdrRepository = {
 
   async startManualAttempt(phone, campaignId) {
     const payload = await post('/api/modules/bdr/dialer/attempts/manual', { phone, campaignId })
+    return payload.data
+  },
+
+  async startBridgeAttempt(phone, otherPhone) {
+    const payload = await post('/api/modules/bdr/dialer/attempts/bridge', { phone, otherPhone })
+    return payload.data
+  },
+
+  async transferAttempt(attemptId, extension) {
+    const payload = await post(`/api/modules/bdr/dialer/attempts/${attemptId}/transfer`, { extension })
+    return payload.data
+  },
+
+  async listDialAttempts() {
+    const payload = await request('/api/modules/bdr/dialer/attempts?page=1&pageSize=20')
+    return payload.data || []
+  },
+
+  async listInbound() {
+    const payload = await request('/api/modules/bdr/dialer/inbound')
+    return payload.data || []
+  },
+
+  async scheduleLead(campaignId, phone, at) {
+    const payload = await post(`/api/modules/bdr/campaigns/${campaignId}/schedule`, { phone, at })
     return payload.data
   },
 

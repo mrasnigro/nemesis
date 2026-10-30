@@ -9,3 +9,14 @@ export function recordingAbsolutePath(relative: string) {
   if (!absolute.startsWith(recordingsRoot + path.sep)) throw new Error('Recording path escapes storage root')
   return absolute
 }
+
+export function recordingContentType(relative: string) {
+  switch (path.extname(relative).toLowerCase()) {
+    case '.mp3':
+      return 'audio/mpeg'
+    case '.wav':
+      return 'audio/wav'
+    default:
+      throw new Error('Unsupported stored recording format')
+  }
+}

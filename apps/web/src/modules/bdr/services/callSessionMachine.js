@@ -14,6 +14,7 @@ export function createIdleCall() {
     mode: null,
     contactMethod: null,
     manualPhone: '',
+    connectPhone: '',
     attempt: null,
     nextDialAt: 0,
     queueWait: null,
@@ -29,6 +30,7 @@ export function createSearchingCall({
   mode,
   contactMethod = 'phone',
   manualPhone = '',
+  connectPhone = '',
   nextDialAt = 0,
   queueWait = null,
 }) {
@@ -40,6 +42,7 @@ export function createSearchingCall({
     mode,
     contactMethod,
     manualPhone,
+    connectPhone,
     attempt: null,
     nextDialAt,
     queueWait,
@@ -65,9 +68,12 @@ export function canScheduleMeeting(callStatus) {
   return callStatus === 'connected'
 }
 
-export function validateManualStart({ phone, contactMethod }) {
+export function validateManualStart({ phone, contactMethod, connectPhone = '' }) {
   if (!String(phone || '').trim()) {
     return { ok: false, error: 'Informe o número de telefone.' }
+  }
+  if (String(connectPhone || '').trim() && String(connectPhone).replace(/\D/g, '').length < 8) {
+    return { ok: false, error: 'Informe o segundo número com DDD.' }
   }
   if (!contactMethod) {
     return { ok: false, error: 'Selecione o tipo de contato.' }

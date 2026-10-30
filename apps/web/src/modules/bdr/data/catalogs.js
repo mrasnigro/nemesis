@@ -35,6 +35,7 @@ export const DIAL_OUTCOME_LABELS = {
   busy: 'Ocupado',
   no_answer: 'Não atendida',
   voicemail: 'Caixa postal',
+  invalid: 'Número inválido',
   failed: 'Falha',
   cancelled: 'Cancelada',
   abandoned: 'Abandonada',

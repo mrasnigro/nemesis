@@ -14,7 +14,7 @@ export type CallAiOptions = {
 
 export type CallAi = {
   canTranscribe: boolean
-  transcribe(audio: Buffer): Promise<string>
+  transcribe(audio: Buffer, format?: 'mp3' | 'wav'): Promise<string>
   summarize(input: { facts: string; transcript: string | null }): Promise<string>
 }
 
@@ -64,10 +64,11 @@ export function createCallAi(options: CallAiOptions): CallAi {
   return {
     canTranscribe: options.transcribeModel !== null,
 
-    async transcribe(audio) {
+    async transcribe(audio, format = 'mp3') {
       if (!options.transcribeModel) throw new Error('Transcription is disabled')
       const form = new FormData()
-      form.append('file', new Blob([new Uint8Array(audio)], { type: 'audio/mpeg' }), 'ligacao.mp3')
+      const contentType = format === 'wav' ? 'audio/wav' : 'audio/mpeg'
+      form.append('file', new Blob([new Uint8Array(audio)], { type: contentType }), `ligacao.${format}`)
       form.append('model', options.transcribeModel)
       form.append('language', 'pt')
       const parsed = transcriptionSchema.safeParse(await send('/audio/transcriptions', { method: 'POST', body: form }))
