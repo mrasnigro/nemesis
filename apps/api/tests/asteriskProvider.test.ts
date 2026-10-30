@@ -6,10 +6,7 @@ import {
   closeAsteriskSessions,
   createAsteriskProvider,
 } from '../src/modules/bdr/telephony/asterisk.js'
-<<<<<<< HEAD
-=======
 import { withinCallingHours } from '../src/modules/bdr/telephony/callingHours.js'
->>>>>>> module/bdr
 
 class FakeSocket extends EventEmitter {
   readyState = 1
@@ -49,27 +46,17 @@ function createLeaseStore() {
       startedAt: Date
       wasAnswered: boolean
       providerCallId: string | null
-<<<<<<< HEAD
-=======
       slots: number
->>>>>>> module/bdr
     }
   >()
   return {
     leases,
-<<<<<<< HEAD
-    async acquire(customerId: string, attemptId: string, trunkKey: string, maxChannels: number) {
-      const active = [...leases.values()].filter((lease) => lease.trunkKey === trunkKey).length
-      if (active >= maxChannels) return false
-      leases.set(attemptId, { ...target, customerId, attemptId, trunkKey, wasAnswered: false })
-=======
     async acquire(customerId: string, attemptId: string, trunkKey: string, maxChannels: number, slots = 1) {
       const active = [...leases.values()]
         .filter((lease) => lease.trunkKey === trunkKey)
         .reduce((sum, lease) => sum + lease.slots, 0)
       if (active + slots > maxChannels) return false
       leases.set(attemptId, { ...target, customerId, attemptId, trunkKey, wasAnswered: false, slots })
->>>>>>> module/bdr
       return true
     },
     async release(_customerId: string, attemptId: string) {
@@ -102,11 +89,8 @@ describe('Asterisk ARI provider', () => {
     const requests: { method: string; url: URL; authorization: string | undefined }[] = []
     const socket = new FakeSocket()
     const leaseStore = createLeaseStore()
-<<<<<<< HEAD
-=======
     let recordingActive = false
     const wav = Buffer.from('RIFF....WAVEfmt ')
->>>>>>> module/bdr
     const provider = createAsteriskProvider({
       customerId: 'customer-1',
       baseUrl: 'http://asterisk.test:8088/ari',
@@ -130,8 +114,6 @@ describe('Asterisk ARI provider', () => {
         if (method === 'POST' && url.pathname.endsWith('/bridges')) {
           return Response.json({ id: 'bridge-1' })
         }
-<<<<<<< HEAD
-=======
         if (method === 'GET' && url.pathname.includes('/recordings/live/')) {
           return recordingActive
             ? Response.json({ name: `imp-${target.attemptId}`, state: 'recording' })
@@ -144,7 +126,6 @@ describe('Asterisk ARI provider', () => {
         if (method === 'GET' && url.pathname.includes('/recordings/stored/')) {
           return new Response(wav, { headers: { 'Content-Type': 'audio/wav' } })
         }
->>>>>>> module/bdr
         if (method === 'POST' && url.pathname.endsWith('/channels')) {
           return Response.json({ id: url.searchParams.get('channelId') })
         }
@@ -185,15 +166,12 @@ describe('Asterisk ARI provider', () => {
       await expect(provider.liveState(target)).resolves.toMatchObject({ state: 'talking' })
     })
     expect(requests.some(({ url }) => url.pathname.endsWith('/bridges/bridge-1/addChannel'))).toBe(true)
-<<<<<<< HEAD
-=======
     const startRecording = requests.find(
       ({ method, url }) => method === 'POST' && url.pathname.endsWith('/bridges/bridge-1/record'),
     )
     expect(startRecording).toBeDefined()
     expect(startRecording?.url.searchParams.get('format')).toBe('wav')
     expect(startRecording?.url.searchParams.get('name')).toBe(`imp-${target.attemptId}`)
->>>>>>> module/bdr
 
     socket.event({
       type: 'ChannelDestroyed',
@@ -204,10 +182,7 @@ describe('Asterisk ARI provider', () => {
       await expect(provider.liveState(target)).resolves.toMatchObject({ state: 'gone' })
     })
     await expect(provider.finalOutcome(target)).resolves.toBe('abandoned')
-<<<<<<< HEAD
-=======
     await expect(provider.fetchRecording(target)).resolves.toEqual({ audio: wav, format: 'wav' })
->>>>>>> module/bdr
   })
 
   it('hangs up active channels and marks a cancelled attempt', async () => {
@@ -341,8 +316,6 @@ describe('Asterisk ARI provider', () => {
     })
     expect(leaseStore.leases.size).toBe(1)
   })
-<<<<<<< HEAD
-=======
 
   it('classifies Asterisk AMD machine results as voicemail and sends non-machine results to the operator', async () => {
     const requests: { method: string; url: URL }[] = []
@@ -663,5 +636,4 @@ describe('calling hours', () => {
       withinCallingHours(new Date('2026-10-18T15:00:00Z'), { callingStart: null, callingEnd: null, callingDays: '' }, 'America/Sao_Paulo'),
     ).toBe(true)
   })
->>>>>>> module/bdr
 })

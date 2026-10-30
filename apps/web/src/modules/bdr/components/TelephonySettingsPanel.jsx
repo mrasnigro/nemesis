@@ -27,8 +27,6 @@ const EMPTY_FORM = {
   ariUrl: '',
   ariUsername: '',
   trunkEndpoint: '',
-<<<<<<< HEAD
-=======
   webrtcWssUrl: '',
   sipDomain: '',
   amdEnabled: false,
@@ -37,7 +35,6 @@ const EMPTY_FORM = {
   callingDays: '1,2,3,4,5',
   inboundExtension: '',
   recordCalls: true,
->>>>>>> module/bdr
   callerId: '',
   maxChannels: '5',
   dialPrefix: '0',
@@ -60,8 +57,6 @@ function toForm(settings) {
     ariUrl: settings.ariUrl || '',
     ariUsername: settings.ariUsername || '',
     trunkEndpoint: settings.trunkEndpoint || '',
-<<<<<<< HEAD
-=======
     webrtcWssUrl: settings.webrtcWssUrl || '',
     sipDomain: settings.sipDomain || '',
     amdEnabled: Boolean(settings.amdEnabled),
@@ -70,7 +65,6 @@ function toForm(settings) {
     callingDays: settings.callingDays || '1,2,3,4,5',
     inboundExtension: settings.inboundExtension || '',
     recordCalls: settings.recordCalls !== false,
->>>>>>> module/bdr
     callerId: settings.callerId || '',
     maxChannels: String(settings.maxChannels ?? 5),
     dialPrefix: settings.dialPrefix ?? '0',
@@ -90,8 +84,6 @@ function toPayload(form) {
     ariUrl: form.ariUrl.trim() || null,
     ariUsername: form.ariUsername.trim() || null,
     trunkEndpoint: form.trunkEndpoint.trim() || null,
-<<<<<<< HEAD
-=======
     webrtcWssUrl: form.webrtcWssUrl.trim() || null,
     sipDomain: form.sipDomain.trim() || null,
     amdEnabled: form.amdEnabled,
@@ -100,7 +92,6 @@ function toPayload(form) {
     callingDays: form.callingDays,
     inboundExtension: form.inboundExtension.trim() || null,
     recordCalls: form.recordCalls,
->>>>>>> module/bdr
     callerId: form.callerId.trim() || null,
     maxChannels: Number(form.maxChannels),
     dialPrefix: form.dialPrefix.trim(),
@@ -257,12 +248,8 @@ export default function TelephonySettingsPanel() {
           <>
             <p className="bdr-setup__note">
               As credenciais são armazenadas criptografadas no servidor. Configure o endpoint SIP do operador na tela
-<<<<<<< HEAD
-              do discador; credenciais SIP do tronco pertencem ao Asterisk, não a esta configuração.
-=======
               do discador; credenciais SIP do tronco pertencem ao Asterisk. Para WebRTC, habilite WSS com certificado TLS
               confiável e configure o endpoint/domínio abaixo.
->>>>>>> module/bdr
             </p>
             <div className="bdr-setup__row">
               <label htmlFor="bdr-ari-url">URL ARI</label>
@@ -312,8 +299,6 @@ export default function TelephonySettingsPanel() {
               />
             </div>
             <div className="bdr-setup__row">
-<<<<<<< HEAD
-=======
               <label htmlFor="bdr-webrtc-wss">WebSocket SIP seguro (WSS)</label>
               <input
                 id="bdr-webrtc-wss"
@@ -366,7 +351,6 @@ export default function TelephonySettingsPanel() {
               <span>Exige informar o interlocutor. Desmarcado, o Asterisk não grava a ponte.</span>
             </div>
             <div className="bdr-setup__row">
->>>>>>> module/bdr
               <label htmlFor="bdr-ari-caller-id">Identificação de origem (opcional)</label>
               <input
                 id="bdr-ari-caller-id"
@@ -391,8 +375,6 @@ export default function TelephonySettingsPanel() {
           </>
         ) : null}
 
-<<<<<<< HEAD
-=======
         <div className="bdr-setup__row">
           <label htmlFor="bdr-calling-start">Horário permitido</label>
           <input
@@ -426,7 +408,6 @@ export default function TelephonySettingsPanel() {
           <span>Vazio no início e no fim significa sem restrição de horário.</span>
         </div>
 
->>>>>>> module/bdr
         <div className="bdr-setup__row">
           <label htmlFor="bdr-tel-prefix">Prefixo de discagem</label>
           <input

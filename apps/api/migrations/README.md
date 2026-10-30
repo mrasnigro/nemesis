@@ -40,7 +40,6 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `007_bdr_drop_unused.sql` | Drops `bdr_dial_attempts.provider_json` |
 | `008_training_sessions_flow.sql` | Adds `persona_id`, `media_mode`, `ai_provider`, `judge_source` to `training_sessions`; creates `training_session_messages` (one row per message, unique `(session_id, seq)`); moves transcripts that older sessions kept inside `session_json` into that table |
 | `009_bdr_call_summary.sql` | Adds the AI call summary to `bdr_calls`: `summary_text`, `summary_source`, `summary_status`, `summary_tries`, `summary_updated_at`, `transcript_text`. The summary built from the record is computed on read and not stored |
-<<<<<<< HEAD
 | `010_webinar_core.sql` | `webinar_webinars`, `webinar_access_codes`, `webinar_leads`, `webinar_chat_messages`. Nothing is copied from the old `imp_webinar` schema |
 | `011_webinar_plans.sql` | `webinar_plans` (shared catalog, no `customer_id`; a `NULL` limit means no limit; money in cents), `webinar_subscriptions` (one per customer; "expired" is `expires_at` in the past, not a stored status), `webinar_payments` (manual records, no gateway). Inserts the four starter plans (Trial, Básico, Profissional, Enterprise) with fixed ids |
 | `012_training_groups.sql` | `training_groups`, `training_group_members` |
@@ -49,14 +48,6 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `015_training_groups_detail.sql` | `description` and `status` on `training_groups` |
 | `016_training_group_minutes.sql` | `monthly_minutes` on `training_groups` (NULL = unlimited) |
 | `017_training_customer_settings.sql` | `training_customer_settings` (`require_2fa`) |
-
-## How Webinar plans work
-
-- A customer with no subscription is put on the plan flagged `is_starter` (Trial, 30 days) the first time it uses Webinar, so the trial clock starts at first use.
-- Limits are enforced by the API, not shown only: a webinar's duration and seats may not exceed the plan; scheduling or going live needs a subscription in force (`active`, not expired); registrations and live viewers are capped by the plan's `max_participants` (live viewers also by `WEBINAR_STREAM_MAX_VIEWERS`). Reading, drafting and ending a live webinar never need an active subscription.
-- Only IMP administrators (`/api/admin/webinar`) edit plans, assign them and register payments. Registering a payment moves `expires_at` to the end of the paid period; voiding one does not move it back.
-- `replay_storage_days` and `features_json` are informational until replay exists.
-=======
 | `018_bdr_asterisk_settings.sql` | Adds per-customer Asterisk ARI/trunk settings |
 | `019_bdr_asterisk_channel_leases.sql` | Persists trunk-scoped active Asterisk channel reservations |
 | `020_bdr_webrtc_settings.sql` | Adds per-customer SIP WSS URL and domain for browser phones |
@@ -64,7 +55,13 @@ npm run db:migrate        # from the repository root; applies every file not yet
 | `022_bdr_asterisk_amd.sql` | Adds the per-customer opt-in for dialplan-based answering-machine detection |
 | `023_bdr_call_controls.sql` | Adds calling hours, inbound extension, recording opt-out, and inbound/outbound direction on dial attempts |
 | `024_bdr_lease_slots.sql` | Counts trunk channels per dial attempt so a two-number bridge reserves two slots |
->>>>>>> module/bdr
+
+## How Webinar plans work
+
+- A customer with no subscription is put on the plan flagged `is_starter` (Trial, 30 days) the first time it uses Webinar, so the trial clock starts at first use.
+- Limits are enforced by the API, not shown only: a webinar's duration and seats may not exceed the plan; scheduling or going live needs a subscription in force (`active`, not expired); registrations and live viewers are capped by the plan's `max_participants` (live viewers also by `WEBINAR_STREAM_MAX_VIEWERS`). Reading, drafting and ending a live webinar never need an active subscription.
+- Only IMP administrators (`/api/admin/webinar`) edit plans, assign them and register payments. Registering a payment moves `expires_at` to the end of the paid period; voiding one does not move it back.
+- `replay_storage_days` and `features_json` are informational until replay exists.
 
 ## How BDR tables relate
 

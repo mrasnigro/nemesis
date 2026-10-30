@@ -1,11 +1,5 @@
 import { createHash } from 'node:crypto'
 import type { RowDataPacket } from 'mysql2/promise'
-<<<<<<< HEAD
-import WebSocket, { type ClientOptions } from 'ws'
-import { AppError } from '../../../core/errors.js'
-import { pool } from '../../../core/db.js'
-import type { DialOutcome, DialTarget, LiveStatus, TelephonyProvider } from './types.js'
-=======
 import { ulid } from 'ulid'
 import WebSocket, { type ClientOptions } from 'ws'
 import { AppError } from '../../../core/errors.js'
@@ -15,7 +9,6 @@ import type { CallRecording, DialOutcome, DialTarget, LiveStatus, TelephonyProvi
 
 /** Dialplan context that runs AMD and returns the channel to this Stasis app. */
 export const ASTERISK_AMD_CONTEXT = 'imp-bdr-amd'
->>>>>>> module/bdr
 
 export type AsteriskOptions = {
   customerId: string
@@ -27,11 +20,6 @@ export type AsteriskOptions = {
   dialPrefix: string
   callerId: string | null
   maxChannels: number
-<<<<<<< HEAD
-  fetchImpl?: typeof fetch
-  socketFactory?: (url: string, options: ClientOptions) => WebSocket
-  leaseStore?: AsteriskLeaseStore
-=======
   amdEnabled?: boolean
   inboundExtension?: string | null
   recordCalls?: boolean
@@ -39,24 +27,16 @@ export type AsteriskOptions = {
   socketFactory?: (url: string, options: ClientOptions) => WebSocket
   leaseStore?: AsteriskLeaseStore
   inboundStore?: InboundStore
->>>>>>> module/bdr
 }
 
 type AriChannel = { id: string; state?: string }
 type AriBridge = { id: string; channels?: string[] }
-<<<<<<< HEAD
-=======
 type AriLiveRecording = { name: string; state?: string }
->>>>>>> module/bdr
 type AriEvent = {
   type?: string
   application?: string
   args?: string[]
-<<<<<<< HEAD
-  channel?: { id?: string }
-=======
   channel?: { id?: string; caller?: { number?: string } }
->>>>>>> module/bdr
   cause?: number
 }
 type AttemptSession = {
@@ -65,18 +45,12 @@ type AttemptSession = {
   externalChannelId: string | null
   operatorChannelId: string | null
   bridgeId: string | null
-<<<<<<< HEAD
-  stage: 'originating' | 'agent_ringing' | 'talking' | 'ended' | 'failed'
-=======
   stage: 'originating' | 'amd' | 'agent_ringing' | 'talking' | 'ended' | 'failed'
->>>>>>> module/bdr
   outcome: DialOutcome | null
   extension: string
   externalStarted: boolean
   operatorStarted: boolean
   operatorJoined: boolean
-<<<<<<< HEAD
-=======
   amdStarted: boolean
   amdCompleted: boolean
   ignoredChannels: Set<string>
@@ -98,7 +72,6 @@ export type InboundStore = {
   opened(call: InboundCallUpdate): Promise<void>
   answered(customerId: string, attemptId: string, extension: string): Promise<void>
   ended(customerId: string, attemptId: string, outcome: DialOutcome): Promise<void>
->>>>>>> module/bdr
 }
 type AriSession = {
   socket: WebSocket | null
@@ -119,11 +92,7 @@ export type AsteriskLease = {
 }
 
 export type AsteriskLeaseStore = {
-<<<<<<< HEAD
-  acquire(customerId: string, attemptId: string, trunkKey: string, maxChannels: number): Promise<boolean>
-=======
   acquire(customerId: string, attemptId: string, trunkKey: string, maxChannels: number, slots?: number): Promise<boolean>
->>>>>>> module/bdr
   release(customerId: string, attemptId: string): Promise<void>
   list(customerId: string): Promise<AsteriskLease[]>
 }
@@ -140,11 +109,7 @@ type LeaseRow = RowDataPacket & {
 }
 
 const databaseLeaseStore: AsteriskLeaseStore = {
-<<<<<<< HEAD
-  async acquire(customerId, attemptId, trunkKey, maxChannels) {
-=======
   async acquire(customerId, attemptId, trunkKey, maxChannels, slots = 1) {
->>>>>>> module/bdr
     const connection = await pool.getConnection()
     const lockName = `bdr:${trunkKey.slice(0, 59)}`
     let lockAcquired = false
@@ -160,30 +125,17 @@ const databaseLeaseStore: AsteriskLeaseStore = {
       await connection.beginTransaction()
       transactionStarted = true
       const [counts] = await connection.query<(RowDataPacket & { active: number | string })[]>(
-<<<<<<< HEAD
-        'SELECT COUNT(*) AS active FROM bdr_asterisk_channel_leases WHERE trunk_key = :trunkKey',
-        { trunkKey },
-      )
-      if (Number(counts[0]?.active ?? 0) >= maxChannels) {
-=======
         'SELECT COALESCE(SUM(slots), 0) AS active FROM bdr_asterisk_channel_leases WHERE trunk_key = :trunkKey',
         { trunkKey },
       )
       if (Number(counts[0]?.active ?? 0) + slots > maxChannels) {
->>>>>>> module/bdr
         await connection.rollback()
         return false
       }
       await connection.query(
-<<<<<<< HEAD
-        `INSERT INTO bdr_asterisk_channel_leases (customer_id, attempt_id, trunk_key, acquired_at)
-         VALUES (:customerId, :attemptId, :trunkKey, :acquiredAt)`,
-        { customerId, attemptId, trunkKey, acquiredAt: new Date() },
-=======
         `INSERT INTO bdr_asterisk_channel_leases (customer_id, attempt_id, trunk_key, slots, acquired_at)
          VALUES (:customerId, :attemptId, :trunkKey, :slots, :acquiredAt)`,
         { customerId, attemptId, trunkKey, slots, acquiredAt: new Date() },
->>>>>>> module/bdr
       )
       await connection.commit()
       transactionStarted = false
@@ -211,11 +163,7 @@ const databaseLeaseStore: AsteriskLeaseStore = {
 
   async list(customerId) {
     const [rows] = await pool.query<LeaseRow[]>(
-<<<<<<< HEAD
-      `SELECT l.customer_id, l.attempt_id, a.phone, a.operator_extension, a.started_at, a.status, a.provider_call_id
-=======
       `SELECT l.customer_id, l.attempt_id, l.trunk_key, a.phone, a.operator_extension, a.started_at, a.status, a.provider_call_id
->>>>>>> module/bdr
        FROM bdr_asterisk_channel_leases l
        JOIN bdr_dial_attempts a ON a.id = l.attempt_id
        WHERE l.customer_id = :customerId AND a.status IN ('ringing', 'answered')`,
@@ -234,11 +182,6 @@ const databaseLeaseStore: AsteriskLeaseStore = {
   },
 }
 
-<<<<<<< HEAD
-const sessions = new Map<string, AriSession>()
-const REQUEST_TIMEOUT_MS = 10_000
-const SOCKET_TIMEOUT_MS = 10_000
-=======
 const databaseInboundStore: InboundStore = {
   async opened(call) {
     const now = new Date()
@@ -290,7 +233,6 @@ const sessions = new Map<string, AriSession>()
 const REQUEST_TIMEOUT_MS = 10_000
 const SOCKET_TIMEOUT_MS = 10_000
 const INVALID_NUMBER_CAUSES = new Set([1, 3, 22, 28])
->>>>>>> module/bdr
 
 function sessionKey(options: AsteriskOptions) {
   return createHash('sha256')
@@ -305,24 +247,18 @@ export function asteriskProviderConfigured(
 }
 
 function channelOutcome(cause: number | undefined, wasTalking: boolean): DialOutcome {
-<<<<<<< HEAD
-=======
   if (!wasTalking && cause != null && INVALID_NUMBER_CAUSES.has(cause)) return 'invalid'
->>>>>>> module/bdr
   if (cause === 17) return 'busy'
   if (cause === 18 || cause === 19) return 'no_answer'
   if (cause === 16) return wasTalking ? 'abandoned' : 'no_answer'
   return 'failed'
 }
 
-<<<<<<< HEAD
-=======
 function callerNumber(value: string | undefined) {
   const raw = String(value ?? '')
   return normalizePhone(raw) ?? raw.replace(/\D/g, '').replace(/^0+/, '').slice(-20)
 }
 
->>>>>>> module/bdr
 function base64Auth(username: string, password: string) {
   return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
 }
@@ -342,11 +278,8 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
   const doFetch = options.fetchImpl ?? fetch
   const socketFactory = options.socketFactory ?? ((url, clientOptions) => new WebSocket(url, clientOptions))
   const leaseStore = options.leaseStore ?? databaseLeaseStore
-<<<<<<< HEAD
-=======
   const inboundStore = options.inboundStore ?? databaseInboundStore
   const recordCalls = options.recordCalls !== false
->>>>>>> module/bdr
   const session = getSession(options)
   const trunkKey = createHash('sha256').update(`${base}\0${options.trunkEndpoint}`).digest('hex')
   const authorization = base64Auth(options.username, options.password)
@@ -382,15 +315,11 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
           : `HTTP ${response.status}`
       throw new AppError(
         502,
-<<<<<<< HEAD
-        response.status === 404 ? 'ASTERISK_NOT_FOUND' : 'ASTERISK_ERROR',
-=======
         response.status === 404
           ? 'ASTERISK_NOT_FOUND'
           : response.status === 409
             ? 'ASTERISK_CONFLICT'
             : 'ASTERISK_ERROR',
->>>>>>> module/bdr
         `Asterisk ARI: ${detail}`,
       )
     }
@@ -469,8 +398,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     )
   }
 
-<<<<<<< HEAD
-=======
   function recordingName(attemptId: string) {
     return `imp-${attemptId.replace(/[^a-zA-Z0-9]/g, '')}`
   }
@@ -501,13 +428,10 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     }
   }
 
->>>>>>> module/bdr
   function channelId(attemptId: string, role: 'external' | 'operator') {
     return `imp-${attemptId}-${role}`
   }
 
-<<<<<<< HEAD
-=======
   function newCall(fields: Pick<AttemptSession, 'attemptId' | 'extension'> & Partial<AttemptSession>): AttemptSession {
     return {
       customerId: options.customerId,
@@ -529,7 +453,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     }
   }
 
->>>>>>> module/bdr
   function leaseTarget(lease: AsteriskLease): DialTarget {
     return {
       attemptId: lease.attemptId,
@@ -544,12 +467,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
   async function originateOperator(call: AttemptSession) {
     if (call.operatorStarted) return
     call.operatorStarted = true
-<<<<<<< HEAD
-    const operator = await request<AriChannel>(
-      'POST',
-      `/channels?${new URLSearchParams({
-        endpoint: `PJSIP/${call.extension}`,
-=======
     const endpoint = call.operatorViaTrunk
       ? `PJSIP/${options.dialPrefix}${call.extension}@${options.trunkEndpoint}`
       : `PJSIP/${call.extension}`
@@ -557,7 +474,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       'POST',
       `/channels?${new URLSearchParams({
         endpoint,
->>>>>>> module/bdr
         channelId: channelId(call.attemptId, 'operator'),
         app: options.app,
         appArgs: `${call.attemptId},operator`,
@@ -573,11 +489,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     call.bridgeId = bridge.id
     await addToBridge(bridge.id, externalChannelId)
     call.stage = 'agent_ringing'
-<<<<<<< HEAD
-    await originateOperator(call)
-  }
-
-=======
     call.localRingStartedAt ??= Date.now()
     await originateOperator(call)
   }
@@ -597,7 +508,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     )
   }
 
->>>>>>> module/bdr
   async function failAttempt(call: AttemptSession) {
     call.stage = 'failed'
     call.outcome = 'failed'
@@ -607,18 +517,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     })
   }
 
-<<<<<<< HEAD
-  async function handleEvent(event: AriEvent) {
-    const channelId = event.channel?.id
-    if (!channelId) return
-
-    if (event.type === 'StasisStart' && event.application === options.app) {
-      const [attemptId, role] = event.args ?? []
-      if (!attemptId || (role !== 'external' && role !== 'operator')) return
-      const call = session.calls.get(attemptId)
-      if (!call) return
-
-=======
   async function missInbound(channel: string, attemptId: string, outcome: DialOutcome) {
     await request('DELETE', `/channels/${encodeURIComponent(channel)}`).catch((error) => {
       if (!(error instanceof AppError && error.code === 'ASTERISK_NOT_FOUND')) throw error
@@ -711,17 +609,12 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
         return
       }
 
->>>>>>> module/bdr
       if (role === 'external') {
         if (call.externalStarted) return
         call.externalStarted = true
         try {
-<<<<<<< HEAD
-          await onExternalAnswered(call, channelId)
-=======
           if (options.amdEnabled) await startAnsweringMachineDetection(call, eventChannelId)
           else await onExternalAnswered(call, eventChannelId)
->>>>>>> module/bdr
         } catch (error) {
           await failAttempt(call)
           throw error
@@ -732,19 +625,11 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       if (call.operatorJoined) return
       call.operatorStarted = true
       call.operatorJoined = true
-<<<<<<< HEAD
-      call.operatorChannelId = channelId
-=======
       call.operatorChannelId = eventChannelId
->>>>>>> module/bdr
       if (!call.bridgeId) {
         await failAttempt(call)
         return
       }
-<<<<<<< HEAD
-      await addToBridge(call.bridgeId, channelId)
-      call.stage = 'talking'
-=======
       await addToBridge(call.bridgeId, eventChannelId)
       try {
         await ensureBridgeRecording(call.attemptId, call.bridgeId)
@@ -756,24 +641,11 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       if (call.direction === 'inbound') {
         await inboundStore.answered(call.customerId, call.attemptId, call.extension)
       }
->>>>>>> module/bdr
       return
     }
 
     if (event.type === 'ChannelDestroyed') {
       const call = [...session.calls.values()].find(
-<<<<<<< HEAD
-        (candidate) => candidate.externalChannelId === channelId || candidate.operatorChannelId === channelId,
-      )
-      if (!call || call.stage === 'ended' || call.stage === 'failed') return
-      const wasTalking = call.stage === 'talking'
-      call.outcome = channelOutcome(event.cause, wasTalking)
-      call.stage = 'ended'
-      await hangupChannels(call, channelId).catch((error) => {
-        console.error(JSON.stringify({ level: 'warn', message: 'failed to hang up Asterisk peer channel', err: String(error) }))
-      })
-      await leaseStore.release(call.customerId, call.attemptId)
-=======
         (candidate) =>
           candidate.externalChannelId === eventChannelId ||
           candidate.operatorChannelId === eventChannelId ||
@@ -791,7 +663,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       if (call.direction === 'inbound' && call.outcome) {
         await inboundStore.ended(call.customerId, call.attemptId, call.outcome)
       }
->>>>>>> module/bdr
     }
   }
 
@@ -819,26 +690,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
   ): Promise<AttemptSession> {
     const externalId = channelId(target.attemptId, 'external')
     const operatorId = channelId(target.attemptId, 'operator')
-<<<<<<< HEAD
-    const external = channels.find((channel) => channel.id === externalId)
-    const operator = channels.find((channel) => channel.id === operatorId)
-    const bridge = bridges.find(
-      (candidate) => candidate.channels?.includes(externalId) && candidate.channels.includes(operatorId),
-    )
-    const call: AttemptSession = {
-      attemptId: target.attemptId,
-      customerId: options.customerId,
-      externalChannelId: external?.id ?? null,
-      operatorChannelId: operator?.id ?? null,
-      bridgeId: null,
-      stage: 'originating',
-      outcome: null,
-      extension: target.extension,
-      externalStarted: Boolean(external),
-      operatorStarted: Boolean(operator),
-      operatorJoined: Boolean(bridge),
-    }
-=======
     const external =
       channels.find((channel) => channel.id === externalId) ??
       (target.providerCallId ? channels.find((channel) => channel.id === target.providerCallId) : undefined)
@@ -857,7 +708,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       operatorJoined: Boolean(bridge),
       operatorViaTrunk: Boolean(target.connectPhone),
     })
->>>>>>> module/bdr
 
     if (!external && !operator) {
       call.stage = 'ended'
@@ -878,38 +728,29 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
 
     call.bridgeId = bridge?.id ?? null
     if (bridge) {
-<<<<<<< HEAD
-=======
       try {
         await ensureBridgeRecording(target.attemptId, bridge.id)
       } catch (error) {
         await failAttempt(call)
         throw error
       }
->>>>>>> module/bdr
       call.stage = 'talking'
     } else if (external && operator) {
       const recoveredBridge = await request<AriBridge>('POST', '/bridges?type=mixing')
       call.bridgeId = recoveredBridge.id
       await addToBridge(recoveredBridge.id, external.id)
       await addToBridge(recoveredBridge.id, operator.id)
-<<<<<<< HEAD
-=======
       try {
         await ensureBridgeRecording(target.attemptId, recoveredBridge.id)
       } catch (error) {
         await failAttempt(call)
         throw error
       }
->>>>>>> module/bdr
       call.operatorJoined = true
       call.stage = 'talking'
     } else if (operator) {
       call.stage = 'agent_ringing'
     } else if (external?.state === 'Up') {
-<<<<<<< HEAD
-      call.stage = 'originating'
-=======
       if (options.amdEnabled) {
         call.externalStarted = true
         try {
@@ -919,17 +760,12 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
           throw error
         }
       } else call.stage = 'originating'
->>>>>>> module/bdr
     } else {
       call.stage = 'originating'
     }
     session.calls.set(target.attemptId, call)
 
-<<<<<<< HEAD
-    if (external?.state === 'Up' && !operator && !bridge) {
-=======
     if (!options.amdEnabled && external?.state === 'Up' && !operator && !bridge) {
->>>>>>> module/bdr
       call.externalStarted = true
       try {
         await onExternalAnswered(call, external.id)
@@ -970,11 +806,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     }
   }
 
-<<<<<<< HEAD
-  return {
-    name: 'asterisk',
-    supportsRecording: false,
-=======
   function liveFrom(call: AttemptSession): LiveStatus {
     if (call.stage === 'talking') return { state: 'talking', providerCallId: call.externalChannelId }
     if (call.stage === 'ended' || call.stage === 'failed') return { state: 'gone' }
@@ -990,29 +821,10 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
   return {
     name: 'asterisk',
     supportsRecording: recordCalls,
->>>>>>> module/bdr
 
     async originate(target: DialTarget) {
       await recoverLeasesOnce()
       pruneFinishedCalls()
-<<<<<<< HEAD
-      if (!(await leaseStore.acquire(options.customerId, target.attemptId, trunkKey, options.maxChannels))) {
-        throw new AppError(409, 'TELEPHONY_CHANNEL_LIMIT', 'Asterisk channel limit reached')
-      }
-      const call: AttemptSession = {
-        attemptId: target.attemptId,
-        customerId: options.customerId,
-        externalChannelId: null,
-        operatorChannelId: null,
-        bridgeId: null,
-        stage: 'originating',
-        outcome: null,
-        extension: target.extension,
-        externalStarted: false,
-        operatorStarted: false,
-        operatorJoined: false,
-      }
-=======
       const slots = target.connectPhone ? 2 : 1
       if (!(await leaseStore.acquire(options.customerId, target.attemptId, trunkKey, options.maxChannels, slots))) {
         throw new AppError(409, 'TELEPHONY_CHANNEL_LIMIT', 'Asterisk channel limit reached')
@@ -1022,7 +834,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
         extension: target.connectPhone || target.extension,
         operatorViaTrunk: Boolean(target.connectPhone),
       })
->>>>>>> module/bdr
       session.calls.set(target.attemptId, call)
       try {
         await ensureEvents()
@@ -1056,11 +867,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
         ])
         call = await recoverAttempt(target, channels, bridges)
       }
-<<<<<<< HEAD
-      if (call.stage === 'talking') return { state: 'talking', providerCallId: call.externalChannelId }
-      if (call.stage === 'ended' || call.stage === 'failed') return { state: 'gone' }
-      return { state: 'ringing', providerCallId: call.externalChannelId }
-=======
       return liveFrom(call)
     },
 
@@ -1091,7 +897,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
 
     async listen() {
       await ensureEvents()
->>>>>>> module/bdr
     },
 
     async hangup(target: DialTarget) {
@@ -1129,10 +934,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       return outcome
     },
 
-<<<<<<< HEAD
-    async fetchRecording() {
-      return null
-=======
     async fetchRecording(target): Promise<CallRecording | null> {
       const name = recordingName(target.attemptId)
       let response: Response
@@ -1151,7 +952,6 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       }
       const audio = Buffer.from(await response.arrayBuffer())
       return audio.length > 0 ? { audio, format: 'wav' } : null
->>>>>>> module/bdr
     },
 
     async recoverActive() {

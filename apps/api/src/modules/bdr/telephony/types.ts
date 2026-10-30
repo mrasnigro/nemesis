@@ -19,11 +19,8 @@ export type DialTarget = {
   endedAt?: Date | null
   providerCallId: string | null
   wasAnswered?: boolean
-<<<<<<< HEAD
-=======
   /** When set, the second leg is this external number instead of an operator extension. */
   connectPhone?: string | null
->>>>>>> module/bdr
 }
 
 export type LiveStatus = {
@@ -54,10 +51,6 @@ export interface TelephonyProvider {
   listen?(): Promise<void>
   /** Provider classification of a call that ended without being seen as talking. */
   finalOutcome(target: DialTarget): Promise<DialOutcome | null>
-<<<<<<< HEAD
-  fetchRecording(target: DialTarget): Promise<Buffer | null>
-=======
   fetchRecording(target: DialTarget): Promise<CallRecording | null>
->>>>>>> module/bdr
   recoverActive?(): Promise<void>
 }

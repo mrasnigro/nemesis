@@ -106,8 +106,6 @@ export const telephonySettingsWrite = z.object({
   trunkEndpoint: z.string().trim().min(1).max(80).regex(/^[\w.-]+$/).nullable().optional(),
   callerId: z.string().trim().max(40).nullable().optional(),
   maxChannels: z.number().int().min(1).max(100).optional(),
-<<<<<<< HEAD
-=======
   webrtcWssUrl: z
     .string()
     .url()
@@ -125,7 +123,6 @@ export const telephonySettingsWrite = z.object({
   callingDays: z.string().regex(/^$|^[1-7](,[1-7])*$/).optional(),
   inboundExtension: z.string().trim().max(40).regex(/^[\w.@-]*$/).nullable().optional(),
   recordCalls: z.boolean().optional(),
->>>>>>> module/bdr
   apiToken: z.string().min(1).max(200).optional(),
   apiKey: z.string().min(1).max(200).optional(),
   deviceId: z.string().trim().min(1).max(40).nullable().optional(),

@@ -169,12 +169,9 @@ describe('telephony settings', () => {
       ariUsername: 'imp-bdr',
       ariPassword: 'asterisk-secret',
       trunkEndpoint: 'vono',
-<<<<<<< HEAD
-=======
       webrtcWssUrl: 'wss://pbx.example.test:8089/ws',
       sipDomain: 'pbx.example.test',
       amdEnabled: true,
->>>>>>> module/bdr
       callerId: '+554130000000',
       maxChannels: 5,
       dialPrefix: '0',
@@ -185,12 +182,9 @@ describe('telephony settings', () => {
       ariUrl: 'https://pbx.example.test:8089/ari',
       ariUsername: 'imp-bdr',
       trunkEndpoint: 'vono',
-<<<<<<< HEAD
-=======
       webrtcWssUrl: 'wss://pbx.example.test:8089/ws',
       sipDomain: 'pbx.example.test',
       amdEnabled: true,
->>>>>>> module/bdr
       callerId: '+554130000000',
       maxChannels: 5,
       hasCredentials: true,
@@ -205,8 +199,6 @@ describe('telephony settings', () => {
     expect(String(stored.ari_password_enc)).not.toContain('asterisk-secret')
   })
 
-<<<<<<< HEAD
-=======
   it('returns SIP credentials only to their authenticated operator and never caches them', async () => {
     await operator.put('/api/modules/bdr/dialer/extension').send({
       extension: '1001',
@@ -234,7 +226,6 @@ describe('telephony settings', () => {
     expect(String(stored.sip_password_enc)).not.toContain('operator-sip-secret')
   })
 
->>>>>>> module/bdr
   it('validates retry rules', async () => {
     const response = await manager.put('/api/modules/bdr/telephony/settings').send({ ringTimeoutSeconds: 1 })
     expect(response.status).toBe(400)
