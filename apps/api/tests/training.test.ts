@@ -1381,6 +1381,21 @@ describe('openai-compatible provider', () => {
     })
   })
 
+  it('keeps the model verdicts when it writes them in a slightly different shape', async () => {
+    const shapes: Record<string, unknown> = {
+      'string booleans': { criteria: [{ criterionId: 'c1', passed: 'true' }, { criterionId: 'c2', passed: 'não' }] },
+      'ids in another case and "reason"': { criteria: [{ criterionId: 'C1', passed: true, reason: 'Disse bom dia.' }, { criterionId: 'C2', passed: false }] },
+      'wrapped in an object': { result: { criteria: [{ criterionId: 'c1', passed: true }, { criterionId: 'c2', passed: false }] } },
+      'ids replaced by position': { criteria: [{ criterionId: '1', passed: true }, { criterionId: '2', passed: false }] },
+      'criteria named instead of ids': { criteria: [{ name: 'A', passed: true }, { name: 'B', passed: false }] },
+    }
+    for (const [label, body] of Object.entries(shapes)) {
+      const judgment = await provider(() => completion(JSON.stringify(body))).judge({ template, persona, scenario, messages })
+      expect(judgment.provider, label).toBe('openai')
+      expect(judgment.criteria.map((item) => item.passed), label).toEqual([true, false])
+    }
+  })
+
   it('falls back to the playbook rules for criteria the model skipped or when it fails', async () => {
     const partial = provider(() => completion(JSON.stringify({ criteria: [{ criterionId: 'c2', passed: true, rationale: 'ok' }] })))
     const merged = await partial.judge({ template, persona, scenario, messages })

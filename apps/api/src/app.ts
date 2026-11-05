@@ -62,7 +62,14 @@ export function createApp() {
       crossOriginResourcePolicy: { policy: 'same-site' },
       // The web app plays the persona's voice, call recordings and the mic test from blob: URLs.
       // Helmet's default CSP has no media-src, so the browser would block all of that sound.
-      contentSecurityPolicy: { directives: { mediaSrc: ["'self'", 'blob:', 'data:'] } },
+      // The BDR browser phone opens a SIP WebSocket to the PBX host each tenant configures, so
+      // connect-src has to allow wss: (default-src 'self' would block it).
+      contentSecurityPolicy: {
+        directives: {
+          mediaSrc: ["'self'", 'blob:', 'data:'],
+          connectSrc: ["'self'", 'wss:'],
+        },
+      },
     }),
   )
   app.use(cors({ origin: config.corsOrigins, credentials: true }))

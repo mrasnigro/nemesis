@@ -1,7 +1,15 @@
 import { z } from 'zod'
 import { AppError } from '../../../core/errors.js'
 import { log } from '../../../core/logger.js'
-import { cleanFeedback, flattenCriteria, judgeByRules, type JudgeFeedback, type Judgment } from '../rubric.js'
+import {
+  cleanFeedback,
+  flattenCriteria,
+  judgeByRules,
+  normalizeText,
+  type FlatCriterion,
+  type JudgeFeedback,
+  type Judgment,
+} from '../rubric.js'
 import type { AiProvider, JudgeRequest, PersonaProfile, ReplyRequest, ScenarioProfile } from './types.js'
 
 export type OpenAiProviderOptions = {
@@ -56,19 +64,65 @@ export function parseStreamDelta(data: string): string {
   }
 }
 
-const judgeSchema = z.object({
-  criteria: z.array(
-    z.object({
-      criterionId: z.string(),
-      passed: z.boolean(),
-      rationale: z.string().optional(),
-    }),
-  ),
-  // Written for this conversation. Optional: a model that leaves it out still gives a score.
-  summary: z.unknown().optional(),
-  strengths: z.unknown().optional(),
-  improvements: z.unknown().optional(),
-})
+type Verdict = { criterionId: string; passed: boolean; rationale?: string }
+
+const YES = new Set(['true', 'sim', 'yes', 's', 'y', '1', 'passou', 'atendido', 'aprovado', 'cumpriu'])
+const NO = new Set(['false', 'nao', 'no', 'n', '0', 'falhou', 'reprovado', 'nao atendido', 'nao cumpriu'])
+
+/** true/false from what a model may write: a boolean, "true", "sim", 1... Null when it is not a verdict. */
+function toVerdict(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1 ? true : value === 0 ? false : null
+  if (typeof value !== 'string') return null
+  const text = normalizeText(value).trim()
+  return YES.has(text) ? true : NO.has(text) ? false : null
+}
+
+const LIST_KEYS = ['criteria', 'criterios', 'verdicts', 'results', 'result', 'evaluation', 'avaliacao']
+
+/** The list of verdicts inside a model answer, wherever the model put it. */
+function findVerdictList(raw: unknown, depth = 0): unknown[] | null {
+  if (Array.isArray(raw)) return raw
+  if (!raw || typeof raw !== 'object' || depth > 2) return null
+  const record = raw as Record<string, unknown>
+  for (const key of LIST_KEYS) {
+    const found = findVerdictList(record[key], depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * One verdict per playbook criterion from a model answer. Models differ in small ways (a "true" string, an id
+ * written in another case, "reason" for "rationale"), and none of that should throw the whole evaluation away.
+ */
+export function readVerdicts(raw: unknown, criteria: FlatCriterion[]): Verdict[] {
+  const list = findVerdictList(raw)
+  if (!list) return []
+  const byId = new Map(criteria.map((criterion) => [criterion.id, criterion]))
+  const byLowerId = new Map(criteria.map((criterion) => [criterion.id.toLowerCase(), criterion]))
+  const byName = new Map(criteria.map((criterion) => [normalizeText(criterion.name).trim(), criterion]))
+  const verdicts = new Map<string, Verdict>()
+  list.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return
+    const row = item as Record<string, unknown>
+    const passed = toVerdict(row.passed ?? row.pass ?? row.verdict ?? row.answer ?? row.result ?? row.met)
+    if (passed === null) return
+    const id = String(row.criterionId ?? row.criterion_id ?? row.id ?? '').trim()
+    const name = normalizeText(row.name ?? row.criterion ?? '').trim()
+    // Same position as the playbook is the last resort, only when the model answered every criterion.
+    const positional = list.length === criteria.length ? criteria[index] : undefined
+    const criterion = byId.get(id) ?? byLowerId.get(id.toLowerCase()) ?? (name ? byName.get(name) : undefined) ?? positional
+    if (!criterion || verdicts.has(criterion.id)) return
+    const reason = row.rationale ?? row.reason ?? row.justification
+    verdicts.set(criterion.id, {
+      criterionId: criterion.id,
+      passed,
+      ...(typeof reason === 'string' && reason.trim() ? { rationale: reason.trim() } : {}),
+    })
+  })
+  return [...verdicts.values()]
+}
 
 function line(label: string, value: unknown): string | null {
   if (Array.isArray(value)) {
@@ -323,14 +377,15 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): AiProvider
         { messages, temperature: 0, max_tokens: JUDGE_MAX_TOKENS, response_format: { type: 'json_object' }, ...reasoning },
         { messages },
       ]
-      let verdicts: z.infer<typeof judgeSchema>['criteria'] = []
+      let verdicts: Verdict[] = []
       let feedback: JudgeFeedback | null = null
       for (const [index, body] of attempts.entries()) {
         try {
-          const parsed = judgeSchema.safeParse(parseJsonObject(await complete(body, index === 0 ? JUDGE_FIRST_TIMEOUT_MS : options.timeoutMs)))
-          if (parsed.success && parsed.data.criteria.length > 0) {
-            verdicts = parsed.data.criteria
-            feedback = cleanFeedback(parsed.data)
+          const answer = parseJsonObject(await complete(body, index === 0 ? JUDGE_FIRST_TIMEOUT_MS : options.timeoutMs))
+          const read = readVerdicts(answer, criteria)
+          if (read.length > 0) {
+            verdicts = read
+            feedback = cleanFeedback(answer)
             break
           }
           log('warn', 'training-ai judge answered without usable verdicts', { attempt: index + 1 })
