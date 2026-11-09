@@ -620,6 +620,38 @@ describe('Asterisk ARI provider', () => {
       provider.originate({ ...target, attemptId: '01BRIDGECAPTEST00000000001', connectPhone: '4133334444' }),
     ).rejects.toMatchObject({ code: 'TELEPHONY_CHANNEL_LIMIT' })
   })
+
+  it('refuses to dial when the operator endpoint is not online, and rejects extensions that route elsewhere', async () => {
+    const states: Record<string, { status: number; body: unknown }> = {
+      '1001': { status: 200, body: { state: 'online' } },
+      '1002': { status: 200, body: { state: 'offline' } },
+      '1003': { status: 404, body: { message: 'Endpoint not found' } },
+    }
+    const provider = createAsteriskProvider({
+      customerId: 'customer-operator-check',
+      baseUrl: 'http://asterisk.test:8088/ari',
+      username: 'ari-user',
+      password: 'ari-password',
+      app: 'imp-bdr-operator-check-test',
+      trunkEndpoint: 'vono-trunk',
+      dialPrefix: '0',
+      callerId: null,
+      maxChannels: 2,
+      leaseStore: createLeaseStore(),
+      socketFactory: () => new FakeSocket() as unknown as WebSocket,
+      fetchImpl: async (input) => {
+        const extension = new URL(String(input)).pathname.split('/').pop() ?? ''
+        const entry = states[extension]
+        return Response.json(entry?.body, { status: entry?.status ?? 404 })
+      },
+    })
+    await expect(provider.ensureOperatorReachable?.('1001')).resolves.toBeUndefined()
+    await expect(provider.ensureOperatorReachable?.('1002')).rejects.toMatchObject({ code: 'OPERATOR_PHONE_OFFLINE' })
+    await expect(provider.ensureOperatorReachable?.('1003')).rejects.toMatchObject({ code: 'OPERATOR_PHONE_OFFLINE' })
+    await expect(provider.ensureOperatorReachable?.('5541999999999@vono-trunk')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    })
+  })
 })
 
 describe('calling hours', () => {

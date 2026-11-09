@@ -22,8 +22,11 @@ const DEFAULTS = {
   holdRatio: 0.5,
   /** Sound shorter than this is a cough or a click, not a turn. */
   minSpeechMs: 250,
-  /** A turn never runs longer than this. */
-  maxSegmentMs: 30_000,
+  /**
+   * A turn never runs longer than this. Sales pitches run past 30s; a lower cap cut them mid-sentence into two
+   * turns, and the persona answered the half. Two minutes of opus stays far below MAX_VOICE_AUDIO_BYTES.
+   */
+  maxSegmentMs: 120_000,
   /** While nobody speaks the recording restarts this often, so it never carries a long silence. */
   idleResetMs: 4000,
   tickMs: 50,

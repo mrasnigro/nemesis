@@ -1429,6 +1429,46 @@ describe('openai-compatible provider', () => {
     expect(bodies[1]).not.toHaveProperty('temperature')
   })
 
+  it('judges with the judge model and keeps the seller line the judge cited', async () => {
+    let sent: Record<string, unknown> = {}
+    const ai = createOpenAiProvider({
+      baseUrl: 'https://llm.example/v1',
+      apiKey: 'k',
+      model: 'chat-model',
+      judgeModel: 'judge-model',
+      timeoutMs: 1000,
+      fetchImpl: (async (_url: string, init: RequestInit) => {
+        sent = JSON.parse(String(init.body))
+        return completion(
+          JSON.stringify({
+            criteria: [
+              { criterionId: 'c1', evidence: 'Bom dia', n: 2, passed: true },
+              // n 1 is the persona's line: never evidence of the seller.
+              { criterionId: 'c2', evidence: 'Alô?', n: 1, passed: false },
+            ],
+          }),
+        )
+      }) as unknown as typeof fetch,
+    })
+    const judgment = await ai.judge({ template, persona, scenario, messages })
+    expect(sent.model).toBe('judge-model')
+    expect(JSON.parse((sent.messages as { content: string }[])[1].content).transcript.map((line: { n: number }) => line.n)).toEqual([1, 2])
+    expect(judgment.criteria.map((item) => item.messageId)).toEqual(['2', undefined])
+
+    const report = buildReport({
+      sessionId: 's',
+      scenario: { id: 'sc', title: 'Cenário' },
+      persona: { id: 'p', name: 'Ana' },
+      template,
+      mediaMode: 'voice',
+      judgeSource: judgment.provider,
+      judgment,
+      messages,
+      completedAt: new Date(),
+    })
+    expect(report.criteria.map((item) => item.evidence?.messageId ?? null)).toEqual(['2', null])
+  })
+
   it('treats the transcript as data in the judge prompt', async () => {
     let sent = ''
     const ai = provider((_url, init) => {

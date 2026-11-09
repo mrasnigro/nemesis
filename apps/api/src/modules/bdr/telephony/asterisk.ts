@@ -233,6 +233,8 @@ const sessions = new Map<string, AriSession>()
 const REQUEST_TIMEOUT_MS = 10_000
 const SOCKET_TIMEOUT_MS = 10_000
 const INVALID_NUMBER_CAUSES = new Set([1, 3, 22, 28])
+/** An operator extension is a bare PJSIP endpoint name. `@` would route the leg through any endpoint, including the trunk. */
+const OPERATOR_EXTENSION = /^[\w.-]+$/
 
 function sessionKey(options: AsteriskOptions) {
   return createHash('sha256')
@@ -466,6 +468,9 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
 
   async function originateOperator(call: AttemptSession) {
     if (call.operatorStarted) return
+    if (!call.operatorViaTrunk && !OPERATOR_EXTENSION.test(call.extension)) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Ramal inválido')
+    }
     call.operatorStarted = true
     const endpoint = call.operatorViaTrunk
       ? `PJSIP/${options.dialPrefix}${call.extension}@${options.trunkEndpoint}`
@@ -875,7 +880,7 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
       if (!call || call.stage !== 'talking' || !call.bridgeId) {
         throw new AppError(409, 'TRANSFER_UNAVAILABLE', 'A chamada não está conectada')
       }
-      if (!/^[\w.@-]+$/.test(extension)) {
+      if (!OPERATOR_EXTENSION.test(extension)) {
         throw new AppError(400, 'VALIDATION_ERROR', 'Ramal inválido')
       }
       const previous = call.operatorChannelId
@@ -897,6 +902,24 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
 
     async listen() {
       await ensureEvents()
+    },
+
+    /** Refuses to dial a lead when nobody can take the call: an answered lead with no operator is hung up on. */
+    async ensureOperatorReachable(extension: string) {
+      if (!OPERATOR_EXTENSION.test(extension)) throw new AppError(400, 'VALIDATION_ERROR', 'Ramal inválido')
+      let state: string | undefined
+      try {
+        state = (await request<{ state?: string }>('GET', `/endpoints/PJSIP/${encodeURIComponent(extension)}`)).state
+      } catch (error) {
+        if (!(error instanceof AppError && error.code === 'ASTERISK_NOT_FOUND')) throw error
+      }
+      if (state !== 'online') {
+        throw new AppError(
+          409,
+          'OPERATOR_PHONE_OFFLINE',
+          'O telefone do operador não está registrado. Conecte o telefone WebRTC antes de discar.',
+        )
+      }
     },
 
     async hangup(target: DialTarget) {

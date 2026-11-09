@@ -27,7 +27,8 @@ export type Template = {
 
 export type FlatCriterion = Criterion & { sectionId: string; sectionName: string }
 
-export type CriterionVerdict = { criterionId: string; passed: boolean; rationale: string }
+/** `messageId`: the trainee message the AI judge cited as evidence, when it cited one. */
+export type CriterionVerdict = { criterionId: string; passed: boolean; rationale: string; messageId?: string }
 
 /** Feedback the AI judge writes for this one conversation. Absent when the playbook rules judged it. */
 export type JudgeFeedback = { summary: string; strengths: string[]; improvements: string[] }
@@ -239,12 +240,19 @@ export function buildReport(input: {
   const rubric = evaluateRubric(input.template, input.judgment)
   const traineeMessages = input.messages.filter((message) => message.role === 'user')
   const criteriaById = new Map(flattenCriteria(input.template).map((criterion) => [criterion.id, criterion]))
-  const lastTraineeMessage = traineeMessages[traineeMessages.length - 1] ?? null
-  // The trainee message that matches each criterion's keywords: the evidence shown and the coaching anchor.
-  const matched = new Map(rubric.criteria.map((item) => [item.id, matchingMessage(criteriaById.get(item.id), traineeMessages)]))
+  const cited = new Map(input.judgment.criteria.map((item) => [item.criterionId, item.messageId]))
+  // The trainee message the judge cited for each criterion, else the one matching its keywords: the evidence
+  // shown and the coaching anchor. None when nothing relates, rather than an unrelated line.
+  const matched = new Map(
+    rubric.criteria.map((item) => {
+      const messageId = cited.get(item.id)
+      const byJudge = messageId ? traineeMessages.find((message) => message.id === messageId) : undefined
+      return [item.id, byJudge ?? matchingMessage(criteriaById.get(item.id), traineeMessages)]
+    }),
+  )
   const withEvidence = <C extends { id: string }>(item: C) => ({
     ...item,
-    evidence: evidenceOf(matched.get(item.id) ?? lastTraineeMessage),
+    evidence: evidenceOf(matched.get(item.id) ?? null),
   })
   const criteria = rubric.criteria.map(withEvidence)
   const sections = rubric.sections.map((section) => ({ ...section, criteria: section.criteria.map(withEvidence) }))

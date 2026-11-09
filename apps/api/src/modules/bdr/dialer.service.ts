@@ -1,4 +1,4 @@
-import type { RowDataPacket } from 'mysql2'
+import type { ResultSetHeader, RowDataPacket } from 'mysql2'
 import { ulid } from 'ulid'
 import { config } from '../../core/config.js'
 import { pool } from '../../core/db.js'
@@ -118,7 +118,24 @@ function retryDelayMinutes(settings: TelephonySettings, outcome: DialOutcome) {
   return settings.retryNoAnswerMinutes
 }
 
-async function settleUnansweredLead(customerId: string, leadId: string, outcome: DialOutcome) {
+/** Telephony or trunk trouble that is not the lead's fault: the attempt is refunded and the lead waits a moment. */
+const SYSTEM_FAILURE_HOLD_MS = 60_000
+
+async function settleUnansweredLead(
+  customerId: string,
+  leadId: string,
+  outcome: DialOutcome,
+  options: { systemFailure?: boolean } = {},
+) {
+  if (options.systemFailure) {
+    await settleLead(customerId, leadId, {
+      status: 'queued',
+      lastOutcome: outcome,
+      nextAttemptAt: new Date(Date.now() + SYSTEM_FAILURE_HOLD_MS),
+      refundAttempt: true,
+    })
+    return
+  }
   if (outcome === 'invalid') {
     await settleLead(customerId, leadId, {
       status: 'failed',
@@ -145,15 +162,27 @@ async function settleUnansweredLead(customerId: string, leadId: string, outcome:
   })
 }
 
-async function endAttempt(attempt: Attempt, outcome: DialOutcome, customerId: string) {
+/**
+ * Ends the attempt only if it is still in the status it was loaded with, and settles the lead only for the caller
+ * that actually ended it. Concurrent polls, hangups and sweeps then cannot refund or requeue the same lead twice,
+ * or requeue a lead that another operator has already reserved.
+ */
+async function endAttempt(
+  attempt: Attempt,
+  outcome: DialOutcome,
+  customerId: string,
+  options: { systemFailure?: boolean } = {},
+) {
   const now = new Date()
-  await pool.query(
+  const [result] = await pool.query<ResultSetHeader>(
     `UPDATE bdr_dial_attempts
      SET status = 'ended', outcome = :outcome, ended_at = :now, updated_at = :now
-     WHERE id = :id AND status <> 'ended'`,
-    { id: attempt.id, outcome, now },
+     WHERE id = :id AND status = :from`,
+    { id: attempt.id, outcome, now, from: attempt.status },
   )
-  if (attempt.leadId) await settleUnansweredLead(customerId, attempt.leadId, outcome)
+  if (result.affectedRows === 0) return false
+  if (attempt.leadId) await settleUnansweredLead(customerId, attempt.leadId, outcome, options)
+  return true
 }
 
 /** Closes attempts left ringing by a closed tab and hangs up the trunk leg. */
@@ -229,7 +258,7 @@ async function originate(
   try {
     await provider.originate({ ...target(attempt), connectPhone: input.connectPhone ?? null })
   } catch (error) {
-    await endAttempt(attempt, 'failed', user.customerId!)
+    await endAttempt(attempt, 'failed', user.customerId!, { systemFailure: true })
     throw error
   }
   return attempt
@@ -278,6 +307,8 @@ export async function startAutomaticAttempt(user: AuthUser, campaignId: string) 
   if (campaign.status !== 'active') throw new AppError(409, 'CAMPAIGN_PAUSED', 'Campanha pausada')
   const { provider, extension } = await beginOutbound(user)
   if (!extension) throw new AppError(409, 'NO_EXTENSION', 'Informe o seu ramal antes de discar')
+  // Before reserving: a lead that answers with nobody to take the call is hung up on and wastes an attempt.
+  await provider.ensureOperatorReachable?.(extension)
 
   const lead = await reserveNextLead(customerId, campaignId, user.id)
   if (!lead) return null
@@ -294,6 +325,7 @@ export async function startManualAttempt(user: AuthUser, rawPhone: string, campa
   const phone = requireNationalPhone(rawPhone)
   const { provider, extension, customerId } = await beginOutbound(user)
   if (!extension) throw new AppError(409, 'NO_EXTENSION', 'Informe o seu ramal antes de discar')
+  await provider.ensureOperatorReachable?.(extension)
   const attempt = await originate(user, provider, { phone, extension, campaignId, leadId: null })
   return present(customerId, attempt)
 }
@@ -474,13 +506,15 @@ export async function finalizeAttemptForCall(
   if (provider && !attempt.endedAt) await provider.hangup(target(attempt)).catch(() => null)
   const now = new Date()
   const recordingStatus = provider?.supportsRecording ? 'pending' : 'missing'
-  await pool.query(
+  // Only the first save of an answered attempt settles the lead; a concurrent second save must not requeue it.
+  const [claimed] = await pool.query<ResultSetHeader>(
     `UPDATE bdr_dial_attempts
      SET status = 'ended', outcome = COALESCE(outcome, 'answered'), call_id = :callId,
          ended_at = COALESCE(ended_at, :now), recording_status = :recordingStatus, updated_at = :now
-     WHERE id = :id`,
+     WHERE id = :id AND status = 'answered' AND call_id IS NULL`,
     { id: attempt.id, callId, recordingStatus, now },
   )
+  if (claimed.affectedRows === 0) return
   if (attempt.leadId) {
     const requeue = disposition != null && REQUEUE_DISPOSITIONS.has(disposition)
     let status: LeadStatus = 'done'

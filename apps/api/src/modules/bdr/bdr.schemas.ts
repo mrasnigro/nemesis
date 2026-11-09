@@ -63,7 +63,7 @@ export const bridgeAttemptStart = z.object({
 })
 
 export const transferWrite = z.object({
-  extension: z.string().trim().min(1).max(40).regex(/^[\w.@-]+$/),
+  extension: z.string().trim().min(1).max(40).regex(/^[\w.-]+$/),
 })
 
 export const leadSchedule = z.object({
@@ -84,7 +84,7 @@ export const attemptListQuery = pageQuery.extend({
 })
 
 export const extensionWrite = z.object({
-  extension: z.string().trim().min(1).max(40).regex(/^[\w.@-]+$/),
+  extension: z.string().trim().min(1).max(40).regex(/^[\w.-]+$/),
   sipPassword: z.string().min(1).max(200).optional(),
 })
 
@@ -121,7 +121,7 @@ export const telephonySettingsWrite = z.object({
   callingStart: clock.nullable().optional(),
   callingEnd: clock.nullable().optional(),
   callingDays: z.string().regex(/^$|^[1-7](,[1-7])*$/).optional(),
-  inboundExtension: z.string().trim().max(40).regex(/^[\w.@-]*$/).nullable().optional(),
+  inboundExtension: z.string().trim().max(40).regex(/^[\w.-]*$/).nullable().optional(),
   recordCalls: z.boolean().optional(),
   apiToken: z.string().min(1).max(200).optional(),
   apiKey: z.string().min(1).max(200).optional(),

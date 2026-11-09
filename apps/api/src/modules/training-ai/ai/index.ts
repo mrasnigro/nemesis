@@ -22,6 +22,7 @@ function configured(): AiProvider | null {
       baseUrl: config.TRAINING_AI_BASE_URL,
       apiKey: config.TRAINING_AI_API_KEY,
       model: config.TRAINING_AI_MODEL,
+      judgeModel: config.TRAINING_AI_JUDGE_MODEL,
       timeoutMs: config.TRAINING_AI_TIMEOUT_MS,
       reasoningEffort: config.TRAINING_AI_REASONING_EFFORT,
     })

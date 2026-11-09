@@ -47,6 +47,8 @@ export interface TelephonyProvider {
   hangup(target: DialTarget): Promise<void>
   /** Move a connected call from the current operator endpoint to another extension. */
   transfer?(target: DialTarget, extension: string): Promise<void>
+  /** Throws OPERATOR_PHONE_OFFLINE when the operator extension cannot receive the call that follows the lead's answer. */
+  ensureOperatorReachable?(extension: string): Promise<void>
   /** Keep the ARI event socket open so inbound trunk calls are accepted. */
   listen?(): Promise<void>
   /** Provider classification of a call that ended without being seen as talking. */

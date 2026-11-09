@@ -66,6 +66,8 @@ const MAX_POLL_FAILURES = 5
 const START_RETRY_DELAYS_MS = [1000, 2000, 4000]
 /** Waiting on an empty queue still re-checks this often, so freshly imported leads are picked up. */
 const QUEUE_RECHECK_MS = 30_000
+/** Consecutive carrier failures that mean the trunk or the PABX is down, not the leads: stop instead of burning the queue. */
+const MAX_FAILED_STREAK = 3
 
 function recentAttemptEntry(attempt) {
   return {
@@ -117,6 +119,7 @@ function createInitialState() {
     permissions: getBdrPermissionsForUser(null, true),
     dialerConfig: null,
     dialError: null,
+    failedStreak: 0,
     recentAttempts: [],
     hydrated: false,
     loadError: null,
@@ -156,6 +159,7 @@ function reducer(state, action) {
         ...state,
         ...CLEARED_ATTENDANCE,
         dialError: null,
+        failedStreak: 0,
         call: createSearchingCall({ mode: 'automatic', contactMethod: 'phone' }),
       }
     }
@@ -194,11 +198,27 @@ function reducer(state, action) {
         0,
         RECENT_ATTEMPTS_LIMIT,
       )
+      const failedStreak = action.attempt.outcome === 'failed' ? state.failedStreak + 1 : 0
+      if (state.call.mode === 'automatic' && failedStreak >= MAX_FAILED_STREAK) {
+        return {
+          ...state,
+          ...CLEARED_ATTENDANCE,
+          recentAttempts,
+          failedStreak: 0,
+          call: createIdleCall(),
+          dialError: {
+            code: 'TRUNK_FAILING',
+            message:
+              'Várias ligações seguidas falharam na operadora. A discagem foi pausada; verifique a linha e tente novamente.',
+          },
+        }
+      }
       if (state.call.mode === 'automatic' && isDialAllowed(state.operatorStatus)) {
         return {
           ...state,
           ...CLEARED_ATTENDANCE,
           recentAttempts,
+          failedStreak,
           call: createSearchingCall({
             mode: 'automatic',
             contactMethod: 'phone',
@@ -256,6 +276,7 @@ function reducer(state, action) {
       if (state.call.status !== 'searching' || state.call.sessionId !== action.sessionId) return state
       return {
         ...state,
+        failedStreak: 0,
         call: createConnectedCall(state.call, action.lead, action.attempt ?? state.call.attempt),
         activeTab: 'company',
       }
@@ -595,8 +616,9 @@ export function BdrSessionProvider({ children }) {
             ;({ attempt, queue } = await request())
             break
           } catch (error) {
-            // A dropped connection or a server hiccup should not stop the operator: retry a few times first.
-            const transient = error?.status === 0 || error?.status >= 500
+            // A dropped connection or a gateway timeout should not stop the operator: retry a few times first.
+            // Other 5xx answers are definitive (telephony refused the call); retrying would reserve more leads.
+            const transient = error?.status === 0 || error?.status === 503 || error?.status === 504
             const stillDialing =
               stateRef.current.call.status === 'searching' && stateRef.current.call.sessionId === sessionId
             if (!transient || !stillDialing || retry >= START_RETRY_DELAYS_MS.length) throw error

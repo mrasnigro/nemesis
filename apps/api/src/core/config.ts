@@ -40,6 +40,8 @@ const schema = z.object({
   TRAINING_AI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
   TRAINING_AI_API_KEY: z.string().min(1).optional(),
   TRAINING_AI_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  /** Model of the end-of-call evaluation only. Unset uses TRAINING_AI_MODEL; a small model misjudges long calls. */
+  TRAINING_AI_JUDGE_MODEL: z.string().min(1).optional(),
   TRAINING_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   /** Trainee messages allowed in one session. */
   TRAINING_AI_MAX_TURNS: z.coerce.number().int().min(1).max(200).default(40),
