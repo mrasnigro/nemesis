@@ -6,6 +6,7 @@ const initialState = { status: 'disconnected', message: '' }
 export default function AsteriskWebPhone({ onReadyChange }) {
   const phoneRef = useRef(null)
   const audioRef = useRef(null)
+  const registeredRef = useRef(false)
   const [state, setState] = useState(initialState)
   const [muted, setMuted] = useState(false)
 
@@ -23,6 +24,7 @@ export default function AsteriskWebPhone({ onReadyChange }) {
   )
 
   async function connect() {
+    registeredRef.current = false
     setState({ status: 'connecting', message: '' })
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -45,8 +47,18 @@ export default function AsteriskWebPhone({ onReadyChange }) {
             setMuted(false)
             setState({ status: 'registered', message: 'Chamada encerrada.' })
           },
-          onRegistered: () => setState({ status: 'registered', message: 'Telefone WebRTC conectado.' }),
-          onUnregistered: () => setState({ status: 'disconnected', message: 'Registro SIP encerrado.' }),
+          onRegistered: () => {
+            registeredRef.current = true
+            setState({ status: 'registered', message: 'Telefone WebRTC conectado.' })
+          },
+          onUnregistered: () =>
+            setState({
+              status: 'disconnected',
+              // Never registered in this attempt: Asterisk refused the login (403), not a dropped session.
+              message: registeredRef.current
+                ? 'Registro SIP encerrado.'
+                : 'O Asterisk recusou o ramal ou a senha SIP. Confira o ramal e a senha SIP salvos na configuração do discador.',
+            }),
           onServerDisconnect: () => setState({ status: 'disconnected', message: 'Conexão com o Asterisk perdida.' }),
         },
         userAgentOptions: {
