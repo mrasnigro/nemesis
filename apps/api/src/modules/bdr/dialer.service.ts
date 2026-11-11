@@ -118,6 +118,9 @@ function retryDelayMinutes(settings: TelephonySettings, outcome: DialOutcome) {
   return settings.retryNoAnswerMinutes
 }
 
+/** Wait before another round for a lead that already used all its attempts without a conversation. */
+const EXHAUSTED_RETRY_MINUTES = 24 * 60
+
 /** Telephony or trunk trouble that is not the lead's fault: the attempt is refunded and the lead waits a moment. */
 const SYSTEM_FAILURE_HOLD_MS = 60_000
 
@@ -154,11 +157,16 @@ async function settleUnansweredLead(
     return
   }
   const [settings, lead] = await Promise.all([getTelephonySettings(customerId), getLead(customerId, leadId)])
+  // A lead nobody answered, or that answered without a conversation, is still a possible lead: it never leaves the
+  // queue on its own. After `maxAttempts` it only waits a day before the next round. A lead leaves the queue when
+  // the number is invalid or the operator qualifies or disqualifies it.
   const exhausted = (lead?.attempts ?? 0) >= settings.maxAttempts
   await settleLead(customerId, leadId, {
-    status: exhausted ? 'failed' : 'queued',
+    status: 'queued',
     lastOutcome: outcome,
-    nextAttemptAt: exhausted ? null : new Date(Date.now() + retryDelayMinutes(settings, outcome) * 60_000),
+    nextAttemptAt: new Date(
+      Date.now() + (exhausted ? EXHAUSTED_RETRY_MINUTES : retryDelayMinutes(settings, outcome)) * 60_000,
+    ),
   })
 }
 
