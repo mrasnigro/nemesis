@@ -23,6 +23,31 @@ export default function AsteriskWebPhone({ onReadyChange }) {
     [],
   )
 
+  // Connect without a click when the microphone is already allowed and present. When it is not, the button stays:
+  // the browser only shows its permission prompt inside a real click, and a missing device must be chosen by hand.
+  const autoTriedRef = useRef(false)
+  useEffect(() => {
+    if (autoTriedRef.current) return undefined
+    autoTriedRef.current = true
+    let cancelled = false
+    ;(async () => {
+      try {
+        const permission = await navigator.permissions?.query?.({ name: 'microphone' })
+        if (!permission || permission.state !== 'granted') return
+        const devices = await navigator.mediaDevices?.enumerateDevices?.()
+        const hasMic = devices?.some((device) => device.kind === 'audioinput' && device.deviceId)
+        if (!cancelled && hasMic && phoneRef.current == null) void connect()
+      } catch {
+        // No Permissions API, or it was blocked: leave the manual button.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // connect reads only refs and config; running this once on mount is intended.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function connect() {
     registeredRef.current = false
     setState({ status: 'connecting', message: '' })

@@ -41,12 +41,18 @@ export default function ManualDialForm({ open = true, onClose }) {
   const [contactMethod, setContactMethod] = useState('')
   const [error, setError] = useState('')
 
+  // Clear the fields only when the modal opens. `onClose` is recreated on every parent render (the dialer polls
+  // and re-renders often); keying this on it too would wipe the number as the operator types.
   useEffect(() => {
-    if (!open) return undefined
+    if (!open) return
     setPhone('')
     setOtherPhone('')
     setContactMethod('')
     setError('')
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return undefined
     const onKey = (event) => {
       if (event.key === 'Escape') onClose?.()
     }
