@@ -430,6 +430,22 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
     }
   }
 
+  /** A recording problem (full disk, missing folder) must never end a live call: log it and keep talking. */
+  async function startRecordingBestEffort(attemptId: string, bridgeId: string) {
+    try {
+      await ensureBridgeRecording(attemptId, bridgeId)
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          level: 'warn',
+          message: 'failed to start the call recording; the call continues without it',
+          attemptId,
+          err: String(error),
+        }),
+      )
+    }
+  }
+
   function channelId(attemptId: string, role: 'external' | 'operator') {
     return `imp-${attemptId}-${role}`
   }
@@ -636,12 +652,7 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
         return
       }
       await addToBridge(call.bridgeId, eventChannelId)
-      try {
-        await ensureBridgeRecording(call.attemptId, call.bridgeId)
-      } catch (error) {
-        await failAttempt(call)
-        throw error
-      }
+      await startRecordingBestEffort(call.attemptId, call.bridgeId)
       call.stage = 'talking'
       if (call.direction === 'inbound') {
         await inboundStore.answered(call.customerId, call.attemptId, call.extension)
@@ -733,24 +744,14 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
 
     call.bridgeId = bridge?.id ?? null
     if (bridge) {
-      try {
-        await ensureBridgeRecording(target.attemptId, bridge.id)
-      } catch (error) {
-        await failAttempt(call)
-        throw error
-      }
+      await startRecordingBestEffort(target.attemptId, bridge.id)
       call.stage = 'talking'
     } else if (external && operator) {
       const recoveredBridge = await request<AriBridge>('POST', '/bridges?type=mixing')
       call.bridgeId = recoveredBridge.id
       await addToBridge(recoveredBridge.id, external.id)
       await addToBridge(recoveredBridge.id, operator.id)
-      try {
-        await ensureBridgeRecording(target.attemptId, recoveredBridge.id)
-      } catch (error) {
-        await failAttempt(call)
-        throw error
-      }
+      await startRecordingBestEffort(target.attemptId, recoveredBridge.id)
       call.operatorJoined = true
       call.stage = 'talking'
     } else if (operator) {
