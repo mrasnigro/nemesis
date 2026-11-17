@@ -6,6 +6,7 @@ import { log } from './core/logger.js'
 import { runMigrations } from './core/migrate.js'
 import { resolveWebDistDir } from './core/webDist.js'
 import { startCallSummarySweeper } from './modules/bdr/callSummary.js'
+import { startAbandonedAttemptSweeper } from './modules/bdr/dialer.service.js'
 import { startRecordingSweeper } from './modules/bdr/recordings.js'
 import { closeAsteriskSessions } from './modules/bdr/telephony/asterisk.js'
 import { resolveProvider } from './modules/bdr/telephony/settings.js'
@@ -27,6 +28,7 @@ async function main() {
     })
     startRecordingSweeper()
     startCallSummarySweeper()
+    startAbandonedAttemptSweeper()
     // Keeps every Asterisk customer's ARI socket open (inbound DID calls) and reattaches live calls.
     const recoverAsteriskCalls = async () => {
       try {

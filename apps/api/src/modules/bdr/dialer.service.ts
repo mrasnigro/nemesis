@@ -4,7 +4,7 @@ import { config } from '../../core/config.js'
 import { pool } from '../../core/db.js'
 import { AppError } from '../../core/errors.js'
 import type { AuthUser } from '../../types/express.js'
-import { getCampaign } from './bdr.repository.js'
+import { getCampaign, insertCall } from './bdr.repository.js'
 import {
   getLead,
   markLeadInCall,
@@ -509,7 +509,17 @@ export async function finalizeAttemptForCall(
   disposition: string | null,
   callbackAt: Date | null,
 ) {
-  const customerId = user.customerId!
+  await settleAnsweredAttempt(user.customerId!, attempt, callId, disposition, callbackAt)
+}
+
+/** Returns false when another save already claimed the attempt. */
+async function settleAnsweredAttempt(
+  customerId: string,
+  attempt: Attempt,
+  callId: string,
+  disposition: string | null,
+  callbackAt: Date | null,
+) {
   const provider = await resolveProvider(customerId)
   if (provider && !attempt.endedAt) await provider.hangup(target(attempt)).catch(() => null)
   const now = new Date()
@@ -522,7 +532,7 @@ export async function finalizeAttemptForCall(
      WHERE id = :id AND status = 'answered' AND call_id IS NULL`,
     { id: attempt.id, callId, recordingStatus, now },
   )
-  if (claimed.affectedRows === 0) return
+  if (claimed.affectedRows === 0) return false
   if (attempt.leadId) {
     const requeue = disposition != null && REQUEUE_DISPOSITIONS.has(disposition)
     let status: LeadStatus = 'done'
@@ -540,6 +550,72 @@ export async function finalizeAttemptForCall(
     })
   }
   if (recordingStatus === 'pending') scheduleRecordingFetch(attempt.id)
+  return true
+}
+
+/** Wrap-up time an operator gets after an answered call ends before the call is saved for them. */
+const ABANDONED_WRAP_UP_MS = 30 * 60_000
+const ABANDONED_SWEEP_INTERVAL_MS = 5 * 60_000
+
+/**
+ * An answered call whose wrap-up was never saved (modal closed, page reloaded) would otherwise vanish from the
+ * history, never fetch its recording, and keep its lead locked forever. Save it as "Sem contato" so the lead goes
+ * back to the queue and the recording shows up in the history.
+ */
+export async function saveAbandonedAnsweredAttempts(now = new Date()) {
+  const [rows] = await pool.query<Row[]>(
+    `SELECT * FROM bdr_dial_attempts
+     WHERE status = 'answered' AND call_id IS NULL AND ended_at IS NOT NULL AND ended_at <= :cutoff
+     ORDER BY ended_at
+     LIMIT 20`,
+    { cutoff: new Date(now.getTime() - ABANDONED_WRAP_UP_MS) },
+  )
+  for (const row of rows) {
+    const attempt = attemptFromRow(row)
+    const customerId = String(row.customer_id)
+    if (!attempt.userId) continue
+    try {
+      const lead = attempt.leadId ? await getLead(customerId, attempt.leadId) : null
+      const answeredAt = attempt.answeredAt ?? attempt.startedAt
+      const call = await insertCall(
+        customerId,
+        attempt.userId,
+        {
+          phone: lead?.phone || attempt.phone,
+          company: lead?.company || (attempt.leadId ? '' : 'Manual'),
+          leadName: lead?.name || '',
+          campaignId: attempt.campaignId,
+          mode: attempt.leadId ? 'automatic' : 'manual',
+          callStatus: 'Atendida',
+          qualificationId: 'no_contact',
+          qualification: 'Sem contato / Ligação caiu',
+          result: 'Sem contato / Ligação caiu',
+          method: 'Telefone Fixo',
+          notes: 'Encerramento não preenchido pelo operador; ligação salva automaticamente.',
+          durationSeconds: Math.max(0, Math.round(((attempt.endedAt ?? now).getTime() - answeredAt.getTime()) / 1000)),
+        },
+        { attemptId: attempt.id, leadId: attempt.leadId },
+      )
+      if (!call) continue
+      const claimed = await settleAnsweredAttempt(customerId, attempt, call.id, 'no_contact', null)
+      if (!claimed) {
+        await pool.query('UPDATE bdr_calls SET deleted_at = :now WHERE id = :id', { id: call.id, now: new Date() })
+      }
+    } catch (error) {
+      console.error(
+        JSON.stringify({ level: 'warn', message: 'failed to save abandoned call', attemptId: attempt.id, err: String(error) }),
+      )
+    }
+  }
+}
+
+export function startAbandonedAttemptSweeper() {
+  const timer = setInterval(() => {
+    void saveAbandonedAnsweredAttempts().catch((error) => {
+      console.error(JSON.stringify({ level: 'warn', message: 'abandoned call sweep failed', err: String(error) }))
+    })
+  }, ABANDONED_SWEEP_INTERVAL_MS)
+  timer.unref()
 }
 
 export async function listAttempts(

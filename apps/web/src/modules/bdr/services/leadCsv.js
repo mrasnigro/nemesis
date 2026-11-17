@@ -83,7 +83,7 @@ export function parseLeadCsv(text) {
   const leads = rows.slice(1).map((cells) => {
     const lead = {}
     for (const [field, index] of Object.entries(columnFor)) {
-      const value = (cells[index] || '').trim()
+      const value = (cells[index] || '').trim().slice(0, field === 'phone' ? 40 : 200)
       if (value) lead[field] = value
     }
     if (!lead.phone) lead.phone = ''

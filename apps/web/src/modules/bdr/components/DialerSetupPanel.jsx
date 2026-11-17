@@ -12,6 +12,18 @@ function callResult(row) {
   return dialOutcomeLabel(row.outcome)
 }
 
+/** Rows per request: keeps each import under the API body limit and its 5000-row cap. */
+const IMPORT_BATCH = 1000
+
+/** Excel on Windows and Mac saves "CSV" as Windows-1252 unless "CSV UTF-8" is chosen. */
+function decodeSpreadsheet(buffer) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+}
+
 const PROVIDER_LABELS = {
   asterisk: 'Asterisk (ARI)',
   falevono: 'FaleVono',
@@ -90,21 +102,35 @@ export default function DialerSetupPanel() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !campaignId) return
+    if (/\.(xlsx|xls|numbers|ods)$/i.test(file.name)) {
+      setImportMessage(
+        'Este arquivo é uma planilha do Excel. No Excel, use Arquivo > Salvar como > "CSV UTF-8 (delimitado por vírgulas)" e importe o arquivo .csv.',
+      )
+      return
+    }
     setImporting(true)
     setImportMessage('')
     try {
-      const { leads, missingPhoneColumn } = parseLeadCsv(await file.text())
+      const { leads, missingPhoneColumn } = parseLeadCsv(decodeSpreadsheet(await file.arrayBuffer()))
       if (missingPhoneColumn) {
         setImportMessage('A planilha precisa de uma coluna "Telefone".')
         return
       }
-      if (!leads.length) {
-        setImportMessage('Nenhuma linha encontrada na planilha.')
+      const withPhone = leads.filter((lead) => lead.phone)
+      const withoutPhone = leads.length - withPhone.length
+      if (!withPhone.length) {
+        setImportMessage('Nenhuma linha com telefone encontrada na planilha.')
         return
       }
-      const result = await bdrRepository.importLeads(campaignId, leads, 'import')
+      const totals = { inserted: 0, duplicates: 0, invalid: 0 }
+      for (let offset = 0; offset < withPhone.length; offset += IMPORT_BATCH) {
+        const result = await bdrRepository.importLeads(campaignId, withPhone.slice(offset, offset + IMPORT_BATCH), 'import')
+        totals.inserted += result.inserted
+        totals.duplicates += result.duplicates
+        totals.invalid += result.invalid.length
+      }
       setImportMessage(
-        `${result.inserted} lead(s) adicionados · ${result.duplicates} duplicado(s) · ${result.invalid.length} telefone(s) inválido(s).`,
+        `${totals.inserted} lead(s) adicionados · ${totals.duplicates} duplicado(s) · ${totals.invalid + withoutPhone} sem telefone válido.`,
       )
       await reloadCampaigns()
     } catch (error) {
@@ -208,7 +234,7 @@ export default function DialerSetupPanel() {
         ) : null}
         <label className="bdr-setup__button bdr-setup__file">
           {importing ? 'Importando…' : 'Importar leads (CSV)'}
-          <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={importing || !campaignId} hidden />
+          <input type="file" accept=".csv,text/csv,.txt,.xlsx,.xls" onChange={handleFile} disabled={importing || !campaignId} hidden />
         </label>
         <p className="bdr-setup__note">
           Colunas reconhecidas: Telefone (obrigatória), Empresa, Nome, E-mail, CNPJ, Endereço, Cidade, UF, CEP.
