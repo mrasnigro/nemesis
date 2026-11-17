@@ -3,15 +3,26 @@ import { bdrRepository } from '../services/bdrRepository.js'
 
 const initialState = { status: 'disconnected', message: '' }
 
-export default function AsteriskWebPhone({ onReadyChange }) {
+export default function AsteriskWebPhone({ onReadyChange, onRemoteHangup, onPhoneLost }) {
   const phoneRef = useRef(null)
   const audioRef = useRef(null)
   const registeredRef = useRef(false)
+  const onRemoteHangupRef = useRef(onRemoteHangup)
+  useEffect(() => {
+    onRemoteHangupRef.current = onRemoteHangup
+  }, [onRemoteHangup])
   const [state, setState] = useState(initialState)
   const [muted, setMuted] = useState(false)
 
+  const onPhoneLostRef = useRef(onPhoneLost)
   useEffect(() => {
-    onReadyChange(state.status === 'registered')
+    onPhoneLostRef.current = onPhoneLost
+  }, [onPhoneLost])
+
+  useEffect(() => {
+    // Answering and in-call still have a registered phone. Reporting those as "not ready" showed
+    // "Conecte o telefone" on top of Atender and could stop a live call.
+    onReadyChange(state.status === 'registered' || state.status === 'answering' || state.status === 'in-call')
   }, [onReadyChange, state.status])
 
   useEffect(
@@ -66,25 +77,43 @@ export default function AsteriskWebPhone({ onReadyChange }) {
           remote: { audio: audioRef.current },
         },
         delegate: {
-          onCallReceived: () => setState({ status: 'incoming', message: 'Chamada recebida — aceite para falar.' }),
+          // The lead already answered. Join the audio without an Atender click.
+          onCallReceived: () => {
+            setState({ status: 'answering', message: 'A pessoa atendeu. Conectando o áudio…' })
+            queueMicrotask(() => {
+              void phone.answer().catch((error) => {
+                setState({
+                  status: 'registered',
+                  message: error?.message || 'Não foi possível conectar o áudio.',
+                })
+                onRemoteHangupRef.current?.()
+              })
+            })
+          },
           onCallAnswered: () => setState({ status: 'in-call', message: 'Chamada conectada.' }),
           onCallHangup: () => {
             setMuted(false)
             setState({ status: 'registered', message: 'Chamada encerrada.' })
+            onRemoteHangupRef.current?.()
           },
           onRegistered: () => {
             registeredRef.current = true
             setState({ status: 'registered', message: 'Telefone WebRTC conectado.' })
           },
-          onUnregistered: () =>
+          onUnregistered: () => {
             setState({
               status: 'disconnected',
               // Never registered in this attempt: Asterisk refused the login (403), not a dropped session.
               message: registeredRef.current
                 ? 'Registro SIP encerrado.'
                 : 'O Asterisk recusou o ramal ou a senha SIP. Confira o ramal e a senha SIP salvos na configuração do discador.',
-            }),
-          onServerDisconnect: () => setState({ status: 'disconnected', message: 'Conexão com o Asterisk perdida.' }),
+            })
+            if (registeredRef.current) onPhoneLostRef.current?.()
+          },
+          onServerDisconnect: () => {
+            setState({ status: 'disconnected', message: 'Conexão com o Asterisk perdida.' })
+            onPhoneLostRef.current?.()
+          },
         },
         userAgentOptions: {
           authorizationUsername: config.extension,
@@ -106,23 +135,6 @@ export default function AsteriskWebPhone({ onReadyChange }) {
     }
   }
 
-  async function answer() {
-    try {
-      await phoneRef.current?.answer()
-    } catch (error) {
-      setState({ status: 'registered', message: error?.message || 'Não foi possível atender a chamada.' })
-    }
-  }
-
-  async function decline() {
-    try {
-      await phoneRef.current?.decline()
-      setState({ status: 'registered', message: 'Chamada recusada.' })
-    } catch (error) {
-      setState({ status: 'registered', message: error?.message || 'Não foi possível recusar a chamada.' })
-    }
-  }
-
   function toggleMute() {
     const phone = phoneRef.current
     if (!phone) return
@@ -134,6 +146,7 @@ export default function AsteriskWebPhone({ onReadyChange }) {
   async function disconnect() {
     const phone = phoneRef.current
     phoneRef.current = null
+    onPhoneLostRef.current?.()
     try {
       await phone?.disconnect()
       setState(initialState)
@@ -151,19 +164,15 @@ export default function AsteriskWebPhone({ onReadyChange }) {
           Conectar telefone e permitir microfone
         </button>
       ) : null}
-      {state.status === 'connecting' ? <p role="status">Conectando ao Asterisk…</p> : null}
-      {state.status === 'incoming' ? (
-        <div className="bdr-setup__row">
-          <button type="button" className="bdr-section__cta" onClick={() => void answer()}>Atender</button>
-          <button type="button" className="bdr-section__cta" onClick={() => void decline()}>Recusar</button>
-        </div>
+      {state.status === 'connecting' || state.status === 'answering' ? (
+        <p role="status">{state.status === 'answering' ? 'Conectando o áudio…' : 'Conectando ao Asterisk…'}</p>
       ) : null}
       {state.status === 'in-call' ? (
         <button type="button" className="bdr-section__cta" onClick={toggleMute}>
           {muted ? 'Ativar microfone' : 'Silenciar microfone'}
         </button>
       ) : null}
-      {state.status !== 'disconnected' && state.status !== 'connecting' && state.status !== 'incoming' ? (
+      {state.status !== 'disconnected' && state.status !== 'connecting' && state.status !== 'answering' ? (
         <button type="button" className="bdr-section__cta" onClick={() => void disconnect()}>
           Desconectar telefone
         </button>

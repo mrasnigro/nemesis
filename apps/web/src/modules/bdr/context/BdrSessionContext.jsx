@@ -242,6 +242,19 @@ function reducer(state, action) {
       if (action.sessionId && state.call.sessionId !== action.sessionId) return state
       return { ...state, call: createIdleCall(), dialError: action.error }
 
+    /** The browser phone dropped during a call. Stop the timer and do not dial the next lead. */
+    case 'PHONE_LOST':
+      if (state.call.status !== 'searching' && state.call.status !== 'connected') return state
+      return {
+        ...state,
+        ...CLEARED_ATTENDANCE,
+        call: createIdleCall(),
+        dialError: {
+          code: 'OPERATOR_PHONE_OFFLINE',
+          message: 'O telefone WebRTC desconectou. A ligação foi encerrada. Conecte o telefone para continuar.',
+        },
+      }
+
     case 'CLEAR_DIAL_ERROR':
       return { ...state, dialError: null }
 
@@ -265,10 +278,21 @@ function reducer(state, action) {
 
     case 'TICK_CALL': {
       const { call } = state
+      if (call.lineDown) return state
       if (call.status !== 'searching' && call.status !== 'connected') return state
       return {
         ...state,
         call: { ...call, elapsedTime: call.elapsedTime + 1 },
+      }
+    }
+
+    /** The other party hung up. Keep the attendance open so the qualification can be saved, and stop the timer. */
+    case 'LINE_DOWN': {
+      if (state.call.status !== 'connected' || state.call.lineDown) return state
+      if (action.sessionId && state.call.sessionId !== action.sessionId) return state
+      return {
+        ...state,
+        call: { ...state.call, lineDown: true, attempt: action.attempt ?? state.call.attempt },
       }
     }
 
@@ -706,6 +730,32 @@ export function BdrSessionProvider({ children }) {
     }
   }, [ringingAttemptId])
 
+  // Once connected, the ringing poll stops. Keep watching so a remote hangup ends the timer.
+  const connectedAttemptId =
+    state.call.status === 'connected' && !state.call.lineDown && state.call.attempt?.id
+      ? state.call.attempt.id
+      : null
+  useEffect(() => {
+    if (!connectedAttemptId) return undefined
+    const sessionId = stateRef.current.call.sessionId
+    let stopped = false
+    const id = window.setInterval(async () => {
+      try {
+        const attempt = await bdrRepository.pollAttempt(connectedAttemptId)
+        if (stopped) return
+        if (attempt.endedAt || attempt.status === 'ended') {
+          dispatch({ type: 'LINE_DOWN', sessionId, attempt })
+        }
+      } catch {
+        // The next tick retries. A network blip must not end a live call.
+      }
+    }, ATTEMPT_POLL_MS)
+    return () => {
+      stopped = true
+      window.clearInterval(id)
+    }
+  }, [connectedAttemptId])
+
   // Leaving Em atendimento (intervalo / indisponível) stops the dialer and releases the ringing lead.
   useEffect(() => {
     if (state.call.status !== 'searching' || state.operatorStatus === 'atendimento') return
@@ -884,6 +934,38 @@ export function BdrSessionProvider({ children }) {
     dispatch({ type: 'HANGUP_TO_IDLE' })
   }, [])
 
+  /** The browser phone leg ended: stop a ringing attempt, or freeze a connected one for qualification. */
+  const remoteLineEnded = useCallback(() => {
+    const { call } = stateRef.current
+    const attemptId = call.attempt?.id
+    if (!attemptId || call.lineDown) return
+    void bdrRepository.hangupAttempt(attemptId).catch(() => null)
+    if (call.status === 'connected') {
+      dispatch({ type: 'LINE_DOWN', sessionId: call.sessionId })
+      return
+    }
+    if (call.status === 'searching') {
+      dispatch({
+        type: 'ATTEMPT_ENDED',
+        sessionId: call.sessionId,
+        attempt: { ...call.attempt, status: 'ended', outcome: call.attempt.outcome || 'no_answer' },
+      })
+    }
+  }, [])
+
+  /** Registration dropped. Hang up whatever is in progress and leave the dialer idle. */
+  const phoneLost = useCallback(() => {
+    const { call } = stateRef.current
+    if (call.status !== 'searching' && call.status !== 'connected') return
+    const attemptId = call.attempt?.id
+    if (attemptId) void bdrRepository.hangupAttempt(attemptId).catch(() => null)
+    if (call.status === 'connected') {
+      dispatch({ type: 'LINE_DOWN', sessionId: call.sessionId })
+      return
+    }
+    dispatch({ type: 'PHONE_LOST' })
+  }, [])
+
   /** Drops the phone line of a connected call; the attendance stays open for wrap-up notes. */
   const hangupLine = useCallback(() => {
     const { call } = stateRef.current
@@ -974,6 +1056,8 @@ export function BdrSessionProvider({ children }) {
       finalizeAttendance,
       hangupToIdle,
       hangupLine,
+      remoteLineEnded,
+      phoneLost,
       markNotHuman,
       disconnectSession,
       clearDialError,
@@ -988,6 +1072,8 @@ export function BdrSessionProvider({ children }) {
     }
   }, [
     hangupLine,
+    remoteLineEnded,
+    phoneLost,
     markNotHuman,
     clearDialError,
     resumeDialing,

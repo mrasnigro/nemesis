@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { thermometerLabel } from '../data/catalogs.js'
 import { useBdrSession } from '../hooks/useBdrSession.js'
+import DispositionSelector from './DispositionSelector.jsx'
 
 function thermoBandClass(label) {
   if (label === 'Frio') return 'bdr-endcall-modal__thermo--frio'
@@ -87,8 +88,14 @@ export default function EndCallModal({ open = false, onClose, onFinalized }) {
       return
     }
 
+    if (!dispositionId) {
+      setError('Selecione a qualificação da ligação.')
+      setSubmitting(false)
+      return
+    }
+
     const result = await finalizeAttendance({
-      dispositionId: dispositionId || 'no_contact',
+      dispositionId,
       salesTemperature: temperature,
       diagnosis: nextDiagnosis,
     })
@@ -120,6 +127,8 @@ export default function EndCallModal({ open = false, onClose, onFinalized }) {
         <h2 id="bdr-endcall-title" className="bdr-endcall-modal__title">
           Encerramento de Ligação
         </h2>
+
+        <DispositionSelector name="bdr-disposition-end" />
 
         <div className="bdr-endcall-modal__sections">
           <section className="bdr-endcall-modal__section">
@@ -223,7 +232,7 @@ export default function EndCallModal({ open = false, onClose, onFinalized }) {
           <button
             type="button"
             className="bdr-endcall-modal__submit"
-            disabled={submitting}
+            disabled={submitting || !dispositionId}
             onClick={handleFinalize}
           >
             Finalizar Atendimento

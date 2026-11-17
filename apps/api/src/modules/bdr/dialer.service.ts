@@ -421,6 +421,24 @@ export async function listOpenInbound(customerId: string) {
 export async function pollAttempt(user: AuthUser, attemptId: string) {
   const customerId = user.customerId!
   const attempt = await ownAttempt(user, attemptId)
+  // The console stops polling once the call is answered, so a remote hangup would leave the timer running.
+  // Record the end and keep the attempt answerable, so the operator can still save the qualification.
+  if (attempt.status === 'answered') {
+    if (!attempt.endedAt && !attempt.callId) {
+      const live = await requireProvider(customerId)
+        .then((provider) => provider.liveState(target(attempt)))
+        .catch(() => null)
+      if (live?.state === 'gone') {
+        await pool.query(
+          `UPDATE bdr_dial_attempts
+           SET ended_at = COALESCE(ended_at, :now), updated_at = :now
+           WHERE id = :id AND status = 'answered' AND call_id IS NULL`,
+          { id: attempt.id, now: new Date() },
+        )
+      }
+    }
+    return present(customerId, (await loadAttempt(customerId, attempt.id))!)
+  }
   if (attempt.status !== 'ringing') return present(customerId, attempt)
 
   const provider = await requireProvider(customerId)

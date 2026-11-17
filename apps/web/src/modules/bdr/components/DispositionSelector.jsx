@@ -14,13 +14,16 @@ const COLOR_CLASS = {
 /**
  * Full Vw disposition catalog — required before Finalizar Atendimento.
  */
-export default function DispositionSelector() {
+export default function DispositionSelector({ name = 'bdr-disposition' }) {
   const { dispositionId, setDisposition } = useBdrSession()
 
   return (
     <fieldset className="bdr-disp">
       <legend>Qualificação do atendimento (disposição)</legend>
-      <p className="bdr-script__hint">Selecione o resultado conceitual da chamada antes de finalizar.</p>
+      <p className="bdr-script__hint">
+        Obrigatório para finalizar. Sem interesse, telefone incorreto e falecido tiram o lead da fila. Sem
+        contato e agendamento mantêm o lead.
+      </p>
       <div className="bdr-disp__list">
         {DISPOSITIONS.map((item) => {
           const selected = dispositionId === item.id
@@ -31,7 +34,7 @@ export default function DispositionSelector() {
             >
               <input
                 type="radio"
-                name="bdr-disposition"
+                name={name}
                 value={item.id}
                 checked={selected}
                 onChange={() => setDisposition(item.id)}

@@ -10,6 +10,7 @@ import LeadCompanyPanel from '../components/LeadCompanyPanel.jsx'
 import ManualDialForm from '../components/ManualDialForm.jsx'
 import ObjectionPanel from '../components/ObjectionPanel.jsx'
 import QualificationForm from '../components/QualificationForm.jsx'
+import DispositionSelector from '../components/DispositionSelector.jsx'
 import SalesScript from '../components/SalesScript.jsx'
 import DiscagemCallHistory from '../components/DiscagemCallHistory.jsx'
 import DialAttemptsLog from '../components/DialAttemptsLog.jsx'
@@ -45,6 +46,8 @@ export default function BdrDiscagemPage() {
     startAutomatic,
     hangupToIdle,
     hangupLine,
+    remoteLineEnded,
+    phoneLost,
     markNotHuman,
     disconnectSession,
     activeTab,
@@ -112,6 +115,10 @@ export default function BdrDiscagemPage() {
 
   const canMarkVoicemail = connected && Boolean(call.attempt?.id)
 
+  useEffect(() => {
+    if (call.status === 'connected' && call.lineDown) setEndCallOpen(true)
+  }, [call.status, call.lineDown])
+
   function openEndCall() {
     if (call.status === 'connected') {
       hangupLine()
@@ -149,7 +156,13 @@ export default function BdrDiscagemPage() {
         </button>
       </header>
 
-      {requiresWebRtc ? <AsteriskWebPhone onReadyChange={setWebRtcReady} /> : null}
+      {requiresWebRtc ? (
+        <AsteriskWebPhone
+          onReadyChange={setWebRtcReady}
+          onRemoteHangup={remoteLineEnded}
+          onPhoneLost={phoneLost}
+        />
+      ) : null}
 
       {usesAsterisk && !requiresWebRtc ? (
         <p className="bdr-section__card">
@@ -158,7 +171,7 @@ export default function BdrDiscagemPage() {
         </p>
       ) : null}
 
-      {mode === 'automatic' && requiresWebRtc && !phoneReady && !dialError ? (
+      {mode === 'automatic' && requiresWebRtc && !phoneReady && !dialError && call.status === 'idle' ? (
         <p className="bdr-section__card">Conecte o telefone WebRTC antes de iniciar a discagem.</p>
       ) : null}
 
@@ -215,7 +228,12 @@ export default function BdrDiscagemPage() {
                   <SalesScript onRequestSchedule={openSchedule} />
                 ) : null}
                 {activeTab === 'questions' ? <ObjectionPanel /> : null}
-                {activeTab === 'diagnosis' ? <QualificationForm /> : null}
+                {activeTab === 'diagnosis' ? (
+                  <>
+                    <DispositionSelector />
+                    <QualificationForm />
+                  </>
+                ) : null}
                 {scriptCompleted ? (
                   <p className="bdr-script__ok bdr-discagem__script-flag">
                     Script concluído — use Agendar Reunião ou Desligar abaixo.

@@ -26,6 +26,8 @@ export default function CallStatusBand() {
   const whatsappAttendance = connected && call.contactMethod === 'whatsapp' && !call.attempt
   const label = whatsappAttendance
     ? 'Atendimento WhatsApp'
+    : call.lineDown
+    ? 'Ligação encerrada'
     : connected
     ? 'Falando'
     : ringing
@@ -35,6 +37,8 @@ export default function CallStatusBand() {
         : 'Buscando próximo lead'
   const detail = whatsappAttendance
     ? 'Sem ligação telefônica — registre o contato no script.'
+    : call.lineDown
+    ? 'A outra pessoa desligou. Escolha a qualificação para finalizar.'
     : connected
     ? phone || '...'
     : ringing

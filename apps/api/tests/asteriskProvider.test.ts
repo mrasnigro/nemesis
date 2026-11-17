@@ -652,6 +652,97 @@ describe('Asterisk ARI provider', () => {
       code: 'VALIDATION_ERROR',
     })
   })
+
+  it('ends a ringing call when the lead rejects, including a missed hangup event', async () => {
+    const requests: URL[] = []
+    const socket = new FakeSocket()
+    const externalId = 'imp-01ARIEVENTTESTATTEMPTID000-external'
+    let listed = true
+    const provider = createAsteriskProvider({
+      customerId: 'customer-1',
+      baseUrl: 'http://asterisk.test:8088/ari',
+      username: 'ari-user',
+      password: 'ari-password',
+      app: 'imp-bdr-test',
+      trunkEndpoint: 'vono-trunk',
+      dialPrefix: '0',
+      callerId: null,
+      maxChannels: 2,
+      leaseStore: createLeaseStore(),
+      socketFactory: () => socket as unknown as WebSocket,
+      fetchImpl: async (input, init) => {
+        const url = new URL(String(input))
+        const method = init?.method ?? 'GET'
+        requests.push(url)
+        if (method === 'POST' && url.pathname.endsWith('/channels')) {
+          return Response.json({ id: url.searchParams.get('channelId') })
+        }
+        if (method === 'POST' && url.pathname.endsWith('/bridges')) return Response.json({ id: 'bridge-1' })
+        if (method === 'GET' && url.pathname.endsWith('/channels')) {
+          return Response.json(listed ? [{ id: externalId, state: 'Ringing' }] : [])
+        }
+        return new Response(null, { status: 204 })
+      },
+    })
+
+    await provider.originate(target)
+    socket.event({
+      type: 'StasisStart',
+      application: 'imp-bdr-test',
+      args: [target.attemptId, 'external'],
+      channel: { id: externalId },
+    })
+    await vi.waitFor(() => {
+      expect(requests.some((url) => url.searchParams.get('endpoint') === 'PJSIP/1001')).toBe(true)
+    })
+    await expect(provider.liveState(target)).resolves.toMatchObject({ state: 'ringing' })
+
+    listed = false
+    await expect(provider.liveState(target)).resolves.toMatchObject({ state: 'gone' })
+    await expect(provider.finalOutcome(target)).resolves.toBe('no_answer')
+  })
+
+  it('records a SIP rejection before answer as no answer, not a trunk failure', async () => {
+    const socket = new FakeSocket()
+    const externalId = 'imp-01ARIEVENTTESTATTEMPTID000-external'
+    const provider = createAsteriskProvider({
+      customerId: 'customer-1',
+      baseUrl: 'http://asterisk.test:8088/ari',
+      username: 'ari-user',
+      password: 'ari-password',
+      app: 'imp-bdr-test',
+      trunkEndpoint: 'vono-trunk',
+      dialPrefix: '0',
+      callerId: null,
+      maxChannels: 2,
+      leaseStore: createLeaseStore(),
+      socketFactory: () => socket as unknown as WebSocket,
+      fetchImpl: async (input, init) => {
+        const url = new URL(String(input))
+        const method = init?.method ?? 'GET'
+        if (method === 'POST' && url.pathname.endsWith('/channels')) {
+          return Response.json({ id: url.searchParams.get('channelId') })
+        }
+        if (method === 'POST' && url.pathname.endsWith('/bridges')) return Response.json({ id: 'bridge-1' })
+        if (method === 'GET' && url.pathname.endsWith('/channels')) {
+          return Response.json([{ id: externalId, state: 'Ringing' }])
+        }
+        return new Response(null, { status: 204 })
+      },
+    })
+
+    await provider.originate(target)
+    socket.event({
+      type: 'StasisStart',
+      application: 'imp-bdr-test',
+      args: [target.attemptId, 'external'],
+      channel: { id: externalId },
+    })
+    socket.event({ type: 'ChannelDestroyed', cause: 21, channel: { id: externalId } })
+    await vi.waitFor(async () => {
+      await expect(provider.finalOutcome(target)).resolves.toBe('no_answer')
+    })
+  })
 })
 
 describe('calling hours', () => {

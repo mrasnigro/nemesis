@@ -251,7 +251,7 @@ export function asteriskProviderConfigured(
 function channelOutcome(cause: number | undefined, wasTalking: boolean): DialOutcome {
   if (!wasTalking && cause != null && INVALID_NUMBER_CAUSES.has(cause)) return 'invalid'
   if (cause === 17) return 'busy'
-  if (cause === 18 || cause === 19) return 'no_answer'
+  if (cause === 18 || cause === 19 || cause === 21) return wasTalking ? 'abandoned' : 'no_answer'
   if (cause === 16) return wasTalking ? 'abandoned' : 'no_answer'
   return 'failed'
 }
@@ -872,6 +872,22 @@ export function createAsteriskProvider(options: AsteriskOptions): TelephonyProvi
           request<AriBridge[]>('GET', '/bridges'),
         ])
         call = await recoverAttempt(target, channels, bridges)
+      } else if (call.stage !== 'ended' && call.stage !== 'failed' && call.externalStarted) {
+        // A missed ChannelDestroyed used to leave the dialer timer running after the other side rejected.
+        const channels = await request<AriChannel[]>('GET', '/channels').catch(() => null)
+        if (Array.isArray(channels)) {
+          const alive = (channelId: string | null) =>
+            Boolean(channelId && channels.some((channel) => channel.id === channelId))
+          const externalAlive = alive(call.externalChannelId)
+          const operatorAlive = alive(call.operatorChannelId)
+          const peerGone = call.stage === 'talking' ? !externalAlive || !operatorAlive : !externalAlive
+          if (peerGone) {
+            call.outcome = call.outcome ?? (call.stage === 'talking' ? 'abandoned' : 'no_answer')
+            call.stage = 'ended'
+            await hangupChannels(call).catch(() => null)
+            await leaseStore.release(options.customerId, target.attemptId)
+          }
+        }
       }
       return liveFrom(call)
     },

@@ -54,6 +54,7 @@ export function createConnectedCall(call, lead, attempt = call.attempt) {
     ...call,
     status: 'connected',
     elapsedTime: 0,
+    lineDown: false,
     currentLead: lead,
     attempt,
   }
